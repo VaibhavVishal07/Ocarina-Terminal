@@ -1,6 +1,6 @@
 # Context-Aware Tab Naming
 
-Status: Draft
+Status: Draft — core implemented in `MajoraTerminalContext`
 Target: Majora (Swift, macOS)
 
 ## Problem
@@ -229,3 +229,25 @@ Claude Code · checkout
 
 The user gets both **what this terminal is doing** and **what is running inside
 it** — with the first prioritised everywhere in the primary UI.
+
+---
+
+## Implementation status
+
+Built (`Sources/MajoraTerminalContext`, 39 tests):
+
+- `TabContext`, `ContextObservation`, `ContextSource` priority chain
+- `TabNamingEngine` — confidence floor, dwell window, replacement margin, no
+  demotion to a weaker source
+- `LLMSessionContextProvider` + `GenericProcessContextProvider`
+- Claude Code and Codex transcript readers, against their real on-disk formats
+- `ProcessInspector`, `OSCTitleParser`, `TerminalSessionMonitor`,
+  `TabNamingService` — live pty to title, covered by tests that spawn a real
+  child process on a real pty
+
+Outstanding:
+
+- Gemini CLI and OpenCode session formats are unverified; both providers ship
+  with `UnavailableTranscriptSource` and detect the process only.
+- Confidence and dwell constants are placeholders pending real-session tuning.
+- No UI yet: the tab strip, hover subtitle and command palette entries.

@@ -30,7 +30,28 @@ Sources/MajoraTerminalContext/
     ClaudeTranscriptSource       ~/.claude/projects/<slug>/*.jsonl
     CodexTranscriptSource        ~/.codex/sessions/**/rollout-*.jsonl
     GenericProcessContextProvider foreground argv -> title
+  Session/
+    ProcessInspector             tcgetpgrp + sysctl: what owns the pty right now
+    OSCTitleParser               streaming ESC ] 0;title BEL reader
+    TerminalSessionMonitor       one pty -> TerminalSessionSnapshot
+    TabNamingService             poll loop; publishes tabs whose title changed
 ```
+
+Wiring a tab:
+
+```swift
+let service = TabNamingService()
+await service.attach(TerminalSessionMonitor(ptyDescriptor: primaryFD, shellName: "zsh"))
+await service.start()
+
+for await tab in await service.updates() {
+    tabStrip.rename(tab.tabID, to: tab.displayTitle, subtitle: tab.subtitle)
+}
+```
+
+The renderer can forward the bytes it already reads to `monitor.ingest(_:)` so
+programs that set their own title are picked up; nothing else is read from the
+terminal, and nothing leaves the machine.
 
 ```
 swift build
