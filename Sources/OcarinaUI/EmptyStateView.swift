@@ -13,11 +13,13 @@ struct EmptyStateView: View {
 
     @State private var isHovered = false
 
-    private static let backdrop = Color(red: 0.024, green: 0.027, blue: 0.035)
-    private static let unlit = Color(red: 0.098, green: 0.110, blue: 0.133)
-    private static let lit = Color(red: 0.22, green: 0.76, blue: 1.0)
-    private static let litDim = Color(red: 0.13, green: 0.42, blue: 0.58)
-    private static let amber = Color(red: 1.0, green: 0.72, blue: 0.22)
+    // Shared with the rest of the app, so the switch in the sidebar and the
+    // board here cannot drift apart.
+    private static let backdrop = Palette.backdrop
+    private static let unlit = Palette.unlit
+    private static let lit = Palette.lit
+    private static let litDim = Palette.litDim
+    private static let amber = Palette.amber
 
     /// Only the two things you can actually do with no tabs open. Closing a tab
     /// and jumping between terminals both need a terminal to exist.

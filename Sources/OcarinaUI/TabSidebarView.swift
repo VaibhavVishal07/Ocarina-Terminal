@@ -31,12 +31,17 @@ struct TabSidebarView: View {
     /// Continuous rather than circular: the squircle's curvature eases in
     /// instead of meeting the straight edge at a tangent, which is what stops
     /// a rounded rectangle this size from looking stamped out.
-    private static let rowCorner: CGFloat = 12
+    private static let rowCorner: CGFloat = 10
     /// One height for everything in the list, tabs and the new-tab button
     /// alike. A row is a single line of 12pt text; at 48 it carried more empty
     /// space than text and stood apart from the rest of the column instead of
-    /// belonging to it.
-    private static let rowHeight: CGFloat = 38
+    /// belonging to it, and 38 still read as tall for one line.
+    ///
+    /// 32 is the floor rather than a taste: hovering adds a 9.5pt subtitle
+    /// under the 12pt name, and those two lines plus their spacing measure
+    /// about 27pt. The row absorbs that inside its own height, so the list
+    /// does not shift down as the pointer arrives.
+    private static let rowHeight: CGFloat = 32
 
     @Bindable var model: OcarinaModel
     @State private var hoveredTabID: UUID?
@@ -44,8 +49,10 @@ struct TabSidebarView: View {
     @State private var draftTitle: String = ""
     @FocusState private var isRenameFocused: Bool
     @State private var toolTip: ToolTipTarget?
+    @State private var isNewTabHovered = false
 
     private static let space = "tabsidebar"
+
 
     var body: some View {
         VStack(spacing: 0) {
@@ -80,7 +87,11 @@ struct TabSidebarView: View {
         .overlay(alignment: .topLeading) {
             GeometryReader { geometry in
                 if let toolTip {
-                    ToolTipBubble(target: toolTip, width: geometry.size.width)
+                    ToolTipBubble(
+                        target: toolTip,
+                        width: geometry.size.width,
+                        height: geometry.size.height
+                    )
                 }
             }
         }
@@ -117,6 +128,10 @@ struct TabSidebarView: View {
 
     // MARK: - New tab
 
+    /// The one row in the column that answered to nothing: every tab lights up
+    /// under the pointer and this did not, so it read as a label rather than a
+    /// button. It takes the row's hover treatment exactly — same fill, same
+    /// edge, same corner — because it is the same shape in the same list.
     private var newTabButton: some View {
         Button {
             model.newTab()
@@ -137,9 +152,19 @@ struct TabSidebarView: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 7)
             .frame(minHeight: Self.rowHeight)
+            .background {
+                RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
+                    .fill(Color.white.opacity(isNewTabHovered ? 0.07 : 0))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
+                            .stroke(.white.opacity(isNewTabHovered ? 0.10 : 0), lineWidth: 1)
+                    }
+            }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .onHover { isNewTabHovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: isNewTabHovered)
         .padding(.top, 3)
     }
 
@@ -149,53 +174,64 @@ struct TabSidebarView: View {
     /// machine does silently and inexplicably unless something says so. The
     /// state gets one short line — at this width a paragraph became six
     /// wrapped lines that nobody reads twice.
+    /// A stock `.switch` draws itself in the system accent, which made the one
+    /// saturated object in the window a setting you touch about twice a month.
+    /// It sat at the bottom of a column of muted greys and pulled the eye down
+    /// there and held it.
+    ///
+    /// Turning the switch grey would only have made it look disabled, so the
+    /// control is gone instead of recoloured. The row already had two things
+    /// saying what the state was — the cup fills when the assertion is held,
+    /// and the line underneath says it in words — so the switch was the third,
+    /// and the loudest, and the only one that needed a colour. The whole row
+    /// is the target now, lighting up under the pointer exactly like a tab
+    /// does, with On or Off where the switch used to be.
     private var sleepPanel: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 0) {
             Rectangle()
                 .fill(.white.opacity(0.07))
                 .frame(height: 1)
                 .padding(.bottom, 6)
 
-            HStack(spacing: 7) {
-                Image(systemName: model.sleepGuard.isHolding
-                      ? "cup.and.saucer.fill" : "cup.and.saucer")
+            HStack(spacing: 6) {
+                // The tip hangs off the label, not the row. Over the switch
+                // it would be explaining a control you are already using, and
+                // the switch is an AppKit view with tracking of its own —
+                // leaving the row *from* the switch swallowed the exit, and
+                // the bubble stayed up until something else replaced it.
+                Text("Keep Awake")
                     .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(model.sleepGuard.isHolding ? .primary : .secondary)
-                    .frame(width: 15)
+                    .foregroundStyle(.secondary)
+                    // Two words fit the column with room to spare; the three
+                    // word version did not, and truncated to "Keep Mac aw…".
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+                    .toolTip(sleepHelp, in: Self.space, target: $toolTip)
 
-                Text("Keep awake")
-                    .font(.system(size: 11.5, weight: .medium))
-
-                Spacer(minLength: 2)
-
-                // `sleepGuard` is a `let` on the model, so there is no
-                // `$model.sleepGuard` to project; the guard is observable in
-                // its own right, which is all the toggle needs.
+                // The system switch, which is the control everyone already
+                // knows how to work — only tinted, because the one thing wrong
+                // with it was that the accent painted it the brightest object
+                // in a window that is otherwise greys and terminal text.
                 Toggle("", isOn: Binding(
                     get: { model.sleepGuard.isEnabled },
-                    set: { model.sleepGuard.isEnabled = $0 }
+                    set: { isOn in
+                        model.sleepGuard.isEnabled = isOn
+                        TactileClick.shared.play(.down)
+                    }
                 ))
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                // The board's lit cell, not the system accent. Same constant
+                // the landing screen draws "OCARINA" with.
+                .tint(Palette.lit)
             }
-
-            Text(sleepExplanation)
-                .font(.system(size: 9.5))
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
         }
         .padding(.horizontal, Self.inset)
         .padding(.bottom, Self.inset)
-        .help(sleepHelp)
-    }
-
-    /// Short enough for one line at this width; the full sentence lives in the
-    /// hover help, where there is room for it.
-    private var sleepExplanation: String {
-        if model.sleepGuard.isHolding { return "Display stays on." }
-        if model.sleepGuard.isEnabled { return "Requested, not granted." }
-        return "Sleeps as usual."
     }
 
     private var sleepHelp: String {
@@ -273,6 +309,17 @@ struct TabSidebarView: View {
             .frame(width: Self.badgeSize, height: Self.badgeSize)
             .background { Circle().fill(.white.opacity(0.08)) }
             .foregroundStyle(.secondary)
+    }
+
+    /// The row's outline. Renaming owns the edge outright — it is a mode, and
+    /// the accent border is the only thing saying so. Otherwise selection is
+    /// brightest, hover is quieter but unmistakably present, and a row at rest
+    /// has no edge at all so the column stays a list rather than a grid.
+    private func rowStroke(isSelected: Bool, isHovered: Bool, isRenaming: Bool) -> Color {
+        if isRenaming { return Color.accentColor.opacity(0.7) }
+        if isSelected { return .white.opacity(0.16) }
+        if isHovered { return .white.opacity(0.10) }
+        return .clear
     }
 
     @ViewBuilder
@@ -359,15 +406,28 @@ struct TabSidebarView: View {
         .background {
             // Milled out of the same metal rather than a pane laid over it:
             // material here caught the light the panel no longer does.
+            //
+            // Every state has to carry against a panel that is already
+            // near-black. Hover was a 0.05 white wash and no border at all:
+            // over metal this dark that is worth about two levels out of 255,
+            // so a hovered row read as no row — the pointer was on something
+            // and nothing came back. It gets a real edge now. The fill warms
+            // the row, the stroke is what actually draws the container, and
+            // selection stays a clear step above hover on both.
             RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
-                .fill(Color.white.opacity(isSelected ? 0.085 : (isHovered ? 0.05 : 0)))
+                .fill(Color.white.opacity(isSelected ? 0.12 : (isHovered ? 0.07 : 0)))
                 .overlay {
                     RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
-                        .stroke(isRenaming ? Color.accentColor.opacity(0.7)
-                                           : .white.opacity(isSelected ? 0.13 : 0),
+                        .stroke(rowStroke(isSelected: isSelected,
+                                          isHovered: isHovered,
+                                          isRenaming: isRenaming),
                                 lineWidth: isRenaming ? 1.5 : 1)
                 }
         }
+        // The pointer crossing a row should look like the row lighting up,
+        // rather than a state that swaps in whole between two frames.
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .animation(.easeOut(duration: 0.12), value: isSelected)
         .contentShape(.rect)
         .help(tab.subtitle ?? tab.title)
         .simultaneousGesture(TapGesture(count: 2).onEnded {

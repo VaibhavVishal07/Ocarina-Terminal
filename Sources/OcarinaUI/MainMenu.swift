@@ -20,12 +20,15 @@ public final class MainMenuController: NSObject {
     }
 
     private func build() {
-        menu.addItem(submenu(named: "Ocarina", items: [
-            item("About Ocarina", #selector(showAbout)),
+        // Named from the bundle, so a test build says so in the one menu
+        // that is always on screen.
+        let app = AppIdentity.name
+        menu.addItem(submenu(named: app, items: [
+            item("About \(app)", #selector(showAbout)),
             .separator(),
-            chainItem("Hide Ocarina", #selector(NSApplication.hide(_:)), "h"),
+            chainItem("Hide \(app)", #selector(NSApplication.hide(_:)), "h"),
             .separator(),
-            chainItem("Quit Ocarina", #selector(NSApplication.terminate(_:)), "q")
+            chainItem("Quit \(app)", #selector(NSApplication.terminate(_:)), "q")
         ]))
 
         menu.addItem(submenu(named: "File", items: [

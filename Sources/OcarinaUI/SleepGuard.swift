@@ -65,7 +65,7 @@ public final class SleepGuard {
 
     public init(
         assertion: DisplaySleepAssertion = IOKitDisplaySleepAssertion(),
-        reason: String = "Ocarina is open",
+        reason: String = AppIdentity.sleepReason,
         isEnabled: Bool = true
     ) {
         self.assertion = assertion

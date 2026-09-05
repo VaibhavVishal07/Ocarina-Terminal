@@ -7,6 +7,14 @@ public struct OcarinaWindowView: View {
     /// held to it rather than the content merely refusing to shrink.
     public static let minimumSize = CGSize(width: 820, height: 420)
 
+    /// The terminal's gap from the top and the left, which are one number
+    /// because they are one gap seen twice.
+    ///
+    /// 22 rather than 24 because the terminal cell carries about 2pt of its
+    /// own above and to the left of the first glyph. Measured off the rendered
+    /// window, 22 here is the 24 you see; 24 here would read as 26.
+    private static let terminalInset: CGFloat = 22
+
     private let model: OcarinaModel
 
     public init(model: OcarinaModel) {
@@ -33,11 +41,20 @@ public struct OcarinaWindowView: View {
                     // The terminal had no inset at all: the first column sat on
                     // the window edge (clipping its left half) and the top line
                     // ran under the titlebar.
+                    //
+                    // The top was 34 against a leading 10, so the first line
+                    // sat three times as far from the titlebar as the first
+                    // column did from the edge. That 34 was clearing the
+                    // titlebar a second time: the window's safe area already
+                    // does it — which is what the sidebar relies on, and why
+                    // it needs nothing but its own 10 of breathing room. Same
+                    // number on both sides now, and the same number the
+                    // sidebar uses, so the two halves start together.
                     TerminalHostView(session: session)
                         .id(session.id)
-                        .padding(.leading, 10)
+                        .padding(.leading, Self.terminalInset)
                         .padding(.trailing, 6)
-                        .padding(.top, 34)
+                        .padding(.top, Self.terminalInset)
                 } else {
                     EmptyStateView { model.newTab() }
                 }

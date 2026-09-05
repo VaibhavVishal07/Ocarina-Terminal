@@ -43,7 +43,7 @@ private func run() {
     window.contentView = container
     window.isOpaque = false
     window.backgroundColor = .clear
-    window.title = "Ocarina"
+    window.title = AppIdentity.name
     window.setContentSize(NSSize(width: 980, height: 620))
     // Without this the window shrinks past what the content can lay out, and
     // AppKit simply clips the overflow: the sidebar slides off the left edge,

@@ -1,15 +1,29 @@
 #!/bin/bash
-# Builds Ocarina.app.
+# Builds Ocarina.app (release) or "Ocarina Test Build.app" (debug).
 #
 # A bare SwiftPM executable has no bundle, so macOS has nowhere to read an icon
 # from and the Dock falls back to the generic Unix-executable picture.
 # `applicationIconImage` is the only lever without a bundle, and it does not
 # reach Finder, ⌘-Tab or Get Info. This assembles a real .app instead.
+#
+# The debug build is a *separate app*, not the same one rebuilt: its own name,
+# its own bundle identifier, its own executable name. Sharing any of the three
+# meant Launch Services, the Dock and ⌘-Tab could not tell a test build from
+# the installed one — and `open -a Ocarina` could hand back either.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
-APP="build/Ocarina.app"
+
+if [ "$CONFIG" = "debug" ]; then
+  APP_NAME="Ocarina Test Build"
+  BUNDLE_ID="com.vaibhavvishal.ocarina.test"
+else
+  APP_NAME="Ocarina"
+  BUNDLE_ID="com.vaibhavvishal.ocarina"
+fi
+
+APP="build/$APP_NAME.app"
 ICON_SRC="Icons/AppIcon.png"
 
 echo "==> Building ($CONFIG)"
@@ -21,7 +35,9 @@ BIN=".build/$CONFIG/Ocarina"
 echo "==> Assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Ocarina"
+# The executable carries the app's name too, so Activity Monitor, `pgrep` and
+# `pmset -g assertions` name which of the two is running.
+cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
 
 # Bundle.module looks beside the executable and in Contents/Resources.
 for b in .build/"$CONFIG"/*.bundle; do
@@ -39,15 +55,15 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Ocarina</string>
-  <key>CFBundleDisplayName</key><string>Ocarina</string>
-  <key>CFBundleIdentifier</key><string>com.vaibhavvishal.ocarina</string>
-  <key>CFBundleExecutable</key><string>Ocarina</string>
+  <key>CFBundleName</key><string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key><string>$APP_NAME</string>
+  <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
+  <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>

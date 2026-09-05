@@ -65,13 +65,33 @@ private struct ToolTipModifier: ViewModifier {
     let text: String
     let space: String
     @Binding var target: ToolTipTarget?
-    let onClick: () -> Void
+    /// Nil for a control that handles its own clicks. The catcher is an
+    /// `NSView` that overrides `mouseDown`, so laying it over something already
+    /// interactive — a real `Toggle`, say — explains the control and then
+    /// swallows every attempt to use it.
+    let onClick: (() -> Void)?
 
     @State private var isHovering = false
     @State private var frame: CGRect = .zero
+    /// The text this control actually put on screen, so it clears its own tip
+    /// and only its own. Comparing against `text` was not enough: a tip whose
+    /// wording depends on state — the keep-awake line changes with it — would
+    /// go to hide, find the current wording no longer matching what it showed,
+    /// and leave the bubble up for good.
+    @State private var shown: String?
+    @State private var showTask: Task<Void, Never>?
+    @State private var hideTask: Task<Void, Never>?
 
+    /// Long enough that crossing the control on the way somewhere else never
+    /// summons it.
+    private static let appearAfter = Duration.seconds(2)
+    /// Short, but not instant: the bubble should not vanish out from under a
+    /// pointer that clipped the edge of the control on its way past.
+    private static let disappearAfter = Duration.milliseconds(500)
+
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
+        let measured = content
             .background {
                 GeometryReader { geometry in
                     Color.clear
@@ -81,22 +101,40 @@ private struct ToolTipModifier: ViewModifier {
                         }
                 }
             }
-            .overlay { HoverCatcher(onClick: onClick, onHover: hover) }
+
+        if let onClick {
+            measured.overlay { HoverCatcher(onClick: onClick, onHover: hover) }
+        } else {
+            measured.onHover(perform: hover)
+        }
     }
 
     private func hover(_ hovering: Bool) {
         isHovering = hovering
-        guard hovering else {
-            if target?.text == text { target = nil }
-            return
-        }
-        Task { @MainActor in
-            // The usual beat before a tip appears, so sweeping the pointer
-            // across a row of controls does not flash one at each.
-            try? await Task.sleep(for: .milliseconds(400))
-            guard isHovering else { return }
-            withAnimation(.easeOut(duration: 0.12)) {
-                target = ToolTipTarget(text: text, anchor: frame)
+        // Both directions are cancellable, and each cancels the other. A
+        // pointer that leaves during the wait must not have a tip appear
+        // behind it, and one that comes back during the fade must not have it
+        // taken away.
+        showTask?.cancel()
+        hideTask?.cancel()
+
+        if hovering {
+            showTask = Task { @MainActor in
+                try? await Task.sleep(for: Self.appearAfter)
+                guard !Task.isCancelled, isHovering else { return }
+                shown = text
+                withAnimation(.easeOut(duration: 0.12)) {
+                    target = ToolTipTarget(text: text, anchor: frame)
+                }
+            }
+        } else {
+            hideTask = Task { @MainActor in
+                try? await Task.sleep(for: Self.disappearAfter)
+                guard !Task.isCancelled, !isHovering else { return }
+                if let shown, target?.text == shown {
+                    withAnimation(.easeOut(duration: 0.12)) { target = nil }
+                }
+                shown = nil
             }
         }
     }
@@ -113,6 +151,15 @@ extension View {
     ) -> some View {
         modifier(ToolTipModifier(text: text, space: space, target: target, onClick: onClick))
     }
+
+    /// Explains the control on hover and leaves its clicks alone.
+    func toolTip(
+        _ text: String,
+        in space: String,
+        target: Binding<ToolTipTarget?>
+    ) -> some View {
+        modifier(ToolTipModifier(text: text, space: space, target: target, onClick: nil))
+    }
 }
 
 /// The bubble itself. Drawn by whoever owns the coordinate space, so it is not
@@ -121,15 +168,43 @@ struct ToolTipBubble: View {
     let target: ToolTipTarget
     /// Width available to place the bubble in, for keeping it on screen.
     let width: CGFloat
+    /// Height available, for the same reason vertically.
+    let height: CGFloat
+
+    /// Measured rather than assumed: where the bubble goes depends on how tall
+    /// it turned out to be.
+    @State private var bubbleHeight: CGFloat = 0
 
     private static let maxWidth: CGFloat = 250
+    private static let margin: CGFloat = 6
+    private static let font = NSFont.systemFont(ofSize: 11)
+
+    /// The bubble's width, measured rather than negotiated.
+    ///
+    /// The obvious spelling — `frame(maxWidth:)` plus `fixedSize()` — does not
+    /// work here, and produced the bubble whose padding ran out on the right.
+    /// A max-width frame given no proposal reports the capped width without
+    /// re-proposing it to the text inside, so the chrome settled at one width
+    /// and the text laid itself out at another. Dropping `fixedSize` instead
+    /// hands the bubble the sidebar's own 165 and every tip wraps to a column.
+    ///
+    /// Measuring the string is the way out: an explicit width ignores whatever
+    /// the sidebar proposes, so a short tip still hugs its text and a long one
+    /// wraps at the cap, and the chrome is wrapped around a width that is
+    /// already decided.
+    private var textWidth: CGFloat {
+        let ideal = (target.text as NSString)
+            .size(withAttributes: [.font: Self.font])
+            .width
+        return min(ceil(ideal), Self.maxWidth)
+    }
 
     var body: some View {
         Text(target.text)
             .font(.system(size: 11))
-            .lineLimit(2)
+            .lineLimit(3)
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: Self.maxWidth, alignment: .leading)
+            .frame(width: textWidth, alignment: .leading)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
             .background {
@@ -141,8 +216,14 @@ struct ToolTipBubble: View {
                     }
                     .shadow(color: .black.opacity(0.5), radius: 10, y: 3)
             }
-            .fixedSize()
-            .offset(x: x, y: target.anchor.maxY + 6)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { bubbleHeight = geometry.size.height }
+                        .onChange(of: geometry.size.height) { _, new in bubbleHeight = new }
+                }
+            }
+            .offset(x: x, y: y)
             .allowsHitTesting(false)
             .transition(.opacity)
     }
@@ -152,5 +233,17 @@ struct ToolTipBubble: View {
     private var x: CGFloat {
         let room = Self.maxWidth + 24
         return min(max(8, target.anchor.minX), max(8, width - room))
+    }
+
+    /// Below the control, or above it when there is no room below.
+    ///
+    /// Everything with a tip on it used to live in the scrolling list near the
+    /// top, so below was always right. The keep-awake row sits on the floor of
+    /// the panel, and its tip was being drawn past the bottom edge of the
+    /// window — placed correctly, and invisible.
+    private var y: CGFloat {
+        let below = target.anchor.maxY + Self.margin
+        guard below + bubbleHeight > height else { return below }
+        return max(Self.margin, target.anchor.minY - bubbleHeight - Self.margin)
     }
 }
