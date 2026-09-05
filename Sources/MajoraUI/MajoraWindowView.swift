@@ -7,8 +7,12 @@ public struct MajoraWindowView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            TabStripView(model: model)
-            Divider().opacity(0.3)
+            // With nothing open there is nothing to strip: the empty state
+            // gets the whole window rather than sitting under an empty bar.
+            if !model.tabs.isEmpty {
+                TabStripView(model: model)
+                Divider().opacity(0.3)
+            }
 
             ZStack {
                 Color.black
