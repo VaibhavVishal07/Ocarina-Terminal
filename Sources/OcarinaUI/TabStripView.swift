@@ -21,6 +21,8 @@ struct TabStripView: View {
                 .padding(.vertical, 7)
             }
 
+            sleepToggle
+
             Button {
                 model.newTab()
             } label: {
@@ -38,6 +40,28 @@ struct TabStripView: View {
         }
         .frame(height: 52)
         .background(.black.opacity(0.28))
+    }
+
+    /// Ocarina keeps the Mac awake while it is open. The cup says whether it
+    /// currently is, so a machine that will not sleep is never a mystery.
+    private var sleepToggle: some View {
+        Button {
+            model.sleepGuard.isEnabled.toggle()
+        } label: {
+            Image(systemName: model.sleepGuard.isHolding
+                  ? "cup.and.saucer.fill" : "cup.and.saucer")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(model.sleepGuard.isHolding ? .primary : .secondary)
+                .frame(width: 26, height: 26)
+                .background {
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(.white.opacity(model.sleepGuard.isHolding ? 0.06 : 0))
+                }
+        }
+        .buttonStyle(.plain)
+        .help(model.sleepGuard.isHolding
+              ? "Keeping this Mac awake — click to allow sleep"
+              : "Sleep allowed — click to keep this Mac awake")
     }
 
     @ViewBuilder

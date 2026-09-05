@@ -29,12 +29,19 @@ public final class OcarinaModel {
     public var selectedTabID: UUID?
     public var isCommandPaletteVisible = false
 
+    /// Keeps the Mac awake while Ocarina is open. On by default.
+    public let sleepGuard: SleepGuard
+
     @ObservationIgnored private var sessions: [UUID: TerminalSession] = [:]
     @ObservationIgnored private let namingService: TabNamingService
     @ObservationIgnored private var updateTask: Task<Void, Never>?
 
-    public init(namingService: TabNamingService = TabNamingService()) {
+    public init(
+        namingService: TabNamingService = TabNamingService(),
+        sleepGuard: SleepGuard = SleepGuard()
+    ) {
         self.namingService = namingService
+        self.sleepGuard = sleepGuard
         observeTitleChanges()
     }
 
@@ -84,6 +91,7 @@ public final class OcarinaModel {
 
     public func start() {
         Task { await namingService.start() }
+        sleepGuard.start()
         if tabs.isEmpty { newTab() }
     }
 
