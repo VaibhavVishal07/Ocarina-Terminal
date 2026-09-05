@@ -61,10 +61,12 @@ Sources/OcarinaUI/       SwiftUI layer
   OcarinaModel           open tabs, selection, renames, title updates
   TabStripView           task as the title; process on hover
   CommandPaletteView     jump by what a terminal is doing (⇧⌘P)
-  EmptyStateView         no tabs open: the ocarina over Hyrule at dusk
-  HyruleArt              the block art, as text rather than image assets
-  GlyphArt               draws a glyph stack under a single gradient
+  EmptyStateView         no tabs open: the departure board
+  DotMatrix              5x7 dot-matrix panel, the board is built from it
+  OcarinaIcon            the bundled app mark, trimmed of its plate
   SleepGuard             holds the Mac awake while Ocarina is open
+  MainMenu               the menu bar; where ⌘T / ⌘W / ⇧⌘P actually live
+  ToolTip                AppKit tool tips, because .help draws none here
 Sources/Ocarina/         executable entry point
 ```
 
@@ -78,6 +80,51 @@ swift build
 swift test
 swift run Ocarina
 ```
+
+## Icons and glass
+
+The mark comes from the dot-matrix icon pack. `Icons/AppIcon.iconset` is the
+canonical source; the `.icns` a packager wants is one command away and is not
+checked in, nor is the Xcode `.appiconset`, which was a byte-for-byte duplicate
+of the same PNGs:
+
+```
+iconutil -c icns Icons/AppIcon.iconset
+```
+ Two PNGs are bundled as target resources:
+512px for the dock, 64px for the tab strip. A bare SwiftPM executable has no
+bundle for macOS to read an icon from, so the dock is told directly with
+`applicationIconImage`.
+
+The exports are an opaque black plate with the tile drawn inside, so used as-is
+the mark puts a black square on every tab and makes the dock icon read as a
+small tile inside a dark square. `OcarinaIcon` trims to the drawn content at
+load — and for the dock also clips the tile's corners to transparency and lays
+it on a clear canvas at the ~80% the macOS icon grid expects. Trimming at load
+rather than shipping cropped assets keeps this from drifting the next time the
+pack is regenerated.
+
+The dock image is cut from the 1024px export rather than a smaller one: cutting
+the tile out of the plate discards most of the canvas, and from 512 the result
+came out at 424px, under what the dock wants at 2x.
+
+Glass needs something behind it to blur. An `NSVisualEffectView` sits behind the
+hosting view and the window is non-opaque, so the materials in the chrome have
+the desktop to work with; without it they resolve to flat grey. The terminal
+view's own background is cleared and a 72% black bed sits behind it — the glass
+reads through, and the text stays legible.
+
+## Keyboard shortcuts
+
+⌘T, ⌘W and ⇧⌘P come from the menu bar in `MainMenu`, not from SwiftUI
+`.keyboardShortcut`. AppKit offers a key equivalent to the main menu before the
+event reaches the window or the responder chain, so a menu item always gets it;
+a hidden SwiftUI button only sees what makes it as far as the view hierarchy,
+which a terminal view holding first responder can swallow. Ocarina had no main
+menu at all for a while, which is why ⌘W did nothing — and why ⌘Q didn't either.
+
+The Edit menu's cut/copy/paste have no target, so they travel the responder
+chain to SwiftTerm, which implements them.
 
 ## Keeping the Mac awake
 
@@ -104,13 +151,24 @@ always gives it back, including on a crash.
 
 ## The empty state
 
-Close every tab and the window is given over to the artwork: the ocarina held
-over Hyrule at dusk, Death Mountain west and the castle lit across the field.
+Close every tab and the window is given over to a dot-matrix panel: a wordmark,
+one lit call to action, and the two shortcuts that still mean something with no
+terminal open.
 
-Every figure is generated block art rather than a bundled image, so it stays
-crisp at any scale and the whole app ships as source. Two details carry it. The
-skyline and its lit windows are separate figures on one shared grid, so drawing
-the second over the first registers the lamps exactly inside the castle. And the
-ocarina's finger holes are a layer *over* the body rather than gaps punched in
-it — as gaps, the halo behind the instrument shines through and they read as lit
-windows instead of holes.
+It borrows the look of an airport departures board but not its furniture. A
+clock, gate numbers and an ON TIME column are what such a board carries because
+a flight has a time and a status; a terminal that does not exist yet has
+neither, so drawing them was decoration dressed up as information. What earns
+its place is the matrix itself.
+
+`DotMatrix` carries a 5x7 font and paints **every** cell of the grid, dark when
+it is off. That is the whole character of the thing: the unlit dots stay visible
+behind the words, so the text reads as lamps that happen to be on rather than as
+glyphs floating on black. Characters are five cells wide with one blank column
+between them, so padding two strings to the same length is all it takes to make
+their columns line up — no layout code is involved, and it is why the shortcut
+rows are padded to a common width rather than centred independently.
+
+One catch: a `Spacer` inside the call to action stretches it across the whole
+window, since the stack it sits in is full width. Fixed spacing lets the row
+size to its own content.

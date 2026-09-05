@@ -26,6 +26,9 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
         super.init()
 
         terminalView.terminalDelegate = self
+        // Let the window's glass show through; the bed behind it in
+        // OcarinaWindowView keeps text legible.
+        terminalView.nativeBackgroundColor = .clear
         start(workingDirectory: workingDirectory)
     }
 

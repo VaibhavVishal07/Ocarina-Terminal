@@ -20,7 +20,8 @@ let package = Package(
             dependencies: [
                 "OcarinaTerminalContext",
                 .product(name: "SwiftTerm", package: "SwiftTerm")
-            ]
+            ],
+            resources: [.process("Resources")]
         ),
         .executableTarget(name: "Ocarina", dependencies: ["OcarinaUI"]),
         .testTarget(
