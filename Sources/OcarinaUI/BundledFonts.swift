@@ -9,18 +9,19 @@ import CoreText
 /// happened to be, would never be the design. Two variable fonts, 330KB, under
 /// the SIL Open Font License, whose text sits beside them in the bundle.
 public enum BundledFonts {
-    /// The mono. The terminal has no choice — it lays out on a character cell
-    /// — and the chrome is set in it too, so the app wears one face rather
-    /// than a pair that have to be kept in agreement.
+    /// Geist. Everything the app draws itself is set in this.
+    public static let sans = "Geist"
+
+    /// Geist Mono, and only for the terminal.
+    ///
+    /// Not a style choice: a terminal lays out on a fixed character cell, and
+    /// a proportional face does not look wrong there, it tears — every column
+    /// after the first drifts and box-drawing, tables and aligned output come
+    /// apart. The sans cannot do this job however much better it reads.
     public static let mono = "Geist Mono"
 
     /// What the app draws its own chrome in.
-    public static var ui: String { mono }
-
-    /// The sans. Bundled but unused: it is the obvious alternative if an
-    /// all-monospace interface wears thin, and 165KB is cheaper than going
-    /// and fetching it again.
-    public static let sans = "Geist"
+    public static var ui: String { sans }
 
     @MainActor private static var registered = false
 
