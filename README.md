@@ -82,6 +82,22 @@ swift test
 swift run Ocarina
 ```
 
+## Building the app
+
+```
+Scripts/make-app.sh          # release
+Scripts/make-app.sh debug    # debug
+open build/Ocarina.app
+```
+
+`swift run Ocarina` still works and is fine for development, but it runs
+unbundled: generic icon, and no Finder integration.
+
+One behaviour differs between the two. A binary run from a shell inherits that
+shell's directory, so tabs opened where you were; an app launched from Finder
+inherits `/`, and every new tab opened at the root of the disk and was named
+for it. A session with no directory of its own now starts at home.
+
 ## Tool tips
 
 Three mechanisms were tried. SwiftUI's `.help` produces nothing in a plain
@@ -115,9 +131,18 @@ are left alone.
 
 ## Icons and glass
 
-The app icon is `Icons/AppIcon.png`, bundled as a target resource. A bare
-SwiftPM executable has no bundle for macOS to read an icon from, so the dock is
-told directly with `applicationIconImage`.
+The app icon is `Icons/AppIcon.png`. **Run `Scripts/make-app.sh` to get it.**
+
+A bare SwiftPM executable has no bundle, so macOS has nowhere to read an icon
+from and falls back to the generic Unix-executable picture. Setting
+`applicationIconImage` is the only lever without a bundle and it does not reach
+Finder, the app switcher or Get Info — which is why `swift run Ocarina` still
+looks generic. The script assembles a real `Ocarina.app`: an `Info.plist`, an
+`AppIcon.icns` generated from the PNG, the SwiftPM resource bundles, and an
+ad-hoc signature. The icon is then correct everywhere.
+
+`applicationIconImage` is kept anyway, so the unbundled binary is not a total
+loss.
 
 `OcarinaIcon` trims the art to its drawn content, clips the corners to
 transparency and lays it on a clear canvas at the ~80% the macOS icon grid

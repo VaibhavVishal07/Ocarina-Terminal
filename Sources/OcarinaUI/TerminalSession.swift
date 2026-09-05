@@ -32,14 +32,18 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
         start(workingDirectory: workingDirectory)
     }
 
+    /// Falls back to home rather than to the process's own directory. Launched
+    /// from Finder an app inherits `/`, so without this every new tab opened at
+    /// the root of the disk and was named for it.
     private func start(workingDirectory: URL?) {
+        let directory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser
         let terminal = terminalView.getTerminal()
         do {
             let process = try PTYProcess(
                 executable: shellPath,
                 arguments: ["-l"],
                 environment: ShellIntegration.environment(forShell: shellPath),
-                workingDirectory: workingDirectory,
+                workingDirectory: directory,
                 columns: terminal.cols,
                 rows: terminal.rows
             ) { [weak self] bytes in
