@@ -12,6 +12,8 @@ public final class TabItem: Identifiable {
     /// `Claude Code · ~/Projects/checkout` — secondary everywhere.
     public var subtitle: String?
     public var isManuallyNamed: Bool = false
+    /// Busy, done, or failed — drawn as the status dot.
+    public var activity: TabActivity = .idle
 
     init(id: UUID, title: String) {
         self.id = id
@@ -112,6 +114,7 @@ public final class MajoraModel {
         guard let tab = tabs.first(where: { $0.id == context.tabID }) else { return }
         tab.title = context.displayTitle
         tab.subtitle = context.subtitle
+        tab.activity = context.activity
         tab.isManuallyNamed = !context.isAutoNamingEnabled
     }
 

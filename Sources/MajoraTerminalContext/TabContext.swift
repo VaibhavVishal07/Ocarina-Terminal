@@ -16,6 +16,10 @@ public struct TabContext: Sendable, Equatable {
     public var projectName: String?
     public var workingDirectory: URL?
 
+    /// Busy or idle, and how the last command ended. Set from the snapshot,
+    /// never through `TabNamingEngine` — activity and identity move apart.
+    public var activity: TabActivity = .idle
+
     public var contextSource: ContextSource
     public var contextConfidence: Double
     public var lastContextUpdate: Date

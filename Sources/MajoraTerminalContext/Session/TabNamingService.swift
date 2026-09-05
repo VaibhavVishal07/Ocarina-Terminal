@@ -14,7 +14,7 @@ public actor TabNamingService {
     private let coordinator: TabContextCoordinator
     private let interval: Duration
     private var monitors: [UUID: TerminalSessionMonitor] = [:]
-    private var publishedTitles: [UUID: String] = [:]
+    private var published: [UUID: Published] = [:]
     private var subscribers: [UUID: AsyncStream<TabContext>.Continuation] = [:]
     private var pollTask: Task<Void, Never>?
 
@@ -39,7 +39,7 @@ public actor TabNamingService {
 
     public func detach(tabID: UUID) {
         monitors[tabID] = nil
-        publishedTitles[tabID] = nil
+        published[tabID] = nil
     }
 
     public func context(for tabID: UUID) async -> TabContext? {
@@ -73,9 +73,22 @@ public actor TabNamingService {
         subscribers[id] = nil
     }
 
+    /// What a subscriber has already been told about a tab, so a poll that
+    /// changes nothing visible stays silent.
+    private struct Published: Equatable {
+        let title: String
+        let subtitle: String?
+        let activity: TabActivity
+    }
+
     private func publish(_ context: TabContext) {
-        guard publishedTitles[context.tabID] != context.displayTitle else { return }
-        publishedTitles[context.tabID] = context.displayTitle
+        let latest = Published(
+            title: context.displayTitle,
+            subtitle: context.subtitle,
+            activity: context.activity
+        )
+        guard published[context.tabID] != latest else { return }
+        published[context.tabID] = latest
         for subscriber in subscribers.values { subscriber.yield(context) }
     }
 

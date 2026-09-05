@@ -232,6 +232,31 @@ it** — with the first prioritised everywhere in the primary UI.
 
 ---
 
+## Activity status
+
+Naming answers *what a terminal is for*. A second, independent signal answers
+*what it is doing right now*, drawn as a single coloured dot on each tab — no
+glyph, no label, so twenty tabs stay scannable.
+
+| State | Dot | Source |
+| --- | --- | --- |
+| Idle | dim grey | at a prompt, nothing run yet |
+| Running | blue, pulsing | a command is in the foreground |
+| Finished | green | last command exited 0 |
+| Failed | red | last command exited non-zero |
+
+Running and idle are detectable from the foreground process alone. Exit status
+is not: the command is the *shell's* child, not Majora's, so there is no
+interface that will hand over a non-child's exit code. The shell has to report
+it, which is what OSC 133 exists for — `C` when a command starts, `D;<status>`
+when it ends.
+
+Majora supplies that by pointing `ZDOTDIR` at a generated config that sources
+the user's own files first, installs `preexec`/`precmd` hooks, and restores
+`ZDOTDIR` before the user's prompt runs. Integration is optional: without it,
+tabs still show running and idle correctly, and never claim a result they
+cannot know. Only zsh is wired up so far.
+
 ## Implementation status
 
 Built (`Sources/MajoraTerminalContext`, 39 tests):
@@ -244,8 +269,10 @@ Built (`Sources/MajoraTerminalContext`, 39 tests):
 - `ProcessInspector`, `OSCTitleParser`, `TerminalSessionMonitor`,
   `PTYProcess`, `TabNamingService` — live pty to title, covered by tests that
   spawn a real child process on a real pty
-- A SwiftUI app: tab strip with the task as the title and the process on hover,
-  a command palette that searches both, double-click and context-menu rename
+- A SwiftUI app: tab strip with the task as the title, the process on hover and
+  an activity dot; a command palette that searches both; double-click and
+  context-menu rename; an empty state when every tab is closed
+- `ShellIntegration` — generated zsh config reporting command boundaries
 
 Outstanding:
 
@@ -255,3 +282,4 @@ Outstanding:
 - The app runs as a plain SwiftPM executable; it is not yet an `.app` bundle,
   so it has no menu bar, Dock identity or app icon.
 - Tab reordering, splits and persistence across launches.
+- Shell integration covers zsh only; bash and fish fall back to running/idle.

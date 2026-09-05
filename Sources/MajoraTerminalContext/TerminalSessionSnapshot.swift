@@ -14,6 +14,8 @@ public struct TerminalSessionSnapshot: Sendable, Equatable {
     public var workingDirectory: URL?
     /// Title the program set via OSC 0/1/2, if any.
     public var escapeSequenceTitle: String?
+    /// Busy or idle, and how the last command ended.
+    public var activity: TabActivity
 
     public init(
         tabID: UUID = UUID(),
@@ -21,7 +23,8 @@ public struct TerminalSessionSnapshot: Sendable, Equatable {
         foregroundProcessName: String? = nil,
         foregroundCommandLine: [String] = [],
         workingDirectory: URL? = nil,
-        escapeSequenceTitle: String? = nil
+        escapeSequenceTitle: String? = nil,
+        activity: TabActivity = .idle
     ) {
         self.tabID = tabID
         self.shellName = shellName
@@ -29,6 +32,7 @@ public struct TerminalSessionSnapshot: Sendable, Equatable {
         self.foregroundCommandLine = foregroundCommandLine
         self.workingDirectory = workingDirectory
         self.escapeSequenceTitle = escapeSequenceTitle
+        self.activity = activity
     }
 
     /// Basename of the working directory, which is the project fallback title.

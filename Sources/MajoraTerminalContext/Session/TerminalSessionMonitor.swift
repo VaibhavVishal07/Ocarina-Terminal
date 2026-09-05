@@ -11,8 +11,10 @@ public actor TerminalSessionMonitor {
     public let tabID: UUID
     private let descriptor: Int32
     private let shellName: String?
-    private var parser = OSCTitleParser()
+    private var parser = OSCParser()
     private var escapeSequenceTitle: String?
+    private var isCommandRunning = false
+    private var lastExitCode: Int?
 
     public init(tabID: UUID = UUID(), ptyDescriptor: Int32, shellName: String? = nil) {
         self.tabID = tabID
@@ -22,9 +24,32 @@ public actor TerminalSessionMonitor {
 
     /// Hand over pty output the renderer has already read.
     public func ingest(_ output: some Sequence<UInt8>) {
-        if let latest = parser.consume(output).last {
-            escapeSequenceTitle = latest
+        for sequence in parser.consume(output) {
+            if let title = sequence.title {
+                escapeSequenceTitle = title
+            }
+            switch sequence.commandBoundary {
+            case .started:
+                isCommandRunning = true
+            case let .finished(exitCode):
+                isCommandRunning = false
+                lastExitCode = exitCode
+            case nil:
+                break
+            }
         }
+    }
+
+    /// Busy from either signal: shell integration is exact but optional, and
+    /// a non-shell foreground process is a reliable fallback without it.
+    private func activity(foregroundProcessName: String?) -> TabActivity {
+        let isForeignProcess = foregroundProcessName.map {
+            !GenericProcessContextProvider.shellNames.contains($0.lowercased())
+        } ?? false
+
+        if isCommandRunning || isForeignProcess { return .running }
+        guard let lastExitCode else { return .idle }
+        return lastExitCode == 0 ? .succeeded : .failed(exitCode: lastExitCode)
     }
 
     /// Current reading of the terminal.
@@ -35,23 +60,26 @@ public actor TerminalSessionMonitor {
             return TerminalSessionSnapshot(
                 tabID: tabID,
                 shellName: shellName,
-                escapeSequenceTitle: escapeSequenceTitle
+                escapeSequenceTitle: escapeSequenceTitle,
+                activity: activity(foregroundProcessName: nil)
             )
         }
 
         let arguments = ProcessInspector.arguments(of: pid)
         let executable = ProcessInspector.executablePath(of: pid)
+        let name = ProcessInspector.logicalName(
+            executablePath: executable,
+            arguments: arguments
+        )
 
         return TerminalSessionSnapshot(
             tabID: tabID,
             shellName: shellName,
-            foregroundProcessName: ProcessInspector.logicalName(
-                executablePath: executable,
-                arguments: arguments
-            ),
+            foregroundProcessName: name,
             foregroundCommandLine: arguments,
             workingDirectory: ProcessInspector.workingDirectory(of: pid),
-            escapeSequenceTitle: escapeSequenceTitle
+            escapeSequenceTitle: escapeSequenceTitle,
+            activity: activity(foregroundProcessName: name)
         )
     }
 }

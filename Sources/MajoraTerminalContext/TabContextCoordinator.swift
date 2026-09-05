@@ -71,6 +71,7 @@ public actor TabContextCoordinator {
 
         // Secondary information tracks the live process even when no provider
         // had anything worth renaming the tab for.
+        context.activity = session.activity
         context.processName = displayName(for: session)
         context.workingDirectory = session.workingDirectory ?? context.workingDirectory
         context.projectName = session.projectName ?? context.projectName

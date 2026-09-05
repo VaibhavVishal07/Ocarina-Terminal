@@ -15,6 +15,8 @@ public struct MajoraWindowView: View {
                 if let session = model.selectedSession {
                     TerminalHostView(session: session)
                         .id(session.id)
+                } else {
+                    EmptyStateView { model.newTab() }
                 }
             }
         }

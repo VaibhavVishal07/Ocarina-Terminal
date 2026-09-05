@@ -35,6 +35,7 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
             let process = try PTYProcess(
                 executable: shellPath,
                 arguments: ["-l"],
+                environment: ShellIntegration.environment(forShell: shellPath),
                 workingDirectory: workingDirectory,
                 columns: terminal.cols,
                 rows: terminal.rows
