@@ -80,8 +80,27 @@ public final class OcarinaModel {
         pendingPaste = nil
         typeAtPrompt(pending.text)
     }
-    /// Tasks for the selected tab, refreshed while the panel is open.
-    public private(set) var tasks: [AgentTask] = []
+    /// What the transcript says, before Claude has renamed any of it.
+    public private(set) var rawTasks: [AgentTask] = []
+
+    /// Tasks as the panel shows them.
+    ///
+    /// Computed rather than stored, so a title arriving from the summariser
+    /// reaches the panel on its own. Stored, it only updated on the next
+    /// transcript change — which never comes once you stop typing, so the
+    /// better titles appeared minutes later or not at all.
+    public var tasks: [AgentTask] {
+        rawTasks.map { task in
+            guard let better = taskSummariser.titles[task.id] else { return task }
+            return AgentTask(
+                id: task.id,
+                title: better,
+                prompt: task.prompt,
+                askedAt: task.askedAt,
+                state: task.state
+            )
+        }
+    }
 
     @ObservationIgnored private let taskSource = AgentTaskSource()
     /// Better names for the same tasks, when an agent is around to write them.
@@ -98,7 +117,10 @@ public final class OcarinaModel {
         if !visible { autoOpenSuppressed = true }
         isTaskPanelVisible = visible
         taskRefresh?.cancel()
-        guard visible else { tasks = []; return }
+        // The list is left where it is on the way out. Emptying it made the
+        // rows vanish a frame before the panel did, so the slide-out was of an
+        // empty box rather than of the thing you were reading.
+        guard visible else { return }
         refreshTasks()
         taskRefresh = Task { [weak self] in
             while !Task.isCancelled {
@@ -123,7 +145,12 @@ public final class OcarinaModel {
                 guard !isTaskPanelVisible, !autoOpenSuppressed,
                       let directory = selectedSession?.workingDirectory
                 else { continue }
-                if !taskSource.tasks(for: directory).isEmpty {
+                let source = taskSource
+                let any = await Task.detached {
+                    !source.tasks(for: directory).isEmpty
+                }.value
+                guard !Task.isCancelled, !isTaskPanelVisible, !autoOpenSuppressed else { continue }
+                if any {
                     setTaskPanel(visible: true)
                     // `setTaskPanel` only suppresses on a close; opening here
                     // must not look like the user asked.
@@ -133,24 +160,39 @@ public final class OcarinaModel {
         }
     }
 
+    /// Reads the transcript off the main thread.
+    ///
+    /// This is what made opening the panel jerky. A transcript is a JSONL file
+    /// that grows all session — 32MB on the machine this was found on — and
+    /// parsing it took the better part of half a second, on the main actor, at
+    /// the exact moment the panel was animating in. The window simply stopped.
+    /// It then repeated every two seconds for as long as the panel was open.
+    ///
+    /// Now: a `stat` on the main thread, the parse on a background one, and
+    /// nothing at all when the file has not changed since the last look.
     private func refreshTasks() {
-        guard let directory = selectedSession?.workingDirectory else { tasks = []; return }
-        let read = taskSource.tasks(for: directory)
+        guard let directory = selectedSession?.workingDirectory else { rawTasks = []; return }
 
-        // The local title shows immediately; Claude's replaces it once it has
-        // been asked. Nothing here waits on a subprocess.
-        tasks = read.map { task in
-            guard let better = taskSummariser.titles[task.id] else { return task }
-            return AgentTask(
-                id: task.id,
-                title: better,
-                prompt: task.prompt,
-                askedAt: task.askedAt,
-                state: task.state
-            )
+        let signature = taskSource.signature(for: directory)
+        guard signature != lastTaskSignature || rawTasks.isEmpty else { return }
+        lastTaskSignature = signature
+
+        let source = taskSource
+        Task { [weak self] in
+            let read = await Task.detached { source.tasks(for: directory) }.value
+            guard let self else { return }
+            apply(read)
         }
+    }
+
+    private func apply(_ read: [AgentTask]) {
+        // The heuristic title is on screen the moment this lands; Claude's
+        // replaces it through `tasks` when the summariser answers.
+        rawTasks = read
         taskSummariser.refresh(read)
     }
+
+    @ObservationIgnored private var lastTaskSignature: String?
 
     /// Types text into the selected tab without running it. Every path that
     /// puts a command in front of the user ends here, and none of them press

@@ -60,6 +60,23 @@ public struct AgentTaskSource: Sendable {
         return Self.tasks(inTranscript: transcript, limit: limit)
     }
 
+    /// Cheap fingerprint of the transcript this directory would read.
+    ///
+    /// The panel polls, and a poll that re-parses an unchanged file is pure
+    /// waste — on a large transcript, a fifth of a second of it. Comparing a
+    /// path, a size and a modification date costs one `stat`.
+    public func signature(for directory: URL) -> String? {
+        let folder = root.appendingPathComponent(Self.slug(for: directory), isDirectory: true)
+        guard let transcript = newestTranscript(in: folder),
+              let values = try? transcript.resourceValues(
+                  forKeys: [.fileSizeKey, .contentModificationDateKey]
+              )
+        else { return nil }
+        let size = values.fileSize ?? 0
+        let stamp = values.contentModificationDate?.timeIntervalSince1970 ?? 0
+        return "\(transcript.path):\(size):\(stamp)"
+    }
+
     /// The same slug Claude Code uses for a project folder.
     static func slug(for directory: URL) -> String {
         var slug = ""
@@ -91,14 +108,24 @@ public struct AgentTaskSource: Sendable {
     /// still open. Only the newest can be open at the end, because a turn has
     /// to finish before the next prompt is answered.
     static func tasks(inTranscript url: URL, limit: Int = 50) -> [AgentTask] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        guard let blob = try? Data(contentsOf: url, options: .mappedIfSafe) else { return [] }
 
         var tasks: [AgentTask] = []
         var openIndices: [Int] = []
 
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
-            guard let data = line.data(using: .utf8),
-                  let row = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        // Only two kinds of line matter, and a transcript is mostly neither:
+        // the bulk of it is assistant turns carrying tool results, some of them
+        // enormous. Decoding and JSON-parsing all of that to find a few dozen
+        // prompts cost about half a second on a 32MB file — on the main thread,
+        // at the moment the panel opened.
+        //
+        // A byte search for the two markers throws almost every line out before
+        // it is ever turned into a String.
+        for line in blob.jsonLines() {
+            guard line.range(of: Self.typedMarker) != nil
+                    || line.range(of: Self.endTurnMarker) != nil
+            else { continue }
+            guard let row = try? JSONSerialization.jsonObject(with: line) as? [String: Any]
             else { continue }
 
             // Subagent traffic is the agent talking to itself, not the user
@@ -149,6 +176,9 @@ public struct AgentTaskSource: Sendable {
 
         return Array(tasks.suffix(limit))
     }
+
+    private static let typedMarker = Data(#""promptSource":"typed""#.utf8)
+    private static let endTurnMarker = Data(#""stop_reason":"end_turn""#.utf8)
 
     /// A prompt is either a plain string or content blocks; take the text.
     private static func text(from message: Any?) -> String? {
@@ -247,4 +277,22 @@ public struct AgentTaskSource: Sendable {
 
 private extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}
+
+private extension Data {
+    /// The file's lines, as slices, without decoding any of them.
+    ///
+    /// `String(contentsOf:)` on a 32MB transcript allocates and validates the
+    /// whole thing before a single line has been looked at. Splitting on the
+    /// newline byte costs nothing and lets the caller decode only what it wants.
+    func jsonLines() -> [Data] {
+        var lines: [Data] = []
+        var start = startIndex
+        while let newline = self[start...].firstIndex(of: 0x0A) {
+            if newline > start { lines.append(self[start..<newline]) }
+            start = index(after: newline)
+        }
+        if start < endIndex { lines.append(self[start..<endIndex]) }
+        return lines
+    }
 }
