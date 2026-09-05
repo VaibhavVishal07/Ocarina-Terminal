@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 @Suite("Tab activity")
 struct ActivityTests {
@@ -62,7 +62,7 @@ struct ActivityTests {
     @Test("A failing command turns the tab's dot red, end to end in a real zsh")
     func realShellReportsFailure() async throws {
         let support = FileManager.default.temporaryDirectory
-            .appendingPathComponent("majora-si-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("ocarina-si-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: support) }
 
         let environment = ShellIntegration.environment(

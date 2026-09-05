@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 @Suite("OSC parsing")
 struct OSCTitleParserTests {
@@ -72,7 +72,7 @@ struct OSCTitleParserTests {
         #expect(boundaries(from: "\u{1B}]133;C\u{07}") == [.started])
         #expect(boundaries(from: "\u{1B}]133;D;0\u{07}") == [.finished(exitCode: 0)])
         #expect(boundaries(from: "\u{1B}]133;D;127\u{07}") == [.finished(exitCode: 127)])
-        // Prompt markers are parsed but carry nothing Majora needs.
+        // Prompt markers are parsed but carry nothing Ocarina needs.
         #expect(boundaries(from: "\u{1B}]133;A\u{07}").isEmpty)
         #expect(boundaries(from: "\u{1B}]133;B\u{07}").isEmpty)
     }

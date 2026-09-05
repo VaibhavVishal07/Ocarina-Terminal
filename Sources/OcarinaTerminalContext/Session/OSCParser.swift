@@ -13,7 +13,7 @@ public struct OSCSequence: Sendable, Equatable {
 
 /// Extracts OSC sequences from a pty stream.
 ///
-/// Majora reads two kinds: 0/1/2 (the title a program sets for itself) and 133
+/// Ocarina reads two kinds: 0/1/2 (the title a program sets for itself) and 133
 /// (shell integration — where a command starts, and what it exited with).
 /// Everything else is skipped, and no other terminal output is retained.
 ///
@@ -33,7 +33,7 @@ public struct OSCParser: Sendable {
     /// than growing a buffer on hostile output.
     public static let maximumPayloadLength = 512
 
-    /// Codes Majora acts on. Anything else is discarded as it is parsed.
+    /// Codes Ocarina acts on. Anything else is discarded as it is parsed.
     static let interestingCodes: Set<Int> = [0, 1, 2, 133]
 
     private var state: State = .text
@@ -121,7 +121,7 @@ public extension OSCSequence {
     }
 
     /// Shell integration: `C` starts a command, `D;<status>` ends one.
-    /// Returns nil for the other 133 markers (prompt start/end), which Majora
+    /// Returns nil for the other 133 markers (prompt start/end), which Ocarina
     /// does not need.
     var commandBoundary: CommandBoundary? {
         guard code == 133 else { return nil }

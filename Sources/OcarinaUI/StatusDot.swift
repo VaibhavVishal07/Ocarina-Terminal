@@ -1,4 +1,4 @@
-import MajoraTerminalContext
+import OcarinaTerminalContext
 import SwiftUI
 
 /// The tab's activity, as a single dot.

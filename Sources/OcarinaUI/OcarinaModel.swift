@@ -1,5 +1,5 @@
 import Foundation
-import MajoraTerminalContext
+import OcarinaTerminalContext
 import Observation
 
 /// What the tab strip draws for one tab.
@@ -24,7 +24,7 @@ public final class TabItem: Identifiable {
 /// Owns the open tabs and keeps their titles in step with what they are doing.
 @MainActor
 @Observable
-public final class MajoraModel {
+public final class OcarinaModel {
     public private(set) var tabs: [TabItem] = []
     public var selectedTabID: UUID?
     public var isCommandPaletteVisible = false

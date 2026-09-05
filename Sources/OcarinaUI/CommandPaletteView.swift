@@ -5,7 +5,7 @@ import SwiftUI
 /// Same ordering as the tab strip: the task leads, the process and project
 /// follow underneath.
 struct CommandPaletteView: View {
-    @Bindable var model: MajoraModel
+    @Bindable var model: OcarinaModel
     @State private var query: String = ""
     @FocusState private var isSearchFocused: Bool
 

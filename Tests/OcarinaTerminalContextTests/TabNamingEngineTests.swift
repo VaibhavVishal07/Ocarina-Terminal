@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 @Suite("Naming stability")
 struct TabNamingEngineTests {

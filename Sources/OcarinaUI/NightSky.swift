@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The stars behind the moon.
+/// The first stars, out before the dusk has finished going.
 ///
 /// Positions come from a fixed seed so the sky is the same sky every launch —
 /// a constellation that moved on each redraw would read as noise.
@@ -17,7 +17,7 @@ struct NightSky: View {
     @State private var isTwinkling = false
 
     private static let stars: [Star] = {
-        var seed: UInt64 = 0x4D414A4F5241 // "MAJORA"
+        var seed: UInt64 = 0x4F434152494E41 // "OCARINA"
         func next() -> Double {
             // xorshift64: small, deterministic, and good enough for stars.
             seed ^= seed << 13
@@ -25,13 +25,13 @@ struct NightSky: View {
             seed ^= seed << 17
             return Double(seed % 10_000) / 10_000
         }
-        return (0..<70).map { _ in
+        return (0..<44).map { _ in
             Star(
                 x: next(),
-                // Crowded higher up, thinning toward the rooftops.
-                y: next() * 0.72,
+                // Only the high sky is dark enough yet; the horizon still burns.
+                y: next() * 0.5,
                 size: 1 + next() * 1.8,
-                brightness: 0.25 + next() * 0.6,
+                brightness: 0.18 + next() * 0.45,
                 period: 1.8 + next() * 3.4,
                 delay: next() * 3
             )

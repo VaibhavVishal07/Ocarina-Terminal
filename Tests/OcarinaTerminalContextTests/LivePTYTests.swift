@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 /// End-to-end against a real pty and a real child process.
 @Suite("Live pty")
@@ -32,7 +32,7 @@ struct LivePTYTests {
     @Test("A snapshot reports the real foreground process, argv and cwd")
     func snapshotOfLiveProcess() async throws {
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("majora-pty-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("ocarina-pty-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
@@ -62,7 +62,7 @@ struct LivePTYTests {
     @Test("A live session is named from what it is running")
     func namingFromLiveSession() async throws {
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("majora-pty-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("ocarina-pty-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 

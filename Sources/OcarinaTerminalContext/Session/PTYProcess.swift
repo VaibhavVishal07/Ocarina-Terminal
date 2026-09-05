@@ -3,7 +3,7 @@ import Foundation
 
 /// A child process running on its own pty.
 ///
-/// Majora owns the pty rather than delegating it to the terminal widget,
+/// Ocarina owns the pty rather than delegating it to the terminal widget,
 /// because the naming layer needs the descriptor: `ProcessInspector` asks it
 /// what currently holds the foreground, and the read loop forwards output to
 /// both the renderer and `TerminalSessionMonitor.ingest`.
@@ -12,7 +12,7 @@ public final class PTYProcess: @unchecked Sendable {
         case couldNotOpenPTY(errno: Int32)
     }
 
-    /// The descriptor Majora reads and writes; the child holds the other end.
+    /// The descriptor Ocarina reads and writes; the child holds the other end.
     public let primaryDescriptor: Int32
     public let pid: pid_t
 
@@ -71,7 +71,7 @@ public final class PTYProcess: @unchecked Sendable {
         primaryDescriptor = primary
         pid = childPID
 
-        queue = DispatchQueue(label: "majora.pty.\(childPID)")
+        queue = DispatchQueue(label: "ocarina.pty.\(childPID)")
         source = DispatchSource.makeReadSource(fileDescriptor: primary, queue: queue)
 
         let descriptor = primary

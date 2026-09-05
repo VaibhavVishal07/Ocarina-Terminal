@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 private struct StubTranscriptSource: LLMTranscriptSource {
     let prompt: String?

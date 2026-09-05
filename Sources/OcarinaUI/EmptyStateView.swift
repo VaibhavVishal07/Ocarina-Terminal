@@ -1,38 +1,42 @@
 import SwiftUI
 
-/// Shown when every tab has been closed: a night over Termina.
+/// Shown when every tab has been closed: the ocarina over Hyrule at dusk.
 ///
 /// With no tabs there is no strip either, so this owns the whole window.
 struct EmptyStateView: View {
     let onNewTab: () -> Void
 
-    @State private var isDescending = false
+    @State private var isBreathing = false
     @State private var isGlowing = false
     @State private var isCTAHovered = false
 
-    // Sky
-    private static let skyHigh = Color(red: 0.04, green: 0.05, blue: 0.13)
-    private static let skyMid = Color(red: 0.09, green: 0.08, blue: 0.22)
-    private static let skyLow = Color(red: 0.16, green: 0.11, blue: 0.24)
-    // Moonlight
-    private static let moonPale = Color(red: 0.99, green: 0.93, blue: 0.79)
-    private static let moonWarm = Color(red: 0.96, green: 0.75, blue: 0.44)
-    private static let moonDeep = Color(red: 0.85, green: 0.46, blue: 0.29)
-    private static let lampAmber = Color(red: 1.00, green: 0.76, blue: 0.36)
-    private static let silhouette = Color(red: 0.03, green: 0.03, blue: 0.08)
+    // Dusk, from the last light at the horizon up into night.
+    private static let skyHigh = Color(red: 0.08, green: 0.08, blue: 0.20)
+    private static let skyMid = Color(red: 0.31, green: 0.16, blue: 0.30)
+    private static let skyLow = Color(red: 0.72, green: 0.38, blue: 0.22)
+    // The ocarina: blue ceramic, lit from above.
+    private static let clayPale = Color(red: 0.66, green: 0.88, blue: 0.95)
+    private static let clayBlue = Color(red: 0.25, green: 0.56, blue: 0.83)
+    private static let clayDeep = Color(red: 0.09, green: 0.24, blue: 0.50)
+    // Gold, for the wordmark and everything that has to be read.
+    private static let goldPale = Color(red: 1.00, green: 0.93, blue: 0.74)
+    private static let goldWarm = Color(red: 0.97, green: 0.72, blue: 0.33)
+    private static let lampAmber = Color(red: 1.00, green: 0.80, blue: 0.42)
+    private static let holeShadow = Color(red: 0.04, green: 0.11, blue: 0.27)
+    private static let silhouette = Color(red: 0.07, green: 0.04, blue: 0.10)
 
     var body: some View {
         ZStack(alignment: .bottom) {
             sky
             NightSky()
-            town
+            hyrule
             content
         }
         .clipped()
         .onAppear {
-            // The moon does not hang in Termina. It arrives.
-            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) {
-                isDescending = true
+            // A held note, not a still image.
+            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
+                isBreathing = true
             }
             withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
                 isGlowing = true
@@ -51,38 +55,55 @@ struct EmptyStateView: View {
         .ignoresSafeArea()
     }
 
-    private var moon: some View {
-        GlyphArt(
-            rows: TerminaArt.moon,
-            size: 12,
-            rowSpacing: -3.5,
-            fill: LinearGradient(
-                colors: [Self.moonPale, Self.moonWarm, Self.moonDeep],
-                startPoint: .top,
-                endPoint: .bottom
+    private var ocarina: some View {
+        ZStack {
+            GlyphArt(
+                rows: HyruleArt.ocarina,
+                size: 11,
+                rowSpacing: -3.2,
+                // The pale stop is pulled in tight, so the highlight reads as
+                // glaze on one shoulder rather than washing out half the body.
+                fill: LinearGradient(
+                    stops: [
+                        .init(color: Self.clayPale, location: 0),
+                        .init(color: Self.clayBlue, location: 0.3),
+                        .init(color: Self.clayDeep, location: 1)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             )
-        )
+            // Same grid, so the holes land exactly on the body.
+            GlyphArt(
+                rows: HyruleArt.ocarinaHoles,
+                size: 11,
+                rowSpacing: -3.2,
+                fill: Self.holeShadow
+            )
+        }
+        // Held, not floating level.
+        .rotationEffect(.degrees(-11))
         // The halo is a background rather than a sibling, so it can overflow
         // without claiming layout space and shoving the wordmark down.
         .background {
-            Circle()
+            Ellipse()
                 .fill(
                     RadialGradient(
-                        colors: [Self.moonWarm.opacity(0.5), Self.moonDeep.opacity(0.11), .clear],
+                        colors: [Self.clayPale.opacity(0.22), Self.clayBlue.opacity(0.10), .clear],
                         center: .center,
                         startRadius: 10,
-                        endRadius: isGlowing ? 200 : 160
+                        endRadius: isGlowing ? 240 : 190
                     )
                 )
-                .frame(width: 420, height: 420)
+                .frame(width: 560, height: 320)
         }
-        .shadow(color: Self.moonWarm.opacity(0.5), radius: isGlowing ? 24 : 14)
-        // The moon does not hang in Termina. It arrives.
-        .offset(y: isDescending ? 14 : 0)
+        .shadow(color: Self.clayPale.opacity(0.3), radius: isGlowing ? 18 : 10)
+        // A held note, not a still image.
+        .offset(y: isBreathing ? -7 : 0)
         .allowsHitTesting(false)
     }
 
-    private var town: some View {
+    private var hyrule: some View {
         ZStack(alignment: .bottom) {
             // The art is a fixed width; this carries the ground to the edges.
             Rectangle()
@@ -91,14 +112,14 @@ struct EmptyStateView: View {
 
             ZStack {
                 GlyphArt(
-                    rows: TerminaArt.skyline,
+                    rows: HyruleArt.skyline,
                     size: 11,
                     rowSpacing: -3,
                     fill: Self.silhouette
                 )
-                // Same grid, so the lit clock lands exactly in the tower.
+                // Same grid, so the lit windows land exactly in the castle.
                 GlyphArt(
-                    rows: TerminaArt.clockFace,
+                    rows: HyruleArt.castleLights,
                     size: 11,
                     rowSpacing: -3,
                     fill: Self.lampAmber
@@ -115,25 +136,25 @@ struct EmptyStateView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 24)
 
-            moon
+            ocarina
 
             Spacer(minLength: 24)
 
             GlyphArt(
-                rows: TerminaArt.wordmark,
+                rows: HyruleArt.wordmark,
                 size: 11,
                 rowSpacing: -3,
                 fill: LinearGradient(
-                    colors: [Self.moonPale, Self.moonWarm],
+                    colors: [Self.goldPale, Self.goldWarm],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
-            .shadow(color: Self.moonWarm.opacity(0.35), radius: 12)
+            .shadow(color: Self.goldWarm.opacity(0.35), radius: 12)
 
-            Text("Dawn of a new terminal")
+            Text("Song of a new terminal")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Self.moonPale.opacity(0.55))
+                .foregroundStyle(Self.goldPale.opacity(0.6))
                 .padding(.top, 12)
 
             callToAction
@@ -167,13 +188,13 @@ struct EmptyStateView: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(
                         LinearGradient(
-                            colors: [Self.moonPale, Self.moonWarm],
+                            colors: [Self.goldPale, Self.goldWarm],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .shadow(
-                        color: Self.moonWarm.opacity(isCTAHovered ? 0.75 : 0.4),
+                        color: Self.goldWarm.opacity(isCTAHovered ? 0.75 : 0.4),
                         radius: isCTAHovered ? 22 : 12,
                         y: 4
                     )
@@ -208,6 +229,6 @@ struct EmptyStateView: View {
             Text(description)
                 .font(.system(size: 11))
         }
-        .foregroundStyle(Self.moonPale.opacity(0.42))
+        .foregroundStyle(Self.goldPale.opacity(0.45))
     }
 }

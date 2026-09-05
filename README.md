@@ -1,4 +1,4 @@
-# Majora
+# Ocarina Terminal
 
 A terminal for macOS, written in Swift.
 
@@ -13,12 +13,12 @@ of `zsh` and `Claude`.
 
 ## Package layout
 
-`MajoraTerminalContext` is the naming subsystem. It holds no PTY state and does
+`OcarinaTerminalContext` is the naming subsystem. It holds no PTY state and does
 no rendering — it takes a `TerminalSessionSnapshot`, asks each provider what the
 terminal is doing, and folds the strongest answer into a `TabContext`.
 
 ```
-Sources/MajoraTerminalContext/
+Sources/OcarinaTerminalContext/
   ContextSource.swift            priority chain: shell < project < command < llm < manual
   ContextObservation.swift       one provider's reading, with a confidence
   TabContext.swift               per-tab naming state; displayTitle / subtitle
@@ -56,15 +56,18 @@ terminal, and nothing leaves the machine.
 ## The app
 
 ```
-Sources/MajoraUI/       SwiftUI layer
-  TerminalSession       one tab: pty + SwiftTerm view + naming monitor
-  MajoraModel           open tabs, selection, renames, title updates
-  TabStripView          task as the title; process on hover
-  CommandPaletteView    jump by what a terminal is doing (⇧⌘P)
-Sources/Majora/         executable entry point
+Sources/OcarinaUI/       SwiftUI layer
+  TerminalSession        one tab: pty + SwiftTerm view + naming monitor
+  OcarinaModel           open tabs, selection, renames, title updates
+  TabStripView           task as the title; process on hover
+  CommandPaletteView     jump by what a terminal is doing (⇧⌘P)
+  EmptyStateView         no tabs open: the ocarina over Hyrule at dusk
+  HyruleArt              the block art, as text rather than image assets
+  GlyphArt               draws a glyph stack under a single gradient
+Sources/Ocarina/         executable entry point
 ```
 
-SwiftTerm is used only as the VT parser and screen grid. Majora spawns the pty
+SwiftTerm is used only as the VT parser and screen grid. Ocarina spawns the pty
 itself, via `forkpty`, because `login_tty` is what makes the pty the child's
 controlling terminal — and without that `tcgetpgrp` reports nothing and the
 naming layer is blind.
@@ -72,5 +75,18 @@ naming layer is blind.
 ```
 swift build
 swift test
-swift run Majora
+swift run Ocarina
 ```
+
+## The empty state
+
+Close every tab and the window is given over to the artwork: the ocarina held
+over Hyrule at dusk, Death Mountain west and the castle lit across the field.
+
+Every figure is generated block art rather than a bundled image, so it stays
+crisp at any scale and the whole app ships as source. Two details carry it. The
+skyline and its lit windows are separate figures on one shared grid, so drawing
+the second over the first registers the lamps exactly inside the castle. And the
+ocarina's finger holes are a layer *over* the body rather than gaps punched in
+it — as gaps, the halo behind the instrument shines through and they read as lit
+windows instead of holes.

@@ -1,16 +1,16 @@
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
-@testable import MajoraUI
+@testable import OcarinaTerminalContext
+@testable import OcarinaUI
 
 /// Drives the SwiftUI model against a real shell on a real pty.
-@Suite("Majora model")
+@Suite("Ocarina model")
 @MainActor
-struct MajoraModelTests {
+struct OcarinaModelTests {
 
     private func makeProjectDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("majora-ui-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("ocarina-ui-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
     }
@@ -28,7 +28,7 @@ struct MajoraModelTests {
         let directory = try makeProjectDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let model = MajoraModel()
+        let model = OcarinaModel()
         let tab = model.newTab(workingDirectory: directory)
         defer { model.closeTab(tab.id) }
 
@@ -47,7 +47,7 @@ struct MajoraModelTests {
             encoding: .utf8
         )
 
-        let model = MajoraModel(
+        let model = OcarinaModel(
             namingService: TabNamingService(interval: .milliseconds(50))
         )
         let tab = model.newTab(workingDirectory: directory)
@@ -69,7 +69,7 @@ struct MajoraModelTests {
         let directory = try makeProjectDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let model = MajoraModel(
+        let model = OcarinaModel(
             namingService: TabNamingService(interval: .milliseconds(50))
         )
         let tab = model.newTab(workingDirectory: directory)
@@ -90,7 +90,7 @@ struct MajoraModelTests {
 
     @Test("Closing a tab removes it and selects another")
     func closingTabs() throws {
-        let model = MajoraModel()
+        let model = OcarinaModel()
         let first = model.newTab()
         let second = model.newTab()
 

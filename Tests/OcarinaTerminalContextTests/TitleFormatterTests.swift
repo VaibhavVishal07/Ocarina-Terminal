@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 @Suite("Title formatting")
 struct TitleFormatterTests {

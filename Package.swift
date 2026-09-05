@@ -2,31 +2,31 @@
 import PackageDescription
 
 let package = Package(
-    name: "Majora",
+    name: "Ocarina",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "MajoraTerminalContext", targets: ["MajoraTerminalContext"]),
-        .executable(name: "Majora", targets: ["Majora"])
+        .library(name: "OcarinaTerminalContext", targets: ["OcarinaTerminalContext"]),
+        .executable(name: "Ocarina", targets: ["Ocarina"])
     ],
     dependencies: [
         // Terminal emulation only: the VT parser and screen grid.
-        // Majora owns the pty itself, because naming needs the descriptor.
+        // Ocarina owns the pty itself, because naming needs the descriptor.
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.2.0")
     ],
     targets: [
-        .target(name: "MajoraTerminalContext"),
+        .target(name: "OcarinaTerminalContext"),
         .target(
-            name: "MajoraUI",
+            name: "OcarinaUI",
             dependencies: [
-                "MajoraTerminalContext",
+                "OcarinaTerminalContext",
                 .product(name: "SwiftTerm", package: "SwiftTerm")
             ]
         ),
-        .executableTarget(name: "Majora", dependencies: ["MajoraUI"]),
+        .executableTarget(name: "Ocarina", dependencies: ["OcarinaUI"]),
         .testTarget(
-            name: "MajoraTerminalContextTests",
-            dependencies: ["MajoraTerminalContext"]
+            name: "OcarinaTerminalContextTests",
+            dependencies: ["OcarinaTerminalContext"]
         ),
-        .testTarget(name: "MajoraUITests", dependencies: ["MajoraUI"])
+        .testTarget(name: "OcarinaUITests", dependencies: ["OcarinaUI"])
     ]
 )

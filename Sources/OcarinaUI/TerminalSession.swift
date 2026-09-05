@@ -1,11 +1,11 @@
 import AppKit
 import Foundation
-import MajoraTerminalContext
+import OcarinaTerminalContext
 import SwiftTerm
 
 /// One tab's terminal: the pty, the emulator view, and the naming monitor.
 ///
-/// Majora spawns the pty itself rather than letting SwiftTerm do it, so the
+/// Ocarina spawns the pty itself rather than letting SwiftTerm do it, so the
 /// descriptor stays available to `ProcessInspector`. SwiftTerm is used purely
 /// as the VT parser and screen grid.
 @MainActor
@@ -51,7 +51,7 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
                 shellName: URL(fileURLWithPath: shellPath).lastPathComponent
             )
         } catch {
-            terminalView.feed(text: "majora: could not start \(shellPath): \(error)\r\n")
+            terminalView.feed(text: "ocarina: could not start \(shellPath): \(error)\r\n")
         }
     }
 

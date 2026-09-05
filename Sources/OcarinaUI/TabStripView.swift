@@ -4,7 +4,7 @@ import SwiftUI
 /// surfaced on hover rather than competing with it. A dot on the left carries
 /// activity, so busy and failed tabs are findable without reading any text.
 struct TabStripView: View {
-    @Bindable var model: MajoraModel
+    @Bindable var model: OcarinaModel
     @State private var hoveredTabID: UUID?
     @State private var renamingTabID: UUID?
     @State private var draftTitle: String = ""

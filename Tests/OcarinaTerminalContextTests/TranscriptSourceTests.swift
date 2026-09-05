@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MajoraTerminalContext
+@testable import OcarinaTerminalContext
 
 /// Fixtures mirror records taken from real transcripts on disk.
 @Suite("Local session metadata")
@@ -8,7 +8,7 @@ struct TranscriptSourceTests {
 
     private func makeTemporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("majora-tests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("ocarina-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -81,7 +81,7 @@ struct TranscriptSourceTests {
 
     @Test("A missing transcript directory is silence, not a crash")
     func missingTranscripts() async {
-        let source = ClaudeTranscriptSource(root: URL(fileURLWithPath: "/nonexistent-majora-root"))
+        let source = ClaudeTranscriptSource(root: URL(fileURLWithPath: "/nonexistent-ocarina-root"))
         let prompt = await source.latestHumanPrompt(
             forWorkingDirectory: URL(fileURLWithPath: "/Users/me/checkout")
         )

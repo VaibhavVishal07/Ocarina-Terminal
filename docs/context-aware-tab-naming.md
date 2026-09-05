@@ -1,7 +1,7 @@
 # Context-Aware Tab Naming
 
-Status: Draft — core implemented in `MajoraTerminalContext`
-Target: Majora (Swift, macOS)
+Status: Draft — core implemented in `OcarinaTerminalContext`
+Target: Ocarina (Swift, macOS)
 
 ## Problem
 
@@ -246,12 +246,12 @@ glyph, no label, so twenty tabs stay scannable.
 | Failed | red | last command exited non-zero |
 
 Running and idle are detectable from the foreground process alone. Exit status
-is not: the command is the *shell's* child, not Majora's, so there is no
+is not: the command is the *shell's* child, not Ocarina's, so there is no
 interface that will hand over a non-child's exit code. The shell has to report
 it, which is what OSC 133 exists for — `C` when a command starts, `D;<status>`
 when it ends.
 
-Majora supplies that by pointing `ZDOTDIR` at a generated config that sources
+Ocarina supplies that by pointing `ZDOTDIR` at a generated config that sources
 the user's own files first, installs `preexec`/`precmd` hooks, and restores
 `ZDOTDIR` before the user's prompt runs. Integration is optional: without it,
 tabs still show running and idle correctly, and never claim a result they
@@ -259,7 +259,7 @@ cannot know. Only zsh is wired up so far.
 
 ## Implementation status
 
-Built (`Sources/MajoraTerminalContext`, 39 tests):
+Built (`Sources/OcarinaTerminalContext`, 39 tests):
 
 - `TabContext`, `ContextObservation`, `ContextSource` priority chain
 - `TabNamingEngine` — confidence floor, dwell window, replacement margin, no

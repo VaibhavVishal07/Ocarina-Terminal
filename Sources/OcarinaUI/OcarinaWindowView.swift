@@ -1,7 +1,7 @@
 import SwiftUI
 
-public struct MajoraWindowView: View {
-    @State private var model = MajoraModel()
+public struct OcarinaWindowView: View {
+    @State private var model = OcarinaModel()
 
     public init() {}
 
