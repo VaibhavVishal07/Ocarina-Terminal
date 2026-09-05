@@ -12,6 +12,31 @@ public final class PTYProcess: @unchecked Sendable {
         case couldNotOpenPTY(errno: Int32)
     }
 
+    /// Variables that mark an environment as belonging to some other tool's
+    /// session, rather than describing the machine or the user.
+    ///
+    /// A terminal launched from inside such a session inherits them and hands
+    /// them to every shell it spawns, so a nested tool believes it is running
+    /// as a child of its own parent session — Claude Code reports "transcript
+    /// saving is off" for exactly this reason. One of them is a messaging
+    /// token, which has no business reaching an arbitrary shell at all.
+    ///
+    /// Only session identity is dropped. Credentials and configuration a user
+    /// exports for their own use (`ANTHROPIC_API_KEY` and the like) are theirs
+    /// and are left alone.
+    static func removeInheritedSessionMarkers(from environment: inout [String: String]) {
+        for key in environment.keys where isSessionMarker(key) {
+            environment.removeValue(forKey: key)
+        }
+    }
+
+    static func isSessionMarker(_ key: String) -> Bool {
+        if key == "CLAUDECODE" || key == "CLAUDE_PID" || key == "CLAUDE_EFFORT" {
+            return true
+        }
+        return key.hasPrefix("CLAUDE_CODE_")
+    }
+
     /// The descriptor Ocarina reads and writes; the child holds the other end.
     public let primaryDescriptor: Int32
     public let pid: pid_t
@@ -42,6 +67,7 @@ public final class PTYProcess: @unchecked Sendable {
         )
 
         var resolved = environment ?? ProcessInfo.processInfo.environment
+        Self.removeInheritedSessionMarkers(from: &resolved)
         resolved["TERM"] = resolved["TERM"] ?? "xterm-256color"
 
         // Allocated before the fork: only async-signal-safe calls are legal
