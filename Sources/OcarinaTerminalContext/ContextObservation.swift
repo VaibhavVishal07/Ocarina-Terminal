@@ -16,6 +16,10 @@ public struct ContextObservation: Sendable, Equatable {
     public var processName: String?
     public var projectName: String?
     public var workingDirectory: URL?
+    /// Identifies the thing being observed across polls — a transcript's
+    /// session id, say. Two observations sharing one are the same speaker
+    /// changing its mind, not two rivals competing for the tab.
+    public var continuityID: String?
 
     public init(
         title: String,
@@ -24,7 +28,8 @@ public struct ContextObservation: Sendable, Equatable {
         confidence: Double,
         processName: String? = nil,
         projectName: String? = nil,
-        workingDirectory: URL? = nil
+        workingDirectory: URL? = nil,
+        continuityID: String? = nil
     ) {
         self.title = title
         self.activeTask = activeTask
@@ -33,5 +38,6 @@ public struct ContextObservation: Sendable, Equatable {
         self.processName = processName
         self.projectName = projectName
         self.workingDirectory = workingDirectory
+        self.continuityID = continuityID
     }
 }

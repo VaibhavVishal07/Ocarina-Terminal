@@ -1,6 +1,12 @@
 import SwiftUI
 
 public struct OcarinaWindowView: View {
+    /// The smallest the window may get. Below this the sidebar is pushed off
+    /// the window's left edge and clipped — the tab names lose their first
+    /// characters and the rows look jammed into the corner — so the window is
+    /// held to it rather than the content merely refusing to shrink.
+    public static let minimumSize = CGSize(width: 820, height: 420)
+
     private let model: OcarinaModel
 
     public init(model: OcarinaModel) {
@@ -9,13 +15,13 @@ public struct OcarinaWindowView: View {
 
     public var body: some View {
         @Bindable var model = model
-        return VStack(spacing: 0) {
-            // With nothing open there is nothing to strip: the empty state
-            // gets the whole window rather than sitting under an empty bar.
+        return HStack(spacing: 0) {
+            // With nothing open there is no list to draw: the empty state gets
+            // the whole window rather than sitting beside an empty sidebar.
             if !model.tabs.isEmpty {
-                TabStripView(model: model)
-                    // A tool tip hangs below the strip, and the terminal is
-                    // drawn after it in the stack.
+                TabSidebarView(model: model)
+                    // A tool tip hangs off the sidebar's edge, and the terminal
+                    // is drawn after it in the stack.
                     .zIndex(1)
             }
 
@@ -26,18 +32,18 @@ public struct OcarinaWindowView: View {
                 if let session = model.selectedSession {
                     // The terminal had no inset at all: the first column sat on
                     // the window edge (clipping its left half) and the top line
-                    // ran straight into the tab strip.
+                    // ran under the titlebar.
                     TerminalHostView(session: session)
                         .id(session.id)
                         .padding(.leading, 10)
                         .padding(.trailing, 6)
-                        .padding(.top, 8)
+                        .padding(.top, 34)
                 } else {
                     EmptyStateView { model.newTab() }
                 }
             }
         }
-        .frame(minWidth: 720, minHeight: 420)
+        .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         .onAppear { model.start() }
         .sheet(isPresented: $model.isCommandPaletteVisible) {
             CommandPaletteView(model: model)

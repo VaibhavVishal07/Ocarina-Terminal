@@ -29,6 +29,21 @@ struct TabIconTests {
         #expect(Set(symbols).count == symbols.count)
     }
 
+    @Test("A shell's terminal symbol is not worth drawing, a program's is")
+    func plainTerminalIsDropped() {
+        // Every tab in a terminal app is a terminal, so the sidebar leaves the
+        // slot out rather than filling it with a picture of the obvious.
+        #expect(TabIcon.look(for: nil).isPlainTerminal)
+        #expect(TabIcon.look(for: "zsh").isPlainTerminal)
+        #expect(TabIcon.meaningfulLook(for: nil) == nil)
+        #expect(TabIcon.meaningfulLook(for: "fish") == nil)
+
+        // Anything that says more than "terminal" survives.
+        #expect(TabIcon.meaningfulLook(for: "claude")?.symbol == "sparkles")
+        #expect(TabIcon.meaningfulLook(for: "vim")?.symbol == "square.and.pencil")
+        #expect(TabIcon.meaningfulLook(for: "some-custom-tool") != nil)
+    }
+
     @Test("A running program is distinguishable from an idle prompt")
     func unknownProcessIsNotAShell() {
         #expect(TabIcon.look(for: "some-custom-tool").symbol != "terminal")

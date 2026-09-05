@@ -35,17 +35,28 @@ public struct LLMSessionContextProvider: TerminalContextProvider, Sendable {
     }
 
     public func observe(_ session: TerminalSessionSnapshot) async -> ContextObservation? {
-        if let prompt = await transcripts.latestHumanPrompt(forWorkingDirectory: session.workingDirectory),
-           let title = TitleFormatter.title(fromNaturalLanguage: prompt) {
-            return ContextObservation(
-                title: title,
-                activeTask: prompt,
-                source: .llmSession,
-                confidence: transcriptConfidence,
-                processName: displayName,
-                projectName: session.projectName,
-                workingDirectory: session.workingDirectory
-            )
+        let query = TranscriptQuery(
+            workingDirectory: session.workingDirectory,
+            sessionStartedAt: session.foregroundProcessStartTime
+        )
+        if let reading = await transcripts.latestPrompts(for: query) {
+            // The newest prompt is often "run it" or "now the other one" —
+            // a continuation that names nothing on its own. Walking back to
+            // the last prompt with a subject in it keeps the tab on the work
+            // rather than on the latest aside.
+            for prompt in reading.prompts {
+                guard let title = TitleFormatter.title(fromNaturalLanguage: prompt) else { continue }
+                return ContextObservation(
+                    title: title,
+                    activeTask: prompt,
+                    source: .llmSession,
+                    confidence: transcriptConfidence,
+                    processName: displayName,
+                    projectName: session.projectName,
+                    workingDirectory: session.workingDirectory,
+                    continuityID: "\(identifier):\(reading.sessionID)"
+                )
+            }
         }
 
         // Fall back to a title the tool set for itself, if it is not just the

@@ -14,6 +14,20 @@ enum TabIcon {
     struct Look {
         let symbol: String
         let tint: Color
+
+        /// True when the symbol is the bare terminal — a shell at a prompt, or
+        /// a tab with nothing running yet. Every tab in a terminal app is a
+        /// terminal, so drawing one says nothing that the window does not
+        /// already say.
+        var isPlainTerminal: Bool { symbol == "terminal" }
+    }
+
+    /// The look worth drawing, or `nil` when it would only repeat that this is
+    /// a terminal. Callers that want the symbol regardless — tests, and
+    /// anywhere a slot must be filled — use `look(for:)`.
+    static func meaningfulLook(for processName: String?) -> Look? {
+        let look = look(for: processName)
+        return look.isPlainTerminal ? nil : look
     }
 
     private static let neutral = Color.secondary

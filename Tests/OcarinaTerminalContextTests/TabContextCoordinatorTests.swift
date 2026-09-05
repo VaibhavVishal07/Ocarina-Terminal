@@ -3,8 +3,21 @@ import Testing
 @testable import OcarinaTerminalContext
 
 private struct StubTranscriptSource: LLMTranscriptSource {
-    let prompt: String?
-    func latestHumanPrompt(forWorkingDirectory directory: URL?) async -> String? { prompt }
+    let prompts: [String]
+    var sessionID = "stub-session"
+
+    init(prompt: String?) {
+        self.prompts = prompt.map { [$0] } ?? []
+    }
+
+    init(prompts: [String], sessionID: String = "stub-session") {
+        self.prompts = prompts
+        self.sessionID = sessionID
+    }
+
+    func latestPrompts(for query: TranscriptQuery) async -> TranscriptReading? {
+        prompts.isEmpty ? nil : TranscriptReading(prompts: prompts, sessionID: sessionID)
+    }
 }
 
 @Suite("Coordinator")
@@ -67,6 +80,27 @@ struct TabContextCoordinatorTests {
         )
         let context = await coordinator(prompt: nil).refresh(session)
         #expect(context.displayTitle == "Xstream Play")
+    }
+
+    @Test("A follow-up that names nothing leaves the tab on the work it names")
+    func followUpPromptsWalkBack() async {
+        let coordinator = TabContextCoordinator(
+            providers: [
+                LLMSessionContextProvider.claude(
+                    transcripts: StubTranscriptSource(prompts: [
+                        "Build and run it.",
+                        "run it again",
+                        "Fix the payment failure state on the checkout page."
+                    ])
+                )
+            ]
+        )
+        let session = TerminalSessionSnapshot(
+            foregroundProcessName: "claude",
+            workingDirectory: URL(fileURLWithPath: "/Users/me/checkout")
+        )
+        let context = await coordinator.refresh(session)
+        #expect(context.displayTitle == "Fix Payment Failure State")
     }
 
     @Test("A manual rename survives later refreshes")

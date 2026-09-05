@@ -11,6 +11,9 @@ public struct TerminalSessionSnapshot: Sendable, Equatable {
     public var foregroundProcessName: String?
     /// Full argv of the foreground process, when shell integration supplies it.
     public var foregroundCommandLine: [String]
+    /// When the foreground process started. Providers that read a tool's own
+    /// session files use it to pick this terminal's session out of several.
+    public var foregroundProcessStartTime: Date?
     public var workingDirectory: URL?
     /// Title the program set via OSC 0/1/2, if any.
     public var escapeSequenceTitle: String?
@@ -22,6 +25,7 @@ public struct TerminalSessionSnapshot: Sendable, Equatable {
         shellName: String? = nil,
         foregroundProcessName: String? = nil,
         foregroundCommandLine: [String] = [],
+        foregroundProcessStartTime: Date? = nil,
         workingDirectory: URL? = nil,
         escapeSequenceTitle: String? = nil,
         activity: TabActivity = .idle
@@ -30,6 +34,7 @@ public struct TerminalSessionSnapshot: Sendable, Equatable {
         self.shellName = shellName
         self.foregroundProcessName = foregroundProcessName
         self.foregroundCommandLine = foregroundCommandLine
+        self.foregroundProcessStartTime = foregroundProcessStartTime
         self.workingDirectory = workingDirectory
         self.escapeSequenceTitle = escapeSequenceTitle
         self.activity = activity

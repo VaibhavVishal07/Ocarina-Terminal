@@ -37,7 +37,12 @@ public enum TitleFormatter {
         "the", "a", "an", "this", "that", "these", "those", "its", "is", "was",
         "are", "were", "be", "been", "being", "some", "any", "my", "our",
         "your", "their", "just", "really", "actually", "currently", "properly",
-        "correctly", "again", "why", "what", "how", "whether", "it"
+        "correctly", "again", "why", "what", "how", "whether", "it",
+        // Intensifiers grade a thing without naming it, and they survive to
+        // the end of a four-word cut: "Default Tab Name Very".
+        "very", "quite", "pretty", "totally", "completely", "super",
+        "extremely", "slightly", "somewhat", "rather", "fairly", "kinda",
+        "sorta", "basically", "literally", "seriously", "honestly", "definitely"
     ]
 
     /// Conversational lead-ins, stripped before the title is cut.
@@ -56,6 +61,31 @@ public enum TitleFormatter {
         "on", "for", "in", "at", "with", "from", "to", "of", "into", "across",
         "because", "after", "before", "while", "using", "via", "about",
         "under", "over", "during", "when", "so", "and", "but", "then", "that"
+    ]
+
+    /// Verbs and directions that describe an action without naming its
+    /// subject. A title made only of these — "Build Run", from "build and run
+    /// it" — is indistinguishable from every other tab.
+    static let subjectlessWords: Set<String> = [
+        "build", "run", "fix", "check", "test", "update", "make", "add",
+        "create", "remove", "delete", "start", "stop", "restart", "install",
+        "deploy", "commit", "push", "pull", "merge", "rebase", "clean",
+        "refactor", "rename", "move", "copy", "open", "close", "show",
+        "print", "list", "try", "retry", "continue", "finish", "use", "keep",
+        "see", "look", "read", "write", "edit", "save", "load", "get", "set",
+        "put", "do", "done", "go", "now", "here", "there", "off", "back",
+        "up", "down", "out"
+    ]
+
+    /// Verbs about *getting* something. The noun is the point — "pull in some
+    /// bento box from GitHub" is a tab about the bento box, not about pulling
+    /// — so these are dropped as soon as a subject survives them. Verbs that
+    /// describe the work itself (fix, refactor, debug) are kept: they say what
+    /// the tab is for, which the noun alone does not.
+    static let fetchVerbs: Set<String> = [
+        "open", "pull", "clone", "fetch", "download", "install", "get",
+        "grab", "show", "list", "find", "look", "read", "load", "view",
+        "check", "see", "print", "display", "browse", "visit"
     ]
 
     // MARK: - Natural language
@@ -77,6 +107,13 @@ public enum TitleFormatter {
             if kept.count == wordLimit { break }
         }
         guard !kept.isEmpty else { return nil }
+        // Once the subject is in hand the fetch verb in front of it is noise.
+        if kept.count >= 2, let first = kept.first, fetchVerbs.contains(first) {
+            kept.removeFirst()
+        }
+        // Silence beats a title that could belong to any tab. The caller falls
+        // back to an earlier prompt, or leaves the tab on its project name.
+        guard kept.contains(where: { !subjectlessWords.contains($0) }) else { return nil }
         return titleCase(kept)
     }
 
@@ -214,10 +251,28 @@ public enum TitleFormatter {
     }
 
     static func tokenize(_ text: String) -> [String] {
-        text.lowercased()
-            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        text.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             .map(String.init)
+            .flatMap(splitCamelCasedName)
             .filter { !$0.isEmpty }
+    }
+
+    /// `TabNamingEngine` -> `tab naming engine`, but `iOS` and `GitHub` are
+    /// left whole: they are spelled that way, not camel-cased.
+    static func splitCamelCasedName(_ run: String) -> [String] {
+        let lowered = run.lowercased()
+        guard casedWords[lowered] == nil, !acronyms.contains(lowered) else { return [lowered] }
+
+        var previous: Character?
+        var hasBoundary = false
+        for character in run {
+            if character.isUppercase, let previous, previous.isLowercase {
+                hasBoundary = true
+                break
+            }
+            previous = character
+        }
+        return hasBoundary ? splitIdentifier(run) : [lowered]
     }
 
     static func stripLeadingFiller(_ words: [String]) -> [String] {

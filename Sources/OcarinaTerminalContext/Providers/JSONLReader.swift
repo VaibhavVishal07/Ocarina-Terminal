@@ -45,7 +45,7 @@ enum JSONLReader {
         where predicate: (String) -> Bool
     ) -> [URL] {
         let manager = FileManager.default
-        let keys: [URLResourceKey] = [.contentModificationDateKey, .isRegularFileKey]
+        let keys: [URLResourceKey] = [.contentModificationDateKey, .creationDateKey, .isRegularFileKey]
         var candidates: [URL] = []
 
         if recursive {
@@ -73,8 +73,15 @@ enum JSONLReader {
             .map(\.0)
     }
 
-    private static func modificationDate(of url: URL) -> Date {
+    static func modificationDate(of url: URL) -> Date {
         (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
             ?? .distantPast
+    }
+
+    /// When the file was first written. Distinguishes a session started in
+    /// this terminal from one that merely wrote to disk more recently.
+    static func creationDate(of url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate)
+            ?? modificationDate(of: url)
     }
 }

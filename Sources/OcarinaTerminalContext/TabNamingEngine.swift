@@ -71,6 +71,10 @@ public struct TabNamingEngine: Sendable {
         if TitleFormatter.isEquivalent(currentTitle, observation.title) {
             mergeMetadata(observation, into: &context)
             context.contextConfidence = max(context.contextConfidence, observation.confidence)
+            // A restarted agent lands on the same title from a new session;
+            // adopt its identity so the next real change is not treated as a
+            // rival bid.
+            if observation.continuityID != nil { context.continuityID = observation.continuityID }
             return .refreshedMetadata
         }
 
@@ -93,6 +97,14 @@ public struct TabNamingEngine: Sendable {
         guard now.timeIntervalSince(context.lastContextUpdate) >= policy.minimumDwell else {
             return .rejectedWithinDwell
         }
+        // The margin exists to stop a *rival* prying a memorised title away.
+        // One conversation whose task has moved on is not a rival: it is the
+        // same speaker, and it reports the same confidence every time, so a
+        // margin here would freeze the tab on its opening prompt forever.
+        if let continuity = observation.continuityID, continuity == context.continuityID {
+            adopt(observation, into: &context, at: now)
+            return .accepted
+        }
         guard observation.confidence >= context.contextConfidence + policy.replacementMargin else {
             return .rejectedInsufficientMargin
         }
@@ -103,6 +115,7 @@ public struct TabNamingEngine: Sendable {
     private func adopt(_ observation: ContextObservation, into context: inout TabContext, at now: Date) {
         context.generatedTitle = observation.title
         context.contextSource = observation.source
+        context.continuityID = observation.continuityID
         context.contextConfidence = observation.confidence
         context.lastContextUpdate = now
         mergeMetadata(observation, into: &context)

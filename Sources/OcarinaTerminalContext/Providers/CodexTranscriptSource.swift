@@ -18,18 +18,33 @@ public struct CodexTranscriptSource: LLMTranscriptSource {
         self.searchLimit = searchLimit
     }
 
-    public func latestHumanPrompt(forWorkingDirectory directory: URL?) async -> String? {
-        guard let directory else { return nil }
-        let rollouts = JSONLReader.files(
+    public func latestPrompts(for query: TranscriptQuery) async -> TranscriptReading? {
+        guard let directory = query.workingDirectory else { return nil }
+        var rollouts = JSONLReader.files(
             in: root,
             recursive: true,
             limit: searchLimit,
             where: { $0.hasPrefix("rollout-") && $0.hasSuffix(".jsonl") }
         )
 
+        // Two codex sessions on one project write two rollouts with the same
+        // cwd; only the one created alongside this process is this tab's.
+        if let startedAt = query.sessionStartedAt {
+            let threshold = startedAt.addingTimeInterval(-ClaudeTranscriptSource.launchTolerance)
+            let own = rollouts.filter { JSONLReader.creationDate(of: $0) >= threshold }
+            if !own.isEmpty {
+                rollouts = own.sorted { JSONLReader.creationDate(of: $0) < JSONLReader.creationDate(of: $1) }
+            }
+        }
+
         for rollout in rollouts {
             guard matches(directory, rollout: rollout) else { continue }
-            if let prompt = latestPrompt(in: rollout) { return prompt }
+            let prompts = prompts(in: rollout)
+            guard !prompts.isEmpty else { continue }
+            return TranscriptReading(
+                prompts: prompts,
+                sessionID: rollout.deletingPathExtension().lastPathComponent
+            )
         }
         return nil
     }
@@ -44,7 +59,9 @@ public struct CodexTranscriptSource: LLMTranscriptSource {
         return URL(fileURLWithPath: cwd).standardizedFileURL == directory.standardizedFileURL
     }
 
-    private func latestPrompt(in rollout: URL) -> String? {
+    /// Recent human prompts, most recent first.
+    private func prompts(in rollout: URL) -> [String] {
+        var found: [String] = []
         for line in JSONLReader.tailLines(of: rollout).reversed() {
             guard let object = JSONLReader.object(line),
                   object["type"] as? String == "event_msg",
@@ -55,8 +72,9 @@ public struct CodexTranscriptSource: LLMTranscriptSource {
 
             let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty || trimmed.hasPrefix("/") || trimmed.hasPrefix("<") { continue }
-            return trimmed
+            found.append(trimmed)
+            if found.count == transcriptPromptWindow { break }
         }
-        return nil
+        return found
     }
 }

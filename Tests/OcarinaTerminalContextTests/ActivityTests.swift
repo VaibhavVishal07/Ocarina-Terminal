@@ -59,6 +59,43 @@ struct ActivityTests {
         #expect(await monitor.snapshot().activity == .running)
     }
 
+    @Test("An interactive program is busy while it draws, not merely while it is open")
+    func interactiveProcessIsJudgedByOutput() async throws {
+        // A REPL holds the foreground from launch until it is quit, so
+        // "something is in the foreground" cannot be what lights the dot.
+        let pty = try PTYProcess(
+            executable: "/usr/bin/python3",
+            arguments: ["-"],
+            onOutput: { _ in }
+        )
+        defer { pty.terminate() }
+        let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
+
+        for _ in 0..<40 {
+            if await monitor.snapshot().foregroundProcessName == "python3" { break }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(await monitor.snapshot().foregroundProcessName == "python3")
+
+        // Sitting there having drawn nothing is not work.
+        #expect(await monitor.snapshot().activity == .idle)
+
+        // Drawing is.
+        await monitor.ingest(Array("working on it".utf8))
+        #expect(await monitor.snapshot().activity == .running)
+    }
+
+    @Test("A silent command is still working")
+    func silentCommandIsRunning() async throws {
+        // The counterpart: `sleep` and a quiet `make` never draw anything, and
+        // are busy for exactly as long as they hold the foreground.
+        #expect(!TerminalSessionMonitor.isInteractive("sleep"))
+        #expect(!TerminalSessionMonitor.isInteractive("make"))
+        #expect(TerminalSessionMonitor.isInteractive("claude"))
+        #expect(TerminalSessionMonitor.isInteractive("Claude Code"))
+        #expect(TerminalSessionMonitor.isInteractive("nvim"))
+    }
+
     @Test("A failing command turns the tab's dot red, end to end in a real zsh")
     func realShellReportsFailure() async throws {
         let support = FileManager.default.temporaryDirectory

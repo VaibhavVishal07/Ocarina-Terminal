@@ -55,6 +55,53 @@ struct TitleFormatterTests {
         #expect(TitleFormatter.title(fromCommand: []) == nil)
     }
 
+    @Test("A prompt with no subject in it names nothing")
+    func subjectlessPrompts() {
+        // Follow-ups lean on the previous turn for their subject. "Build Run"
+        // on a tab strip says less than the project name it would replace.
+        #expect(TitleFormatter.title(fromNaturalLanguage: "Build and run it.") == nil)
+        #expect(TitleFormatter.title(fromNaturalLanguage: "run it again") == nil)
+        #expect(TitleFormatter.title(fromNaturalLanguage: "pull it") == nil)
+        // One real subject is enough.
+        #expect(TitleFormatter.title(fromNaturalLanguage: "run the migration") == "Run Migration")
+    }
+
+    @Test("Intensifiers are graded opinions, not subjects")
+    func intensifiersDropped() {
+        #expect(
+            TitleFormatter.title(fromNaturalLanguage: "The default tab name is very off.")
+                == "Default Tab Name Off"
+        )
+    }
+
+    @Test("Camel-cased names in prose are read as names")
+    func camelCasedNames() {
+        #expect(
+            TitleFormatter.title(fromNaturalLanguage: "Refactor TabNamingEngine so it stops demoting.")
+                == "Refactor Tab Naming Engine"
+        )
+        // Words that are simply spelled with inner capitals stay whole.
+        #expect(TitleFormatter.title(fromNaturalLanguage: "ship the iOS build") == "Ship iOS Build")
+    }
+
+    @Test("Fetching something names the thing, not the fetching")
+    func fetchVerbsDropped() {
+        #expect(
+            TitleFormatter.title(fromNaturalLanguage: "pull in some bento box from GitHub")
+                == "Bento Box"
+        )
+        #expect(
+            TitleFormatter.title(fromNaturalLanguage: "Open Ocarina terminal from my GitHub account.")
+                == "Ocarina Terminal"
+        )
+        // Verbs that describe the work stay: they say what the tab is for.
+        #expect(TitleFormatter.title(fromNaturalLanguage: "fix the checkout page") == "Fix Checkout Page")
+        #expect(
+            TitleFormatter.title(fromNaturalLanguage: "refactor TabNamingEngine")
+                == "Refactor Tab Naming Engine"
+        )
+    }
+
     @Test("Titles differing only in case are the same title")
     func equivalence() {
         #expect(TitleFormatter.isEquivalent("Fix Payment Flow", "fix  payment flow"))

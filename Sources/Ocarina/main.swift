@@ -45,6 +45,11 @@ private func run() {
     window.backgroundColor = .clear
     window.title = "Ocarina"
     window.setContentSize(NSSize(width: 980, height: 620))
+    // Without this the window shrinks past what the content can lay out, and
+    // AppKit simply clips the overflow: the sidebar slides off the left edge,
+    // taking the first characters of every tab name with it.
+    window.contentMinSize = NSSize(width: OcarinaWindowView.minimumSize.width,
+                                   height: OcarinaWindowView.minimumSize.height)
     window.styleMask.insert(.fullSizeContentView)
     window.titlebarAppearsTransparent = true
     window.center()

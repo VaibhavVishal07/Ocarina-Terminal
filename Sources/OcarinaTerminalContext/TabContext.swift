@@ -21,6 +21,9 @@ public struct TabContext: Sendable, Equatable {
     public var activity: TabActivity = .idle
 
     public var contextSource: ContextSource
+    /// Which observed thing the current title came from. See
+    /// `ContextObservation.continuityID`.
+    public var continuityID: String?
     public var contextConfidence: Double
     public var lastContextUpdate: Date
     public var isAutoNamingEnabled: Bool
@@ -88,6 +91,7 @@ public struct TabContext: Sendable, Equatable {
         // confidence of whatever was current before the manual rename.
         contextConfidence = 0
         contextSource = .shell
+        continuityID = nil
         lastContextUpdate = .distantPast
     }
 

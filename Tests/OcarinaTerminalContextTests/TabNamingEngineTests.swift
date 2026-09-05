@@ -113,6 +113,62 @@ struct TabNamingEngineTests {
         #expect(context.displayTitle == "Debug Audio Switching")
     }
 
+    @Test("A session whose task moved on renames its own tab")
+    func sameSessionFollowsItsTask() {
+        // Transcript readings all carry the same confidence, so a margin rule
+        // would pin the tab to a session's opening prompt for its whole life.
+        var context = TabContext()
+        engine.apply(
+            ContextObservation(
+                title: "Open Ocarina Terminal",
+                source: .llmSession,
+                confidence: 0.85,
+                continuityID: "claude:abc"
+            ),
+            to: &context,
+            at: start
+        )
+        let decision = engine.apply(
+            ContextObservation(
+                title: "Fix Tab Naming",
+                source: .llmSession,
+                confidence: 0.85,
+                continuityID: "claude:abc"
+            ),
+            to: &context,
+            at: start.addingTimeInterval(600)
+        )
+        #expect(decision == .accepted)
+        #expect(context.displayTitle == "Fix Tab Naming")
+    }
+
+    @Test("A different session at the same confidence still cannot take the tab")
+    func rivalSessionStillBlocked() {
+        var context = TabContext()
+        engine.apply(
+            ContextObservation(
+                title: "Open Ocarina Terminal",
+                source: .llmSession,
+                confidence: 0.85,
+                continuityID: "claude:abc"
+            ),
+            to: &context,
+            at: start
+        )
+        let decision = engine.apply(
+            ContextObservation(
+                title: "Somebody Else's Work",
+                source: .llmSession,
+                confidence: 0.85,
+                continuityID: "claude:xyz"
+            ),
+            to: &context,
+            at: start.addingTimeInterval(600)
+        )
+        #expect(decision == .rejectedInsufficientMargin)
+        #expect(context.displayTitle == "Open Ocarina Terminal")
+    }
+
     @Test("Re-reading the same task refreshes metadata without renaming")
     func sameTitleRefreshes() {
         var context = TabContext()

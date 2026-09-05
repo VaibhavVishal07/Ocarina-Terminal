@@ -36,6 +36,24 @@ public enum ProcessInspector {
         return members.first
     }
 
+    /// When a process began, from the same kernel field `ps -o lstart` reads.
+    ///
+    /// Naming uses this to bind a terminal to its own agent session: session
+    /// files on disk carry no pty or pid, but the file a session writes is
+    /// created moments after the process that writes it.
+    public static func startTime(of pid: pid_t) -> Date? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
+
+        let started = info.kp_proc.p_un.__p_starttime
+        guard started.tv_sec > 0 else { return nil }
+        return Date(
+            timeIntervalSince1970: Double(started.tv_sec) + Double(started.tv_usec) / 1_000_000
+        )
+    }
+
     /// `PROC_PIDPATHINFO_MAXSIZE`, which is a macro libproc does not export
     /// to Swift: `4 * MAXPATHLEN`.
     static let maximumPathLength = 4 * Int(MAXPATHLEN)
