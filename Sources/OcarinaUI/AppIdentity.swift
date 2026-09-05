@@ -21,6 +21,23 @@ public enum AppIdentity {
         return stated.isEmpty ? "Ocarina" : stated
     }()
 
+    /// The product, without any build qualifier. This is the brand, and it is
+    /// the same word whichever build you are running.
+    public static let product = "Ocarina"
+
+    /// What marks this build out, if anything — "Test Build" for the debug
+    /// bundle, nil for the release.
+    ///
+    /// Kept apart from `product` so the wordmark can lead with the name and
+    /// carry the qualifier as a badge. Set as one string it truncated to
+    /// "Ocarina Test Bui…" in a 165pt column, which is the worst of both.
+    public static var variant: String? {
+        guard name != product else { return nil }
+        guard name.hasPrefix(product) else { return name }
+        let rest = name.dropFirst(product.count).trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? nil : rest
+    }
+
     /// Reads as a sentence in `pmset -g assertions`, which is the point of
     /// naming the assertion at all.
     public static var sleepReason: String { "\(name) is open" }

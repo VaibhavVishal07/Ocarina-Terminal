@@ -1,0 +1,104 @@
+[
+  {
+    "id": "agents",
+    "title": "Install an AI coding agent",
+    "items": [
+      {
+        "id": "claude-code",
+        "name": "Claude Code",
+        "blurb": "Anthropic's coding agent. Runs right here in a tab.",
+        "command": "curl -fsSL https://claude.ai/install.sh | bash",
+        "explain": "Downloads an installer from claude.ai and runs it. Puts a `claude` command in ~/.local/bin, and keeps itself updated after that.",
+        "verify": "claude --version",
+        "docs": "https://code.claude.com/docs/en/setup",
+        "lastVerified": "2026-09-05",
+        "alternatives": [
+          { "label": "With Homebrew", "command": "brew install --cask claude-code" },
+          { "label": "With npm", "command": "npm install -g @anthropic-ai/claude-code" }
+        ]
+      },
+      {
+        "id": "gemini-cli",
+        "name": "Gemini CLI",
+        "blurb": "Google's coding agent.",
+        "command": "npm install -g @google/gemini-cli",
+        "explain": "Installs Google's agent through npm, so it needs Node first. Gives you a `gemini` command.",
+        "verify": "gemini --version",
+        "docs": "https://www.npmjs.com/package/@google/gemini-cli",
+        "lastVerified": "2026-09-05"
+      },
+      {
+        "id": "codex-cli",
+        "name": "Codex CLI",
+        "blurb": "OpenAI's coding agent.",
+        "command": "npm install -g @openai/codex",
+        "explain": "Installs OpenAI's agent through npm, so it needs Node first. Gives you a `codex` command.",
+        "verify": "codex --version",
+        "docs": "https://www.npmjs.com/package/@openai/codex",
+        "lastVerified": "2026-09-05"
+      }
+    ]
+  },
+  {
+    "id": "foundations",
+    "title": "Things the agents need",
+    "items": [
+      {
+        "id": "homebrew",
+        "name": "Homebrew",
+        "blurb": "The thing most Mac install instructions assume you have.",
+        "command": "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+        "explain": "Downloads Homebrew's own installer and runs it. It will ask for your password, because it writes outside your home folder.",
+        "verify": "brew --version",
+        "docs": "https://brew.sh",
+        "lastVerified": "2026-09-05"
+      },
+      {
+        "id": "node",
+        "name": "Node",
+        "blurb": "Needed by Gemini CLI and Codex CLI.",
+        "command": "brew install node",
+        "explain": "Installs Node and npm using Homebrew. Install Homebrew first if you have not.",
+        "verify": "node --version",
+        "docs": "https://nodejs.org",
+        "lastVerified": "2026-09-05"
+      },
+      {
+        "id": "git",
+        "name": "Git and Apple's developer tools",
+        "blurb": "Version control, and the compilers a lot of installs quietly need.",
+        "command": "xcode-select --install",
+        "explain": "Opens Apple's own installer for the command line developer tools. Nothing is downloaded until you agree in the window that appears.",
+        "verify": "git --version",
+        "docs": "https://developer.apple.com/xcode/resources/",
+        "lastVerified": "2026-09-05"
+      }
+    ]
+  },
+  {
+    "id": "check",
+    "title": "Check what I already have",
+    "items": [
+      {
+        "id": "setup-check",
+        "name": "Check my setup",
+        "blurb": "Prints which of these are installed, and which are missing.",
+        "command": "for t in claude gemini codex node npm git brew; do printf '%-8s ' \"$t\"; command -v $t >/dev/null && echo installed || echo 'not installed'; done",
+        "explain": "Looks for each tool and prints whether it is there. Changes nothing.",
+        "verify": null,
+        "docs": "https://code.claude.com/docs/en/setup",
+        "lastVerified": "2026-09-05"
+      },
+      {
+        "id": "claude-doctor",
+        "name": "Why isn't Claude working?",
+        "blurb": "Claude Code's own diagnostics.",
+        "command": "claude doctor",
+        "explain": "Prints Claude Code's install health and settings problems. Read-only — it does not start a session or change anything.",
+        "verify": null,
+        "docs": "https://code.claude.com/docs/en/setup",
+        "lastVerified": "2026-09-05"
+      }
+    ]
+  }
+]

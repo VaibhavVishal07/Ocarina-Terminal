@@ -1,0 +1,63 @@
+{
+  "id": "superman",
+  "name": "Superman",
+  "isDark": true,
+  "terminal": {
+    "background": "#0B1430",
+    "foreground": "#DCE4F7",
+    "cursor": "#F2C33C",
+    "selection": "#38477A",
+    "ansi": [
+      "#5C6A93",
+      "#FF7A7A",
+      "#6FD79A",
+      "#F2C33C",
+      "#6FA6F5",
+      "#C08CF0",
+      "#63CFE0",
+      "#DCE4F7",
+      "#7A88AE",
+      "#FF9C9C",
+      "#93E4B6",
+      "#F7D673",
+      "#98C2F8",
+      "#D6AEF7",
+      "#8CE0EC",
+      "#F2F6FF"
+    ],
+    "fontName": "Geist Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#132048",
+    "panelBottom": "#0A1230",
+    "bed": "#060C20",
+    "bedOpacity": 0.84,
+    "rowHover": "#CFE0FF",
+    "rowSelected": "#CFE0FF",
+    "border": "#CFE0FF",
+    "textPrimary": "#EDF2FF",
+    "textSecondary": "#A6B4D8",
+    "textTertiary": "#7483AC",
+    "accent": "#B4232E"
+  },
+  "status": {
+    "idle": "#8FA8E0",
+    "running": "#F2C33C",
+    "succeeded": "#6FD79A",
+    "failed": "#FF7A7A"
+  },
+  "board": {
+    "lit": "#F2C33C",
+    "litDim": "#B4232E",
+    "unlit": "#16224A",
+    "backdrop": "#050918",
+    "highlight": "#FF7A7A"
+  },
+  "pattern": {
+    "shape": "crest",
+    "opacity": 0.06,
+    "scale": 15,
+    "color": "#F2C33C"
+  }
+}

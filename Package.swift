@@ -21,7 +21,16 @@ let package = Package(
                 "OcarinaTerminalContext",
                 .product(name: "SwiftTerm", package: "SwiftTerm")
             ],
-            resources: [.process("Resources")]
+            // `.process` flattens a directory tree into the bundle root, which
+            // loses the `Themes/` subdirectory the loader looks in. The icon is
+            // still processed; the themes are copied verbatim so their folder
+            // survives.
+            resources: [
+                .process("Resources/AppIcon.png"),
+                .copy("Resources/Themes"),
+                .copy("Resources/Recipes"),
+                .copy("Resources/Fonts"),
+            ]
         ),
         .executableTarget(name: "Ocarina", dependencies: ["OcarinaUI"]),
         .testTarget(

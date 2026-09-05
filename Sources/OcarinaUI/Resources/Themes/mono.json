@@ -1,0 +1,63 @@
+{
+  "id": "mono",
+  "name": "Mono",
+  "isDark": true,
+  "terminal": {
+    "background": "#101012",
+    "foreground": "#D2D2D4",
+    "cursor": "#D2D2D4",
+    "selection": "#46464E",
+    "ansi": [
+      "#6A6A6E",
+      "#9A9A9E",
+      "#B4B4B8",
+      "#C2C2C6",
+      "#8E8E92",
+      "#A6A6AA",
+      "#BCBCC0",
+      "#D2D2D4",
+      "#828286",
+      "#ADADB1",
+      "#C6C6CA",
+      "#D6D6DA",
+      "#A0A0A4",
+      "#B8B8BC",
+      "#CECED2",
+      "#EFEFF1"
+    ],
+    "fontName": "Geist Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#1D1D20",
+    "panelBottom": "#141416",
+    "bed": "#000000",
+    "bedOpacity": 0.78,
+    "rowHover": "#FFFFFF",
+    "rowSelected": "#FFFFFF",
+    "border": "#FFFFFF",
+    "textPrimary": "#EDEDEF",
+    "textSecondary": "#A4A4A8",
+    "textTertiary": "#76767A",
+    "accent": "#76767A"
+  },
+  "status": {
+    "idle": "#9A9A9E",
+    "running": "#D2D2D4",
+    "succeeded": "#B4B4B8",
+    "failed": "#EFEFF1"
+  },
+  "board": {
+    "lit": "#D2D2D4",
+    "litDim": "#76767A",
+    "unlit": "#1E1E22",
+    "backdrop": "#070708",
+    "highlight": "#EFEFF1"
+  },
+  "pattern": {
+    "shape": "dots",
+    "opacity": 0.05,
+    "scale": 10,
+    "color": "#D2D2D4"
+  }
+}

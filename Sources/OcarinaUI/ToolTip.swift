@@ -165,6 +165,7 @@ extension View {
 /// The bubble itself. Drawn by whoever owns the coordinate space, so it is not
 /// clipped by anything the control happens to sit inside.
 struct ToolTipBubble: View {
+    @Environment(\.theme) private var theme
     let target: ToolTipTarget
     /// Width available to place the bubble in, for keeping it on screen.
     let width: CGFloat
@@ -202,6 +203,7 @@ struct ToolTipBubble: View {
     var body: some View {
         Text(target.text)
             .font(.system(size: 11))
+            .foregroundStyle(theme.chrome.textPrimary.color)
             .lineLimit(3)
             .fixedSize(horizontal: false, vertical: true)
             .frame(width: textWidth, alignment: .leading)
@@ -209,10 +211,13 @@ struct ToolTipBubble: View {
             .padding(.vertical, 6)
             .background {
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(.ultraThinMaterial)
+                    // Solid, not material: a blur here picks up whatever
+                    // terminal text sits behind the bubble, and on a light
+                    // theme it picks up the desktop instead.
+                    .fill(theme.chrome.panelTop.color)
                     .overlay {
                         RoundedRectangle(cornerRadius: 7)
-                            .stroke(.white.opacity(0.12), lineWidth: 1)
+                            .stroke(theme.chrome.border.color.opacity(0.18), lineWidth: 1)
                     }
                     .shadow(color: .black.opacity(0.5), radius: 10, y: 3)
             }

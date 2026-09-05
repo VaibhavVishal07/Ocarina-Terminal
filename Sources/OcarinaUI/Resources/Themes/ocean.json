@@ -1,0 +1,63 @@
+{
+  "id": "ocean",
+  "name": "Ocean",
+  "isDark": true,
+  "terminal": {
+    "background": "#0E181C",
+    "foreground": "#CFE0E4",
+    "cursor": "#5FD6E0",
+    "selection": "#384D55",
+    "ansi": [
+      "#5A6E73",
+      "#F0827F",
+      "#6FD3A4",
+      "#DFBE72",
+      "#74B6EC",
+      "#BA9BE8",
+      "#5FD6E0",
+      "#CFE0E4",
+      "#788D93",
+      "#FFA29F",
+      "#93E4BE",
+      "#EFD69A",
+      "#9BCDF3",
+      "#D4BCF3",
+      "#8CE6EE",
+      "#EAF4F6"
+    ],
+    "fontName": "Geist Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#152429",
+    "panelBottom": "#0D171B",
+    "bed": "#071013",
+    "bedOpacity": 0.82,
+    "rowHover": "#C9EEF4",
+    "rowSelected": "#C9EEF4",
+    "border": "#C9EEF4",
+    "textPrimary": "#E9F3F5",
+    "textSecondary": "#A3B8BE",
+    "textTertiary": "#728890",
+    "accent": "#2A6C7A"
+  },
+  "status": {
+    "idle": "#8FC9D2",
+    "running": "#5FD6E0",
+    "succeeded": "#6FD3A4",
+    "failed": "#F0827F"
+  },
+  "board": {
+    "lit": "#5FD6E0",
+    "litDim": "#2A6C7A",
+    "unlit": "#17272C",
+    "backdrop": "#050C0F",
+    "highlight": "#DFBE72"
+  },
+  "pattern": {
+    "shape": "waves",
+    "opacity": 0.06,
+    "scale": 18,
+    "color": "#5FD6E0"
+  }
+}

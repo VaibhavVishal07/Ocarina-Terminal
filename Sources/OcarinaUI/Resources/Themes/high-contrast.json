@@ -1,0 +1,57 @@
+{
+  "id": "high-contrast",
+  "name": "High Contrast",
+  "isDark": true,
+  "terminal": {
+    "background": "#000000",
+    "foreground": "#FFFFFF",
+    "cursor": "#FFFF4D",
+    "selection": "#404040",
+    "ansi": [
+      "#9E9E9E",
+      "#FF8A80",
+      "#69F0AE",
+      "#FFE14D",
+      "#82B9FF",
+      "#EA9CFF",
+      "#5CE8E8",
+      "#FFFFFF",
+      "#C7C7C7",
+      "#FFB3AD",
+      "#9CFFCB",
+      "#FFF08A",
+      "#B3D4FF",
+      "#F3C4FF",
+      "#9CF5F5",
+      "#FFFFFF"
+    ],
+    "fontName": "Geist Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#141414",
+    "panelBottom": "#0A0A0A",
+    "bed": "#000000",
+    "bedOpacity": 0.9,
+    "rowHover": "#FFFFFF",
+    "rowSelected": "#FFFFFF",
+    "border": "#FFFFFF",
+    "textPrimary": "#FFFFFF",
+    "textSecondary": "#D0D0D0",
+    "textTertiary": "#A8A8A8",
+    "accent": "#5CE8E8"
+  },
+  "status": {
+    "idle": "#82B9FF",
+    "running": "#FFE14D",
+    "succeeded": "#69F0AE",
+    "failed": "#FF8A80"
+  },
+  "board": {
+    "lit": "#5CE8E8",
+    "litDim": "#9E9E9E",
+    "unlit": "#1A1A1A",
+    "backdrop": "#000000",
+    "highlight": "#FFE14D"
+  }
+}

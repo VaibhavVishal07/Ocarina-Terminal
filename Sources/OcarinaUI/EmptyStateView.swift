@@ -13,37 +13,45 @@ struct EmptyStateView: View {
 
     @State private var isHovered = false
 
-    // Shared with the rest of the app, so the switch in the sidebar and the
-    // board here cannot drift apart.
-    private static let backdrop = Palette.backdrop
-    private static let unlit = Palette.unlit
-    private static let lit = Palette.lit
-    private static let litDim = Palette.litDim
-    private static let amber = Palette.amber
+    // The board is the app's one piece of pure identity, so it is themed
+    // rather than fixed: a Sakura board is pink dots on pale, an Ocarina board
+    // is the blue it always was, and both come from the same five slots.
+    @Environment(\.theme) private var theme
 
-    /// Only the two things you can actually do with no tabs open. Closing a tab
-    /// and jumping between terminals both need a terminal to exist.
-    private static let hints = [("CMD SHIFT P", "COMMAND PALETTE"), ("CMD Q", "QUIT")]
+    private var backdrop: Color { theme.board.backdrop.color }
+    private var unlit: Color { theme.board.unlit.color }
+    private var lit: Color { theme.board.lit.color }
+    private var litDim: Color { theme.board.litDim.color }
+    private var amber: Color { theme.board.highlight.color }
+
+    /// What you can actually do with no tabs open. Quick Actions leads,
+    /// because this screen is where a new user is sitting and "how do I install
+    /// anything" is the question they have.
+    private static let hints = [
+        ("CMD K", "QUICK ACTIONS"),
+        ("CMD SHIFT P", "COMMAND PALETTE"),
+        ("CMD Q", "QUIT"),
+    ]
 
     var body: some View {
         ZStack {
-            Self.backdrop.opacity(0.62).ignoresSafeArea()
+            backdrop.opacity(0.62).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 DotMatrixText(
                     text: "OCARINA",
                     cell: 4.4,
                     gap: 1.6,
-                    lit: Self.lit,
-                    unlit: Self.unlit
+                    lit: lit,
+                    unlit: unlit
                 )
 
                 DotMatrixText(
                     text: "SONG OF A NEW TERMINAL",
                     cell: 1.9,
                     gap: 0.85,
-                    lit: Self.litDim,
-                    unlit: Self.unlit,
+                    lit: litDim,
+                    unlit: unlit,
                     glow: false
                 )
                 .padding(.top, 12)
@@ -57,8 +65,8 @@ struct EmptyStateView: View {
                             text: keys.column(13) + action.column(15),
                             cell: 1.9,
                             gap: 0.85,
-                            lit: Self.litDim,
-                            unlit: Self.unlit,
+                            lit: litDim,
+                            unlit: unlit,
                             glow: false
                         )
                     }
@@ -75,15 +83,15 @@ struct EmptyStateView: View {
                 text: "NEW TERMINAL",
                 cell: 2.9,
                 gap: 1.15,
-                lit: isHovered ? Self.amber : Self.lit,
-                unlit: Self.unlit
+                lit: isHovered ? amber : lit,
+                unlit: unlit
             )
             DotMatrixText(
                 text: "CMD T",
                 cell: 2.9,
                 gap: 1.15,
-                lit: isHovered ? Self.amber.opacity(0.7) : Self.litDim,
-                unlit: Self.unlit,
+                lit: isHovered ? amber.opacity(0.7) : litDim,
+                unlit: unlit,
                 glow: false
             )
         }
@@ -96,7 +104,7 @@ struct EmptyStateView: View {
         }
         .overlay {
             Rectangle()
-                .stroke(isHovered ? Self.amber : Self.litDim, lineWidth: 1)
+                .stroke(isHovered ? amber : litDim, lineWidth: 1)
         }
         .contentShape(.rect)
         .onHover { hovering in

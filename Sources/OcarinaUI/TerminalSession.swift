@@ -14,6 +14,10 @@ import SwiftTerm
 public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelegate {
     public let id: UUID
     public let terminalView: TerminalView
+    /// Where this tab's shell started. The task panel needs it to find the
+    /// right transcript — agents write per project directory, so reading the
+    /// home folder's would show another tab's work.
+    public let workingDirectory: URL
     public private(set) var monitor: TerminalSessionMonitor?
 
     private var pty: PTYProcess?
@@ -21,6 +25,8 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
 
     public init(workingDirectory: URL? = nil) {
         id = UUID()
+        self.workingDirectory = workingDirectory
+            ?? FileManager.default.homeDirectoryForCurrentUser
         shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         terminalView = TerminalView(frame: CGRect(x: 0, y: 0, width: 800, height: 480))
         super.init()
@@ -122,4 +128,61 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     public func clipboardRead(source: TerminalView) -> Data? {
         NSPasteboard.general.string(forType: .string)?.data(using: .utf8)
     }
+
+    // MARK: - Theme and text
+
+    /// Restyles the emulator. Applied to every open session when the theme
+    /// changes, so switching is live rather than something you relaunch for.
+    ///
+    /// The background stays clear whatever the theme says: the window is
+    /// non-opaque and the bed behind the text is drawn by `OcarinaWindowView`,
+    /// so painting it here would lay an opaque slab over the glass.
+    public func apply(_ theme: Theme) {
+        let terminal = theme.terminal
+        terminalView.font = terminal.resolvedFont
+        terminalView.nativeForegroundColor = terminal.foreground.nsColor
+        terminalView.nativeBackgroundColor = .clear
+        terminalView.caretColor = terminal.cursor.nsColor
+        terminalView.selectedTextBackgroundColor = terminal.selection.nsColor
+        terminalView.installColors(terminal.ansi.map(\.swiftTermColor))
+
+        // A bar, not a block. SwiftTerm defaults to a filled cell, which is
+        // what a terminal has always done — but it sits *over* the character
+        // under it, so the thing you are about to edit is the one thing you
+        // cannot see. Every text field this user has ever typed into blinks a
+        // thin line, and that is the expectation worth matching.
+        //
+        // A program can still ask for another shape through the usual escape
+        // sequence; this only sets what a fresh shell starts with.
+        terminalView.getTerminal().setCursorStyle(.blinkBar)
+    }
+
+    /// Types text at the prompt without running it.
+    ///
+    /// Quick Actions and the paste inspector both end here, and neither presses
+    /// Return. Seeing the command land and pressing Return yourself is the
+    /// difference between a button that teaches you something and a button that
+    /// does something you could not describe afterwards.
+    public func type(_ text: String) {
+        terminalView.send(txt: text)
+    }
+
+    /// The visible screen, for handing a failure to an agent that can read it.
+    /// Blank lines at either end are dropped so the excerpt starts at the
+    /// command and ends at the error.
+    public func recentOutput(lines: Int = 40) -> String {
+        let terminal = terminalView.getTerminal()
+        let rows = terminal.rows
+        guard rows > 0, terminal.cols > 0 else { return "" }
+        let text = terminal.getText(
+            start: Position(col: 0, row: max(0, rows - lines)),
+            end: Position(col: terminal.cols - 1, row: rows - 1)
+        )
+        let trimmed = text
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .drop(while: \.isEmpty)
+        return trimmed.reversed().drop(while: \.isEmpty).reversed().joined(separator: "\n")
+    }
+
 }

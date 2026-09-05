@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 public struct OcarinaWindowView: View {
@@ -21,6 +22,15 @@ public struct OcarinaWindowView: View {
         self.model = model
     }
 
+    /// Read from the store, not from the environment.
+    ///
+    /// This view is the one that *publishes* the theme, and `.environment` only
+    /// reaches descendants — a view cannot read a value it sets on itself. Doing
+    /// so silently handed the terminal's bed the compiled-in fallback while
+    /// every view below it drew the chosen theme, so a light theme came up with
+    /// a pale sidebar against a near-black terminal.
+    private var theme: Theme { model.themes.theme }
+
     public var body: some View {
         @Bindable var model = model
         return HStack(spacing: 0) {
@@ -36,7 +46,9 @@ public struct OcarinaWindowView: View {
             ZStack {
                 // Not fully opaque: the terminal view itself is clear, so this
                 // is the only thing between the text and the window's glass.
-                Color.black.opacity(0.72)
+                theme.chrome.bed.color
+                    .opacity(theme.chrome.bedOpacity)
+                    .ignoresSafeArea(edges: .top)
                 if let session = model.selectedSession {
                     // The terminal had no inset at all: the first column sat on
                     // the window edge (clipping its left half) and the top line
@@ -59,11 +71,85 @@ public struct OcarinaWindowView: View {
                     EmptyStateView { model.newTab() }
                 }
             }
+            .overlay(alignment: .top) {
+                if let code = model.selectedFailure, model.isErrorBannerVisible {
+                    ErrorBannerView(
+                        exitCode: code,
+                        hasAgent: ErrorHelp.installedAgent() != nil,
+                        explain: { model.explainLastFailure() },
+                        dismiss: { model.isErrorBannerVisible = false }
+                    )
+                    // Clear of the titlebar, which the content sits under.
+                    .padding(.top, 30)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeOut(duration: 0.18), value: model.selectedFailure)
+            // Floating, not a column. A column of its own showed the raw
+            // window backdrop as a grey band down the edge; over the terminal
+            // it sits on the theme, and the inset keeps it off the scroller.
+            .overlay(alignment: .trailing) {
+                PanelHandle(model: model).padding(.trailing, 13)
+            }
+
+            if model.isTaskPanelVisible {
+                TaskPanelView(tasks: model.tasks) { model.setTaskPanel(visible: false) }
+                    .transition(.move(edge: .trailing))
+            }
         }
+        .animation(.easeOut(duration: 0.2), value: model.isTaskPanelVisible)
+        // Not a sheet. A sheet on macOS is modal and will not dismiss on a
+        // click outside it, and picking a theme is a thing you do by trying
+        // three and then getting on with your work.
+        .overlay {
+            if model.isThemePickerVisible {
+                ZStack {
+                    Color.black.opacity(0.42)
+                        .ignoresSafeArea()
+                        .contentShape(.rect)
+                        .onTapGesture { model.isThemePickerVisible = false }
+                    ThemePickerView(model: model) { model.isThemePickerVisible = false }
+                }
+                .environment(\.theme, model.themes.theme)
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: model.isThemePickerVisible)
         .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
-        .onAppear { model.start() }
+        // Published once, here, so every view below reads the same theme.
+        .environment(\.theme, model.themes.theme)
+        .onAppear {
+            model.start()
+            model.applyThemeToSessions()
+            model.startWatchingForTasks()
+            Self.matchSystemAppearance(to: model.themes.theme)
+        }
+        .onChange(of: model.themes.selectedID) { _, _ in
+            model.applyThemeToSessions()
+            Self.matchSystemAppearance(to: model.themes.theme)
+        }
         .sheet(isPresented: $model.isCommandPaletteVisible) {
             CommandPaletteView(model: model)
         }
+        .sheet(item: $model.pendingPaste) { reading in
+            PasteReviewView(
+                reading: reading,
+                paste: { model.confirmPendingPaste() },
+                cancel: { model.pendingPaste = nil }
+            )
+            .environment(\.theme, model.themes.theme)
+        }
+        .sheet(isPresented: $model.isQuickActionsVisible) {
+            QuickActionsView(model: model)
+                .environment(\.theme, model.themes.theme)
+        }
+    }
+
+    /// System controls draw themselves — the keep-awake switch, menus, the
+    /// window's own furniture — and they take their cue from `NSAppearance`,
+    /// not from us. Without this a light theme keeps a dark switch and dark
+    /// scrollbars, which reads as a half-finished theme rather than a choice.
+    private static func matchSystemAppearance(to theme: Theme) {
+        NSApp.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
     }
 }

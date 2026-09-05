@@ -33,7 +33,9 @@ public final class MainMenuController: NSObject {
 
         menu.addItem(submenu(named: "File", items: [
             item("New Tab", #selector(newTab), "t"),
-            item("Close Tab", #selector(closeTab), "w")
+            item("Close Tab", #selector(closeTab), "w"),
+            .separator(),
+            item("Quick Actions…", #selector(toggleQuickActions), "k")
         ]))
 
         // A terminal without ⌘C / ⌘V is not a terminal. These go to whatever
@@ -41,13 +43,19 @@ public final class MainMenuController: NSObject {
         menu.addItem(submenu(named: "Edit", items: [
             chainItem("Cut", #selector(NSText.cut(_:)), "x"),
             chainItem("Copy", #selector(NSText.copy(_:)), "c"),
-            chainItem("Paste", #selector(NSText.paste(_:)), "v"),
+            // Targeted, not chained: the point is to look at the text before
+            // SwiftTerm ever sees it.
+            item("Paste", #selector(pasteWithReview), "v"),
             chainItem("Select All", #selector(NSText.selectAll(_:)), "a")
         ]))
 
         menu.addItem(submenu(named: "View", items: [
             item("Command Palette…", #selector(toggleCommandPalette), "p",
                  modifiers: [.command, .shift]),
+            .separator(),
+            item("Tasks", #selector(toggleTaskPanel), "j"),
+            .separator(),
+            item("Theme\u{2026}", #selector(showThemePicker)),
             .separator(),
             item("Keep This Mac Awake", #selector(toggleSleepGuard))
         ]))
@@ -97,6 +105,25 @@ public final class MainMenuController: NSObject {
     }
 
     @objc private func toggleCommandPalette() { model.isCommandPaletteVisible.toggle() }
+
+    @objc private func toggleQuickActions() { model.isQuickActionsVisible.toggle() }
+
+    @objc private func toggleTaskPanel() { model.setTaskPanel(visible: !model.isTaskPanelVisible) }
+
+    @objc private func showThemePicker() { model.isThemePickerVisible = true }
+
+    @objc private func pasteWithReview() {
+        // While a tab is being renamed the focused thing is a text field, and
+        // the paste belongs to *it*. Routing everything to the terminal meant
+        // ⌘V during a rename typed into the shell behind the field — the text
+        // went somewhere the user was not looking. `TerminalView` is an
+        // `NSView`, not an `NSTextView`, so this tells the two apart.
+        if let window = NSApp.keyWindow, window.firstResponder is NSTextView {
+            NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
+            return
+        }
+        model.requestPaste(NSPasteboard.general.string(forType: .string))
+    }
 
     @objc private func toggleSleepGuard() { model.sleepGuard.isEnabled.toggle() }
 

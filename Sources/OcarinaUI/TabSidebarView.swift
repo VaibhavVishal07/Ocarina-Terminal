@@ -43,6 +43,7 @@ struct TabSidebarView: View {
     /// does not shift down as the pointer arrives.
     private static let rowHeight: CGFloat = 32
 
+    @Environment(\.theme) private var theme
     @Bindable var model: OcarinaModel
     @State private var hoveredTabID: UUID?
     @State private var renamingTabID: UUID?
@@ -50,6 +51,8 @@ struct TabSidebarView: View {
     @FocusState private var isRenameFocused: Bool
     @State private var toolTip: ToolTipTarget?
     @State private var isNewTabHovered = false
+    @State private var isThemeHovered = false
+    @State private var isTasksHovered = false
 
     private static let space = "tabsidebar"
 
@@ -76,12 +79,17 @@ struct TabSidebarView: View {
                 .padding(.bottom, Self.inset)
             }
 
+            footerLinks
             sleepPanel
         }
         .frame(width: Self.width)
-        .background(metal)
+        // Under the titlebar too. SwiftUI insets content for the titlebar's
+        // safe area, which is right for the tabs and wrong for the surface
+        // behind them: it left the top strip showing the raw window backdrop,
+        // a flat grey band across a themed window.
+        .background(metal.ignoresSafeArea(edges: .top))
         .overlay(alignment: .trailing) {
-            Rectangle().fill(.white.opacity(0.06)).frame(width: 1)
+            Rectangle().fill(theme.chrome.border.color.opacity(0.10)).frame(width: 1)
         }
         .coordinateSpace(name: Self.space)
         .overlay(alignment: .topLeading) {
@@ -107,21 +115,24 @@ struct TabSidebarView: View {
     private var metal: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.128, green: 0.133, blue: 0.143),
-                    Color(red: 0.100, green: 0.104, blue: 0.112),
-                    Color(red: 0.078, green: 0.081, blue: 0.088),
-                ],
+                colors: [theme.chrome.panelTop.color, theme.chrome.panelBottom.color],
                 startPoint: .top,
                 endPoint: .bottom
             )
+            // The sheen is light falling on a surface, so it is drawn in the
+            // theme's own text colour rather than always in white: on a pale
+            // panel a white highlight is invisible and a dark one reads.
             LinearGradient(
-                colors: [.white.opacity(0.035), .clear],
+                colors: [theme.chrome.textPrimary.color.opacity(0.035), .clear],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .frame(height: 110)
             .frame(maxHeight: .infinity, alignment: .top)
+
+            if let pattern = theme.pattern {
+                PatternView(motif: pattern)
+            }
         }
         .allowsHitTesting(false)
     }
@@ -140,24 +151,27 @@ struct TabSidebarView: View {
                 // The plus takes the status dot's column, so "New Tab" starts
                 // on the same left edge as a plain shell tab's name.
                 Image(systemName: "plus")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .font(theme.uiFont(10.5, weight: .bold))
                     .frame(width: 9)
                 Text("New Tab")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(theme.uiFont(12, weight: .medium))
                 Spacer(minLength: 0)
                 Text("\u{2318}T")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.tertiary)
+                    .font(theme.uiFont(10.5, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(isNewTabHovered
+                             ? theme.chrome.textPrimary.color
+                             : theme.chrome.textSecondary.color)
             .padding(.horizontal, 7)
             .frame(minHeight: Self.rowHeight)
             .background {
                 RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
-                    .fill(Color.white.opacity(isNewTabHovered ? 0.07 : 0))
+                    .fill(theme.chrome.rowHover.color.opacity(isNewTabHovered ? 0.07 : 0))
                     .overlay {
                         RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
-                            .stroke(.white.opacity(isNewTabHovered ? 0.10 : 0), lineWidth: 1)
+                            .stroke(theme.chrome.border.color.opacity(isNewTabHovered ? 0.10 : 0),
+                                    lineWidth: 1)
                     }
             }
             .contentShape(.rect)
@@ -166,6 +180,87 @@ struct TabSidebarView: View {
         .onHover { isNewTabHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isNewTabHovered)
         .padding(.top, 3)
+    }
+
+    // MARK: - Footer
+
+    /// The two things that otherwise live only in the menu bar — the one place
+    /// a person coming from a web interface does not think to look.
+    ///
+    /// Tasks is here *and* on the tab at the right edge. That is deliberate
+    /// duplication: the tab is the discoverable one and sits beside the panel
+    /// it opens, and this is the one you find when you are already reading the
+    /// column of settings, with its shortcut written next to it.
+    private var footerLinks: some View {
+        VStack(spacing: 2) {
+            Button {
+                model.setTaskPanel(visible: !model.isTaskPanelVisible)
+            } label: {
+                footerRow(
+                    symbol: "checklist",
+                    title: "Tasks",
+                    trailing: "\u{2318}J",
+                    hovered: isTasksHovered
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { isTasksHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isTasksHovered)
+
+            // Opens the picker rather than a list of names: choosing a look
+            // from words asks you to remember what Matcha looked like.
+            Button {
+                model.isThemePickerVisible = true
+            } label: {
+                footerRow(
+                    symbol: "paintpalette",
+                    title: "Theme",
+                    trailing: model.themes.theme.name,
+                    hovered: isThemeHovered
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { isThemeHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isThemeHovered)
+        }
+        .padding(.horizontal, Self.inset)
+        .padding(.bottom, 6)
+    }
+
+    /// Same shape as a tab row, because it is the same list.
+    private func footerRow(
+        symbol: String,
+        title: String,
+        trailing: String,
+        hovered: Bool
+    ) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(theme.uiFont(10.5, weight: .medium))
+                .frame(width: 9)
+            Text(title)
+                .font(theme.uiFont(12, weight: .medium))
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text(trailing)
+                .fixedSize()
+                .font(theme.uiFont(10.5, weight: .medium))
+                .foregroundStyle(theme.chrome.textTertiary.color)
+                .lineLimit(1)
+        }
+        .foregroundStyle(hovered ? theme.chrome.textPrimary.color
+                                 : theme.chrome.textSecondary.color)
+        .padding(.horizontal, 7)
+        .frame(maxWidth: .infinity, minHeight: Self.rowHeight)
+        .background {
+            RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
+                .fill(theme.chrome.rowHover.color.opacity(hovered ? 0.07 : 0))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
+                        .stroke(theme.chrome.border.color.opacity(hovered ? 0.10 : 0), lineWidth: 1)
+                }
+        }
+        .contentShape(.rect)
     }
 
     // MARK: - Keep awake
@@ -189,7 +284,7 @@ struct TabSidebarView: View {
     private var sleepPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle()
-                .fill(.white.opacity(0.07))
+                .fill(theme.chrome.border.color.opacity(0.12))
                 .frame(height: 1)
                 .padding(.bottom, 6)
 
@@ -200,7 +295,7 @@ struct TabSidebarView: View {
                 // leaving the row *from* the switch swallowed the exit, and
                 // the bubble stayed up until something else replaced it.
                 Text("Keep Awake")
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(theme.uiFont(11.5, weight: .medium))
                     .foregroundStyle(.secondary)
                     // Two words fit the column with room to spare; the three
                     // word version did not, and truncated to "Keep Mac aw…".
@@ -223,9 +318,13 @@ struct TabSidebarView: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                // The board's lit cell, not the system accent. Same constant
-                // the landing screen draws "OCARINA" with.
-                .tint(Palette.lit)
+                // The board's dimmed cell rather than its lit one. A lit cell
+                // is sized for 5x7 dots with unlit ones around them; the same
+                // colour poured into a solid switch track is the brightest
+                // thing in the panel again, which was the whole complaint
+                // about the system accent. `litDim` is the board's own answer
+                // to "this line matters less", and still reads as on.
+                .tint(theme.chrome.accent.color)
             }
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
@@ -276,7 +375,7 @@ struct TabSidebarView: View {
     private func tabIcon(for tab: TabItem) -> some View {
         if let look = TabIcon.meaningfulLook(for: tab.processName) {
             Image(systemName: look.symbol)
-                .font(.system(size: 11, weight: .medium))
+                .font(theme.uiFont(11, weight: .medium))
                 .foregroundStyle(look.tint)
                 .frame(width: 14, height: 14)
         }
@@ -289,11 +388,11 @@ struct TabSidebarView: View {
             Image(systemName: "xmark")
                 .font(.system(size: Self.badgeGlyph, weight: .bold))
                 .frame(width: Self.badgeSize, height: Self.badgeSize)
-                .background { Circle().fill(.white.opacity(0.12)) }
+                .background { Circle().fill(theme.chrome.border.color.opacity(0.18)) }
                 .contentShape(.circle)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        .foregroundStyle(theme.chrome.textPrimary.color)
         // The click is taken by the overlay rather than the button: it sits
         // above SwiftUI, so the row's select/rename taps cannot swallow it.
         .toolTip("Close this tab (⌘W)", in: Self.space, target: $toolTip) {
@@ -307,8 +406,8 @@ struct TabSidebarView: View {
         Image(systemName: "pin.fill")
             .font(.system(size: Self.badgeGlyph, weight: .bold))
             .frame(width: Self.badgeSize, height: Self.badgeSize)
-            .background { Circle().fill(.white.opacity(0.08)) }
-            .foregroundStyle(.secondary)
+            .background { Circle().fill(theme.chrome.border.color.opacity(0.10)) }
+            .foregroundStyle(theme.chrome.textSecondary.color)
     }
 
     /// The row's outline. Renaming owns the edge outright — it is a mode, and
@@ -316,9 +415,9 @@ struct TabSidebarView: View {
     /// brightest, hover is quieter but unmistakably present, and a row at rest
     /// has no edge at all so the column stays a list rather than a grid.
     private func rowStroke(isSelected: Bool, isHovered: Bool, isRenaming: Bool) -> Color {
-        if isRenaming { return Color.accentColor.opacity(0.7) }
-        if isSelected { return .white.opacity(0.16) }
-        if isHovered { return .white.opacity(0.10) }
+        if isRenaming { return theme.chrome.accent.color }
+        if isSelected { return theme.chrome.border.color.opacity(0.16) }
+        if isHovered { return theme.chrome.border.color.opacity(0.10) }
         return .clear
     }
 
@@ -337,26 +436,28 @@ struct TabSidebarView: View {
             if isRenaming {
                 TextField("Name", text: $draftTitle)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(theme.uiFont(12, weight: .medium))
                     .focused($isRenameFocused)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
                     .background {
                         RoundedRectangle(cornerRadius: 5)
-                            .fill(.black.opacity(0.35))
+                            .fill(theme.terminal.background.color)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 5)
-                                    .stroke(Color.accentColor, lineWidth: 1)
+                                    .stroke(theme.chrome.accent.color, lineWidth: 1)
                             }
                     }
                     .onSubmit { endRename(tab, commit: true) }
                     .onExitCommand { endRename(tab, commit: false) }
                     .onChange(of: isRenameFocused) { _, focused in
-                        // Clicking away commits what was typed, and keeps the
-                        // old name when nothing was.
+                        // Kept as the keyboard path — tabbing out of the field
+                        // does move SwiftUI's focus. It is not the one that
+                        // fires when you click away; see below.
                         if !focused { endRename(tab, commit: true) }
                     }
+                    .commitOnClickOutside { endRename(tab, commit: true) }
                     .onAppear {
                         // The terminal's view owns the window's first
                         // responder, and SwiftUI's focus does not take it
@@ -374,14 +475,14 @@ struct TabSidebarView: View {
             } else {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tab.title.ellipsised(to: TabSidebarView.titleLimit))
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .font(theme.uiFont(12, weight: isSelected ? .semibold : .regular))
                         .lineLimit(1)
                         .truncationMode(.tail)
 
                     // Secondary information appears only when asked for.
                     if isHovered, let subtitle = tab.subtitle {
                         Text(subtitle)
-                            .font(.system(size: 9.5))
+                            .font(theme.uiFont(9.5))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -415,7 +516,8 @@ struct TabSidebarView: View {
             // the row, the stroke is what actually draws the container, and
             // selection stays a clear step above hover on both.
             RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
-                .fill(Color.white.opacity(isSelected ? 0.12 : (isHovered ? 0.07 : 0)))
+                .fill(isSelected ? theme.chrome.rowSelected.color.opacity(0.12)
+                                 : theme.chrome.rowHover.color.opacity(isHovered ? 0.07 : 0))
                 .overlay {
                     RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
                         .stroke(rowStroke(isSelected: isSelected,

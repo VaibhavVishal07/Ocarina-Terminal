@@ -8,6 +8,8 @@ import SwiftUI
 private func run() {
     let application = NSApplication.shared
     application.setActivationPolicy(.regular)
+    // Before any view is built, or the first frame draws in the fallback face.
+    BundledFonts.register()
     // A bare SwiftPM executable has no bundle to read an icon from, so the dock
     // is told directly.
     application.applicationIconImage = OcarinaIcon.app
@@ -43,7 +45,12 @@ private func run() {
     window.contentView = container
     window.isOpaque = false
     window.backgroundColor = .clear
-    window.title = AppIdentity.name
+    // Just the product name. The full bundle name — "Ocarina Test Build" —
+    // was long enough to straddle the sidebar's edge, half on the panel and
+    // half on the terminal; one short word sits inside the panel and stays on
+    // one surface. Which build this is still shows in the menu bar, the Dock
+    // and ⌘-Tab, all of which read the bundle rather than this.
+    window.title = AppIdentity.product
     window.setContentSize(NSSize(width: 980, height: 620))
     // Without this the window shrinks past what the content can lay out, and
     // AppKit simply clips the overflow: the sidebar slides off the left edge,

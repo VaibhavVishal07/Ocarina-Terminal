@@ -8,19 +8,18 @@ import SwiftUI
 /// prompt is open and ready, not switched off, and a strip of grey dots was
 /// the reason none of them read as meaning anything.
 struct StatusDot: View {
+    @Environment(\.theme) private var theme
     let activity: TabActivity
 
-    private static let idle = Color(red: 0.53, green: 0.78, blue: 1.0)
-    private static let running = Color(red: 0.36, green: 0.66, blue: 1.0)
-    private static let succeeded = Color(red: 0.30, green: 0.78, blue: 0.45)
-    private static let failed = Color(red: 0.95, green: 0.35, blue: 0.35)
-
+    /// Themed, but still semantic: a theme may recolour these and they still
+    /// have to mean stop and go, so they are their own token group rather than
+    /// borrowing the accent.
     private var color: Color {
         switch activity {
-        case .idle: Self.idle
-        case .running: Self.running
-        case .succeeded: Self.succeeded
-        case .failed: Self.failed
+        case .idle: theme.status.idle.color
+        case .running: theme.status.running.color
+        case .succeeded: theme.status.succeeded.color
+        case .failed: theme.status.failed.color
         }
     }
 

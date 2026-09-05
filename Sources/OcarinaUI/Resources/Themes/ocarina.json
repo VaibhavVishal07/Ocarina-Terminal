@@ -1,0 +1,63 @@
+{
+  "id": "ocarina",
+  "name": "Ocarina",
+  "isDark": true,
+  "terminal": {
+    "background": "#12171E",
+    "foreground": "#C9D4E0",
+    "cursor": "#4FC0EC",
+    "selection": "#3D4C5A",
+    "ansi": [
+      "#5A6675",
+      "#F06C6C",
+      "#5FC98D",
+      "#E5B25A",
+      "#5AA9F0",
+      "#C08CE8",
+      "#4FC0EC",
+      "#C9D4E0",
+      "#7A8798",
+      "#FF9090",
+      "#84E0AC",
+      "#F5CD84",
+      "#84C4F5",
+      "#D6AFF2",
+      "#84D8F5",
+      "#EDF2F7"
+    ],
+    "fontName": "Geist Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#202224",
+    "panelBottom": "#141517",
+    "bed": "#000000",
+    "bedOpacity": 0.72,
+    "rowHover": "#FFFFFF",
+    "rowSelected": "#FFFFFF",
+    "border": "#FFFFFF",
+    "textPrimary": "#F2F5F8",
+    "textSecondary": "#A8B2BE",
+    "textTertiary": "#77818D",
+    "accent": "#216B95"
+  },
+  "status": {
+    "idle": "#87C7FF",
+    "running": "#5CA8FF",
+    "succeeded": "#4CC773",
+    "failed": "#F25959"
+  },
+  "board": {
+    "lit": "#38C2FF",
+    "litDim": "#216B95",
+    "unlit": "#191C22",
+    "backdrop": "#060709",
+    "highlight": "#FFB838"
+  },
+  "pattern": {
+    "shape": "notes",
+    "opacity": 0.05,
+    "scale": 13,
+    "color": "#38C2FF"
+  }
+}
