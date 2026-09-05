@@ -182,7 +182,7 @@ public extension Theme {
         // A theme may still name its own face — a user theme in
         // `~/.ocarina/themes` can — but the bundled ones all use Geist, and
         // Geist is what anything unspecified gets.
-        let name = typography?.uiFontName ?? BundledFonts.sans
+        let name = typography?.uiFontName ?? BundledFonts.ui
         guard NSFont(name: name, size: size) != nil else {
             return .system(size: size, weight: weight)
         }
