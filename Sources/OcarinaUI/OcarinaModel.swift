@@ -11,6 +11,8 @@ public final class TabItem: Identifiable {
     public var title: String
     /// `Claude Code · ~/Projects/checkout` — secondary everywhere.
     public var subtitle: String?
+    /// What is running in the tab, for the icon. Nil at a bare prompt.
+    public var processName: String?
     public var isManuallyNamed: Bool = false
     /// Busy, done, or failed — drawn as the status dot.
     public var activity: TabActivity = .idle
@@ -122,6 +124,7 @@ public final class OcarinaModel {
         guard let tab = tabs.first(where: { $0.id == context.tabID }) else { return }
         tab.title = context.displayTitle
         tab.subtitle = context.subtitle
+        tab.processName = context.processName
         tab.activity = context.activity
         tab.isManuallyNamed = !context.isAutoNamingEnabled
     }

@@ -14,6 +14,9 @@ public struct OcarinaWindowView: View {
             // gets the whole window rather than sitting under an empty bar.
             if !model.tabs.isEmpty {
                 TabStripView(model: model)
+                    // A tool tip hangs below the strip, and the terminal is
+                    // drawn after it in the stack.
+                    .zIndex(1)
             }
 
             ZStack {

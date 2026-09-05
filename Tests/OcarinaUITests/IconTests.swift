@@ -8,17 +8,28 @@ struct IconTests {
 
     @Test("The app icon is bundled and loads")
     func appIconLoads() throws {
-        let icon = try #require(OcarinaIcon.app, "AppIcon-512.png is not in the resource bundle")
-        #expect(icon.size.width >= 512)
-        #expect(icon.size.height >= 512)
+        let icon = try #require(OcarinaIcon.app, "AppIcon.png is not in the resource bundle")
+        #expect(icon.size.width > 0)
+        #expect(icon.size.width == icon.size.height, "the dock wants a square")
     }
 
-    @Test("The tab mark is bundled and loads")
-    func markLoads() throws {
-        let mark = try #require(OcarinaIcon.mark, "AppIcon-64.png is not in the resource bundle")
-        #expect(mark.size.width > 0)
-        #expect(mark.isValid)
+    /// The invariant the 424px regression broke: preparing an icon adds margin
+    /// around the art, it never eats into it.
+    @Test("Preparing a dock icon adds margin rather than trimming art away")
+    func dockIconAddsMargin() {
+        let source = NSImage(size: NSSize(width: 200, height: 200))
+        source.lockFocus()
+        NSColor.systemBlue.setFill()
+        NSBezierPath(rect: NSRect(x: 20, y: 20, width: 160, height: 160)).fill()
+        source.unlockFocus()
+
+        let art = OcarinaIcon.trimmedToContent(source)
+        let dock = OcarinaIcon.dockIcon(from: source)
+
+        #expect(dock.size.width > art.size.width)
+        #expect(dock.size.width == dock.size.height)
     }
+
 }
 
 extension IconTests {

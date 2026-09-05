@@ -64,6 +64,25 @@ struct OcarinaModelTests {
         #expect(tab.subtitle?.contains(directory.lastPathComponent) == true)
     }
 
+    @Test("An empty rename leaves the tab's name alone")
+    func emptyRenameIsIgnored() throws {
+        let directory = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = OcarinaModel()
+        let tab = model.newTab(workingDirectory: directory)
+        defer { model.closeTab(tab.id) }
+        let original = tab.title
+
+        model.rename(tab.id, to: "")
+        model.rename(tab.id, to: "   ")
+
+        // Clicking away from an empty rename field falls back to the name the
+        // tab already had, rather than clearing it.
+        #expect(tab.title == original)
+        #expect(!tab.isManuallyNamed)
+    }
+
     @Test("A hand-typed name wins and stops automatic naming")
     func manualRenameWins() async throws {
         let directory = try makeProjectDirectory()

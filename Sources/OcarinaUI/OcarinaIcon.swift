@@ -7,13 +7,7 @@ import AppKit
 /// 64px export, which was drawn for that size.
 public enum OcarinaIcon {
     /// For `NSApplication.applicationIconImage`.
-    public static let app: NSImage? = load("AppIcon-1024").map(dockIcon)
-
-    /// For the tab strip. The export is an opaque black plate with the glass
-    /// tile drawn inside it, so used as-is it puts a black square on every tab.
-    /// Trimming to the tile is done here rather than by shipping a second asset,
-    /// which would drift from the pack the next time it is regenerated.
-    static let mark: NSImage? = load("AppIcon-64").map(trimmedToContent)
+    public static let app: NSImage? = load("AppIcon").map(dockIcon)
 
     /// The dock wants art on a transparent canvas. The export is a black plate
     /// with the tile inside it, which macOS draws verbatim — so the icon reads

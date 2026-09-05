@@ -1,13 +1,23 @@
+import AppKit
 import SwiftUI
 
 /// The tab strip. The contextual task is the title; the process is secondary,
 /// surfaced on hover rather than competing with it. A dot on the left carries
 /// activity, so busy and failed tabs are findable without reading any text.
 struct TabStripView: View {
+    /// One long name should not be allowed to push the strip around, so the
+    /// title is capped for display. The tab keeps its full name for renaming,
+    /// the hover subtitle and the command palette.
+    static let titleLimit = 24
+
     @Bindable var model: OcarinaModel
     @State private var hoveredTabID: UUID?
     @State private var renamingTabID: UUID?
     @State private var draftTitle: String = ""
+    @FocusState private var isRenameFocused: Bool
+    @State private var toolTip: ToolTipTarget?
+
+    private static let space = "tabstrip"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,6 +30,14 @@ struct TabStripView: View {
                 .fill(.white.opacity(0.08))
                 .frame(height: 1)
             strip
+        }
+        .coordinateSpace(name: Self.space)
+        .overlay(alignment: .topLeading) {
+            GeometryReader { geometry in
+                if let toolTip {
+                    ToolTipBubble(target: toolTip, width: geometry.size.width)
+                }
+            }
         }
     }
 
@@ -72,7 +90,7 @@ struct TabStripView: View {
                 }
         }
         .buttonStyle(.plain)
-        .toolTip("New tab — opens another terminal in this window (⌘T)") {
+        .toolTip("New tab (⌘T)", in: Self.space, target: $toolTip) {
             model.newTab()
         }
     }
@@ -85,61 +103,101 @@ struct TabStripView: View {
         } label: {
             Image(systemName: model.sleepGuard.isHolding
                   ? "cup.and.saucer.fill" : "cup.and.saucer")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(model.sleepGuard.isHolding ? .primary : .secondary)
-                .frame(width: 26, height: 26)
+                // Same size as the chip and the plus. At 26pt it was a small
+                // target pinned to the window edge, which is why its tool tip
+                // was so easy to miss.
+                .frame(width: 38, height: 38)
                 .background {
-                    RoundedRectangle(cornerRadius: 7)
+                    RoundedRectangle(cornerRadius: 9)
                         .fill(.ultraThinMaterial)
                         .opacity(model.sleepGuard.isHolding ? 0.75 : 0.3)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 7)
+                            RoundedRectangle(cornerRadius: 9)
                                 .stroke(.white.opacity(0.08), lineWidth: 1)
                         }
                 }
         }
         .buttonStyle(.plain)
         .toolTip(model.sleepGuard.isHolding
-                 ? "Keeping this Mac awake so it will not sleep while Ocarina is open. Click to allow sleep."
-                 : "This Mac can sleep normally. Click to keep it awake while Ocarina is open.") {
+                 ? "Keeping this Mac awake — click to allow sleep"
+                 : "Sleep allowed — click to keep this Mac awake",
+                 in: Self.space, target: $toolTip) {
             model.sleepGuard.isEnabled.toggle()
         }
     }
 
-    /// The app mark, trimmed of its plate and clipped to the same corner the
-    /// chip uses. The activity dot stays a separate element beside it: badged
-    /// onto the icon it read as a smudge, and colour on its own is the signal.
-    private var tabIcon: some View {
-        Group {
-            if let mark = OcarinaIcon.mark {
-                Image(nsImage: mark)
-                    .resizable()
-                    .interpolation(.high)
-            } else {
-                RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.10))
-            }
+    /// Leaves the rename, keeping the old name when nothing was typed. Without
+    /// this, clicking away from an empty field left the tab in a half-open edit
+    /// that looked like nothing had happened.
+    private func endRename(_ tab: TabItem, commit: Bool) {
+        guard renamingTabID != nil else { return }
+        let trimmed = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if commit, !trimmed.isEmpty {
+            model.rename(tab.id, to: trimmed)
         }
-        .frame(width: 16, height: 16)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        renamingTabID = nil
+        draftTitle = ""
+    }
+
+    /// Selects the existing name so typing replaces it. SwiftUI has no way to
+    /// ask for this, so the field editor is asked directly once focus lands.
+    private func selectAllInFieldEditor() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil)
+        }
+    }
+
+    /// What the tab is running. The activity dot stays a separate element
+    /// beside it: badged onto the icon it read as a smudge, and colour on its
+    /// own is the signal.
+    private func tabIcon(for tab: TabItem) -> some View {
+        let look = TabIcon.look(for: tab.processName)
+        return Image(systemName: look.symbol)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(look.tint)
+            .frame(width: 16, height: 16)
     }
 
     @ViewBuilder
     private func chip(for tab: TabItem) -> some View {
         let isSelected = tab.id == model.selectedTabID
         let isHovered = tab.id == hoveredTabID
+        let isRenaming = renamingTabID == tab.id
 
         HStack(spacing: 8) {
-            tabIcon
+            tabIcon(for: tab)
             StatusDot(activity: tab.activity)
 
-            if renamingTabID == tab.id {
+            if isRenaming {
                 TextField("Name", text: $draftTitle)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13, weight: .medium))
-                    .frame(width: 140)
-                    .onSubmit {
-                        model.rename(tab.id, to: draftTitle)
-                        renamingTabID = nil
+                    .focused($isRenameFocused)
+                    // Flexible, not a fixed 140: at a fixed width the row grew
+                    // past the chip and pushed the close button out of it.
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(.black.opacity(0.35))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.accentColor, lineWidth: 1)
+                            }
+                    }
+                    .onSubmit { endRename(tab, commit: true) }
+                    .onExitCommand { endRename(tab, commit: false) }
+                    .onChange(of: isRenameFocused) { _, focused in
+                        // Clicking away commits what was typed, and keeps the
+                        // old name when nothing was.
+                        if !focused { endRename(tab, commit: true) }
+                    }
+                    .onAppear {
+                        isRenameFocused = true
+                        selectAllInFieldEditor()
                     }
             } else {
                 VStack(alignment: .leading, spacing: 2) {
@@ -150,7 +208,7 @@ struct TabStripView: View {
                                 .font(.system(size: 8))
                                 .foregroundStyle(.secondary)
                         }
-                        Text(tab.title)
+                        Text(tab.title.ellipsised(to: TabStripView.titleLimit))
                             .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                             .lineLimit(1)
                     }
@@ -163,9 +221,9 @@ struct TabStripView: View {
                             .lineLimit(1)
                     }
                 }
-            }
 
-            Spacer(minLength: 4)
+                Spacer(minLength: 4)
+            }
 
             Button {
                 model.closeTab(tab.id)
@@ -183,20 +241,22 @@ struct TabStripView: View {
             .opacity(isHovered || isSelected ? 1 : 0.35)
             // The click is taken by the overlay rather than the button: it sits
             // above SwiftUI, so the chip's select/rename taps cannot swallow it.
-            .toolTip("Close this tab (⌘W)") {
+            .toolTip("Close this tab (⌘W)", in: Self.space, target: $toolTip) {
                 model.closeTab(tab.id)
             }
         }
         .padding(.leading, 11)
         .padding(.trailing, 7)
-        .frame(minWidth: 150, maxWidth: 230, minHeight: 38, alignment: .leading)
+        .frame(minWidth: 150, maxWidth: isRenaming ? 280 : 230, minHeight: 38, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 9)
                 .fill(isSelected ? .ultraThinMaterial : .thinMaterial)
                 .opacity(isSelected ? 1 : (isHovered ? 0.7 : 0.35))
                 .overlay {
                     RoundedRectangle(cornerRadius: 9)
-                        .stroke(.white.opacity(isSelected ? 0.18 : 0.07), lineWidth: 1)
+                        .stroke(isRenaming ? Color.accentColor.opacity(0.7)
+                                           : .white.opacity(isSelected ? 0.18 : 0.07),
+                                lineWidth: isRenaming ? 1.5 : 1)
                 }
         }
         .contentShape(.rect)
@@ -222,5 +282,15 @@ struct TabStripView: View {
             Divider()
             Button("Close Tab") { model.closeTab(tab.id) }
         }
+    }
+}
+
+extension String {
+    /// Cut to `limit` characters with an ellipsis, counting the ellipsis
+    /// itself, so no title ever renders wider than the cap allows.
+    func ellipsised(to limit: Int) -> String {
+        guard count > limit, limit > 1 else { return self }
+        let kept = prefix(limit - 1).trimmingCharacters(in: .whitespaces)
+        return kept + "\u{2026}"
     }
 }

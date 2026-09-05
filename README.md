@@ -64,6 +64,7 @@ Sources/OcarinaUI/       SwiftUI layer
   EmptyStateView         no tabs open: the departure board
   DotMatrix              5x7 dot-matrix panel, the board is built from it
   OcarinaIcon            the bundled app mark, trimmed of its plate
+  TabIcon                a symbol for whatever the tab is running
   SleepGuard             holds the Mac awake while Ocarina is open
   MainMenu               the menu bar; where ⌘T / ⌘W / ⇧⌘P actually live
   ToolTip                AppKit tool tips, because .help draws none here
@@ -81,32 +82,57 @@ swift test
 swift run Ocarina
 ```
 
+## Tool tips
+
+Three mechanisms were tried. SwiftUI's `.help` produces nothing in a plain
+`NSHostingController` — walk the view tree and there is no tool tip on it at
+all. AppKit's `NSView.toolTip` *is* installed, on a view that hit-tests at the
+right frame, and still never appears: the tool tip manager needs mouse-moved
+events to reach the view under the cursor, and inside a hosting view they do not
+arrive. A SwiftUI bubble drawn by the control itself is then clipped away by the
+scroll view the tabs sit in.
+
+So a control only reports hover, through a tracking area on the small `NSView`
+that already takes its click, and the strip draws the bubble in its own
+coordinate space — outside the scroller, and above the terminal by `zIndex`.
+
+Tab titles are capped at 24 characters for display, ellipsis included, so one
+long name cannot push the strip around. The tab keeps its full name for
+renaming, for the hover subtitle and for the command palette.
+
+## The child environment
+
+A terminal inherits the environment of whatever launched it, and passes it to
+every shell it spawns. Launched from inside another tool's session that means
+handing each shell the identity of that session — nested tools then believe
+they are running as a child of their own parent, which is why Claude Code
+reported that transcript saving was off. One of the inherited variables is a
+messaging token, which has no business reaching an arbitrary shell.
+
+`PTYProcess` drops those markers before the fork. Only session identity goes:
+credentials and configuration a user exports for their own use are theirs and
+are left alone.
+
 ## Icons and glass
 
-The mark comes from the dot-matrix icon pack. `Icons/AppIcon.iconset` is the
-canonical source; the `.icns` a packager wants is one command away and is not
-checked in, nor is the Xcode `.appiconset`, which was a byte-for-byte duplicate
-of the same PNGs:
+The app icon is `Icons/AppIcon.png`, bundled as a target resource. A bare
+SwiftPM executable has no bundle for macOS to read an icon from, so the dock is
+told directly with `applicationIconImage`.
 
-```
-iconutil -c icns Icons/AppIcon.iconset
-```
- Two PNGs are bundled as target resources:
-512px for the dock, 64px for the tab strip. A bare SwiftPM executable has no
-bundle for macOS to read an icon from, so the dock is told directly with
-`applicationIconImage`.
+`OcarinaIcon` trims the art to its drawn content, clips the corners to
+transparency and lays it on a clear canvas at the ~80% the macOS icon grid
+expects. That preparation exists because an earlier icon was an opaque black
+plate with the tile drawn inside it: used as-is it made the dock icon read as a
+small tile in a dark square. The invariant worth keeping is that preparation
+adds margin around the art and never eats into it — trimming a 512px plate once
+produced a 424px icon, which is what the test pins.
 
-The exports are an opaque black plate with the tile drawn inside, so used as-is
-the mark puts a black square on every tab and makes the dock icon read as a
-small tile inside a dark square. `OcarinaIcon` trims to the drawn content at
-load — and for the dock also clips the tile's corners to transparency and lays
-it on a clear canvas at the ~80% the macOS icon grid expects. Trimming at load
-rather than shipping cropped assets keeps this from drifting the next time the
-pack is regenerated.
-
-The dock image is cut from the 1024px export rather than a smaller one: cutting
-the tile out of the plate discards most of the canvas, and from 512 the result
-came out at 424px, under what the dock wants at 2x.
+Tabs do **not** use the app icon. Every tab carrying the same picture said
+nothing; `TabIcon` gives each one a symbol for its foreground process, so Claude
+Code reads differently from a shell at a prompt across a strip of twenty. It
+matches on the naming layer's `processName`, which is a provider's display name
+when one recognised the process and the bare executable otherwise, so both forms
+are handled.
 
 Glass needs something behind it to blur. An `NSVisualEffectView` sits behind the
 hosting view and the window is non-opaque, so the materials in the chrome have
