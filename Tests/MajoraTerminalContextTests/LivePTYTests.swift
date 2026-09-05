@@ -8,54 +8,12 @@ import Testing
 struct LivePTYTests {
 
     /// A pty with a child running `command` as its foreground process.
-    private final class PTYFixture {
-        let primary: Int32
-        let replica: Int32
-        let pid: pid_t
-
-        init(command: String) throws {
-            var primary: Int32 = 0
-            var replica: Int32 = 0
-            guard openpty(&primary, &replica, nil, nil, nil) == 0 else {
-                throw Failure.openpty
-            }
-            self.primary = primary
-            self.replica = replica
-
-            var actions: posix_spawn_file_actions_t?
-            posix_spawn_file_actions_init(&actions)
-            defer { posix_spawn_file_actions_destroy(&actions) }
-            for descriptor in Int32(0)...Int32(2) {
-                posix_spawn_file_actions_adddup2(&actions, replica, descriptor)
-            }
-
-            var attributes: posix_spawnattr_t?
-            posix_spawnattr_init(&attributes)
-            defer { posix_spawnattr_destroy(&attributes) }
-            // The child needs its own session for the pty to become its
-            // controlling terminal, which is what makes tcgetpgrp meaningful.
-            posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETSID))
-
-            var pid: pid_t = 0
-            let parts: [String] = ["/bin/sh", "-c", command]
-            var argv = parts.map { strdup($0) } + [nil]
-            defer { argv.forEach { free($0) } }
-
-            guard posix_spawn(&pid, "/bin/sh", &actions, &attributes, &argv, environ) == 0 else {
-                throw Failure.spawn
-            }
-            self.pid = pid
-        }
-
-        deinit {
-            kill(pid, SIGKILL)
-            var status: Int32 = 0
-            waitpid(pid, &status, 0)
-            close(primary)
-            close(replica)
-        }
-
-        enum Failure: Error { case openpty, spawn }
+    private func makePTY(command: String) throws -> PTYProcess {
+        try PTYProcess(
+            executable: "/bin/sh",
+            arguments: ["-c", command],
+            onOutput: { _ in }
+        )
     }
 
     /// The child needs a moment to exec and claim the terminal.
@@ -81,17 +39,19 @@ struct LivePTYTests {
         let script = directory.appendingPathComponent("generate_report.py")
         try "import time\ntime.sleep(30)\n".write(to: script, atomically: true, encoding: .utf8)
 
-        let fixture = try PTYFixture(
-            command: "cd \(directory.path) && exec python3 generate_report.py"
-        )
-        let monitor = TerminalSessionMonitor(ptyDescriptor: fixture.primary, shellName: "zsh")
+        let pty = try makePTY(command: "cd \(directory.path) && exec python3 generate_report.py")
+        defer { pty.terminate() }
+        let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
 
         let snapshot = try #require(
             await waitForForegroundProcess(monitor: monitor, named: "generate_report"),
             "the child never became the foreground process"
         )
 
-        #expect(snapshot.foregroundCommandLine.first.map(ProcessInspector.basename) == "python3")
+        // argv[0] is whatever python3 actually execs as, which varies by
+        // install — Xcode ships it as `.../Python.app/Contents/MacOS/Python`.
+        let executable = try #require(snapshot.foregroundCommandLine.first.map(ProcessInspector.basename))
+        #expect(executable.lowercased().hasPrefix("python"))
         #expect(snapshot.foregroundCommandLine.contains("generate_report.py"))
         #expect(
             snapshot.workingDirectory?.resolvingSymlinksInPath()
@@ -109,10 +69,9 @@ struct LivePTYTests {
         let script = directory.appendingPathComponent("generate_report.py")
         try "import time\ntime.sleep(30)\n".write(to: script, atomically: true, encoding: .utf8)
 
-        let fixture = try PTYFixture(
-            command: "cd \(directory.path) && exec python3 generate_report.py"
-        )
-        let monitor = TerminalSessionMonitor(ptyDescriptor: fixture.primary, shellName: "zsh")
+        let pty = try makePTY(command: "cd \(directory.path) && exec python3 generate_report.py")
+        defer { pty.terminate() }
+        let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
         let snapshot = try #require(
             await waitForForegroundProcess(monitor: monitor, named: "generate_report")
         )
@@ -123,8 +82,9 @@ struct LivePTYTests {
 
     @Test("An idle shell is not mistaken for an activity")
     func idleShellSnapshot() async throws {
-        let fixture = try PTYFixture(command: "exec sleep 30")
-        let monitor = TerminalSessionMonitor(ptyDescriptor: fixture.primary, shellName: "zsh")
+        let pty = try makePTY(command: "exec sleep 30")
+        defer { pty.terminate() }
+        let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
         _ = try #require(await waitForForegroundProcess(monitor: monitor, named: "sleep"))
 
         // `sleep` is a real foreground command, so it does name the tab; the
@@ -136,8 +96,9 @@ struct LivePTYTests {
 
     @Test("Titles a program sets for itself reach the snapshot")
     func escapeSequenceTitleReachesSnapshot() async throws {
-        let fixture = try PTYFixture(command: "exec sleep 30")
-        let monitor = TerminalSessionMonitor(ptyDescriptor: fixture.primary)
+        let pty = try makePTY(command: "exec sleep 30")
+        defer { pty.terminate() }
+        let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor)
         await monitor.ingest(Array("\u{1B}]0;Deploy Staging\u{07}".utf8))
 
         let snapshot = await monitor.snapshot()
@@ -153,11 +114,11 @@ struct TabNamingServiceTests {
         let coordinator = TabContextCoordinator(providers: [GenericProcessContextProvider()])
         let service = TabNamingService(coordinator: coordinator, interval: .milliseconds(20))
 
+        // No child owns this pty, so the tab has only its shell fallback.
         var primary: Int32 = 0
         var replica: Int32 = 0
         try #require(openpty(&primary, &replica, nil, nil, nil) == 0)
         defer { close(primary); close(replica) }
-
         let monitor = TerminalSessionMonitor(ptyDescriptor: primary, shellName: "zsh")
         await service.attach(monitor)
 
@@ -184,11 +145,11 @@ struct TabNamingServiceTests {
     func detachStopsPolling() async throws {
         let service = TabNamingService(coordinator: .standard())
 
+        // No child owns this pty, so the tab has only its shell fallback.
         var primary: Int32 = 0
         var replica: Int32 = 0
         try #require(openpty(&primary, &replica, nil, nil, nil) == 0)
         defer { close(primary); close(replica) }
-
         let monitor = TerminalSessionMonitor(ptyDescriptor: primary, shellName: "zsh")
         await service.attach(monitor)
         await service.pollOnce()

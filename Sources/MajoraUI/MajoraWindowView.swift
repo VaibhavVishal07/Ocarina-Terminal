@@ -1,0 +1,41 @@
+import SwiftUI
+
+public struct MajoraWindowView: View {
+    @State private var model = MajoraModel()
+
+    public init() {}
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            TabStripView(model: model)
+            Divider().opacity(0.3)
+
+            ZStack {
+                Color.black
+                if let session = model.selectedSession {
+                    TerminalHostView(session: session)
+                        .id(session.id)
+                }
+            }
+        }
+        .frame(minWidth: 720, minHeight: 420)
+        .onAppear { model.start() }
+        .sheet(isPresented: $model.isCommandPaletteVisible) {
+            CommandPaletteView(model: model)
+        }
+        .background {
+            // Keyboard shortcuts, kept out of the visual tree.
+            Group {
+                Button("") { model.newTab() }
+                    .keyboardShortcut("t", modifiers: .command)
+                Button("") {
+                    if let id = model.selectedTabID { model.closeTab(id) }
+                }
+                .keyboardShortcut("w", modifiers: .command)
+                Button("") { model.isCommandPaletteVisible.toggle() }
+                    .keyboardShortcut("p", modifiers: [.command, .shift])
+            }
+            .opacity(0)
+        }
+    }
+}

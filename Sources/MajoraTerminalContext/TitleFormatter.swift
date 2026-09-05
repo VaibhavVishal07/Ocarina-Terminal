@@ -85,7 +85,9 @@ public enum TitleFormatter {
     /// Build a title from a foreground command's argv.
     public static func title(fromCommand argv: [String]) -> String? {
         let args = argv.filter { !$0.isEmpty }
-        guard let executable = args.first.map(basename) else { return nil }
+        // Lowercased because argv[0] is whatever the binary is actually called
+        // on disk — Xcode's python3 execs as `.../MacOS/Python`, for one.
+        guard let executable = args.first.map({ basename($0).lowercased() }) else { return nil }
         let rest = Array(args.dropFirst()).filter { !$0.hasPrefix("-") }
 
         switch executable {

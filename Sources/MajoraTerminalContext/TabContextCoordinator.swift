@@ -25,12 +25,18 @@ public actor TabContextCoordinator {
         contexts[context.tabID] = context
     }
 
+    /// A tab can be renamed before it has ever been polled, so the context is
+    /// created on demand rather than the rename being dropped.
     public func setManualTitle(_ title: String?, for tabID: UUID) {
-        contexts[tabID]?.applyManualTitle(title)
+        var context = contexts[tabID] ?? TabContext(tabID: tabID)
+        context.applyManualTitle(title)
+        contexts[tabID] = context
     }
 
     public func resumeAutomaticNaming(for tabID: UUID) {
-        contexts[tabID]?.resumeAutomaticNaming()
+        var context = contexts[tabID] ?? TabContext(tabID: tabID)
+        context.resumeAutomaticNaming()
+        contexts[tabID] = context
     }
 
     /// Poll the providers for one tab. Highest-priority observation wins the

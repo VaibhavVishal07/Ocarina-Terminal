@@ -242,12 +242,16 @@ Built (`Sources/MajoraTerminalContext`, 39 tests):
 - `LLMSessionContextProvider` + `GenericProcessContextProvider`
 - Claude Code and Codex transcript readers, against their real on-disk formats
 - `ProcessInspector`, `OSCTitleParser`, `TerminalSessionMonitor`,
-  `TabNamingService` — live pty to title, covered by tests that spawn a real
-  child process on a real pty
+  `PTYProcess`, `TabNamingService` — live pty to title, covered by tests that
+  spawn a real child process on a real pty
+- A SwiftUI app: tab strip with the task as the title and the process on hover,
+  a command palette that searches both, double-click and context-menu rename
 
 Outstanding:
 
 - Gemini CLI and OpenCode session formats are unverified; both providers ship
   with `UnavailableTranscriptSource` and detect the process only.
 - Confidence and dwell constants are placeholders pending real-session tuning.
-- No UI yet: the tab strip, hover subtitle and command palette entries.
+- The app runs as a plain SwiftPM executable; it is not yet an `.app` bundle,
+  so it has no menu bar, Dock identity or app icon.
+- Tab reordering, splits and persistence across launches.

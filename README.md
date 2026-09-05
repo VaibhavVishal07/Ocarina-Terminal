@@ -53,7 +53,24 @@ The renderer can forward the bytes it already reads to `monitor.ingest(_:)` so
 programs that set their own title are picked up; nothing else is read from the
 terminal, and nothing leaves the machine.
 
+## The app
+
+```
+Sources/MajoraUI/       SwiftUI layer
+  TerminalSession       one tab: pty + SwiftTerm view + naming monitor
+  MajoraModel           open tabs, selection, renames, title updates
+  TabStripView          task as the title; process on hover
+  CommandPaletteView    jump by what a terminal is doing (⇧⌘P)
+Sources/Majora/         executable entry point
+```
+
+SwiftTerm is used only as the VT parser and screen grid. Majora spawns the pty
+itself, via `forkpty`, because `login_tty` is what makes the pty the child's
+controlling terminal — and without that `tcgetpgrp` reports nothing and the
+naming layer is blind.
+
 ```
 swift build
 swift test
+swift run Majora
 ```
