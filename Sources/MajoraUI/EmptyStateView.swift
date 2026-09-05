@@ -1,98 +1,148 @@
 import SwiftUI
 
-/// Shown when every tab has been closed.
+/// Shown when every tab has been closed: a night over Termina.
 ///
-/// With no tabs there is no strip either, so this owns the whole window and
-/// can afford to be the loudest thing Majora ever draws.
+/// With no tabs there is no strip either, so this owns the whole window.
 struct EmptyStateView: View {
     let onNewTab: () -> Void
 
-    @State private var huePhase: Double = 0
-    @State private var isBreathing = false
+    @State private var isDescending = false
+    @State private var isGlowing = false
     @State private var isCTAHovered = false
 
-    /// Mirror-symmetric, 40 columns wide.
-    private static let mask = """
-            ▄▄▄▄▄▄            ▄▄▄▄▄▄        
-         ▄▄██████████▄▄▄▄▄▄██████████▄▄     
-       ▄████▀▀▀▀▀▀████████████▀▀▀▀▀▀████▄   
-      ████    ▄▄▄    ▀████▀    ▄▄▄    ████  
-     ████   ▄█████▄   ████   ▄█████▄   ████ 
-     ████   ▀█████▀   ████   ▀█████▀   ████ 
-      ▀███▄    ▀▀    ██████    ▀▀    ▄███▀  
-        ▀████▄▄    ▄████████▄    ▄▄████▀    
-           ▀▀████████▀▀▀▀▀▀████████▀▀       
-               ▀▀████▄▄▄▄▄▄████▀▀           
-                   ▀▀██████▀▀               
-                      ▀▀▀▀                  
-    """
-
-    private static let palette: [Color] = [
-        Color(red: 0.55, green: 0.36, blue: 0.96),
-        Color(red: 0.93, green: 0.35, blue: 0.78),
-        Color(red: 1.00, green: 0.52, blue: 0.31),
-        Color(red: 1.00, green: 0.80, blue: 0.28),
-        Color(red: 0.30, green: 0.86, blue: 0.72)
-    ]
+    // Sky
+    private static let skyHigh = Color(red: 0.04, green: 0.05, blue: 0.13)
+    private static let skyMid = Color(red: 0.09, green: 0.08, blue: 0.22)
+    private static let skyLow = Color(red: 0.16, green: 0.11, blue: 0.24)
+    // Moonlight
+    private static let moonPale = Color(red: 0.99, green: 0.93, blue: 0.79)
+    private static let moonWarm = Color(red: 0.96, green: 0.75, blue: 0.44)
+    private static let moonDeep = Color(red: 0.85, green: 0.46, blue: 0.29)
+    private static let lampAmber = Color(red: 1.00, green: 0.76, blue: 0.36)
+    private static let silhouette = Color(red: 0.03, green: 0.03, blue: 0.08)
 
     var body: some View {
-        VStack(spacing: 28) {
-            mask
-            wordmark
-            callToAction
-            hints
+        ZStack(alignment: .bottom) {
+            sky
+            NightSky()
+            town
+            content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .onAppear {
-            withAnimation(.linear(duration: 14).repeatForever(autoreverses: true)) {
-                huePhase = 55
+            // The moon does not hang in Termina. It arrives.
+            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) {
+                isDescending = true
             }
-            withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
-                isBreathing = true
-            }
-        }
-    }
-
-    /// Rows are laid out individually with negative spacing: a Text's line
-    /// height leaves a gap between rows, and block glyphs need to meet.
-    private var maskGlyphs: some View {
-        VStack(alignment: .leading, spacing: -3) {
-            ForEach(Array(Self.mask.split(separator: "\n").enumerated()), id: \.offset) { _, line in
-                Text(String(line))
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .fixedSize()
+            withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
+                isGlowing = true
             }
         }
     }
 
-    private var mask: some View {
-        // The glyphs size the view and then clip a single gradient, so the
-        // colour sweeps across the whole mask instead of restarting per row.
-        maskGlyphs
-            .hidden()
-            .overlay {
-                LinearGradient(
-                    colors: Self.palette,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .mask { maskGlyphs }
-            }
-            .hueRotation(.degrees(huePhase))
-            .shadow(color: Self.palette[1].opacity(0.45), radius: isBreathing ? 26 : 12)
-            .scaleEffect(isBreathing ? 1.02 : 1)
-            .fixedSize()
-            .accessibilityLabel("Majora")
+    // MARK: - Scene
+
+    private var sky: some View {
+        LinearGradient(
+            colors: [Self.skyHigh, Self.skyMid, Self.skyLow],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
     }
 
-    private var wordmark: some View {
-        Text("M A J O R A")
-            .font(.system(size: 15, weight: .heavy, design: .monospaced))
-            .tracking(6)
-            .foregroundStyle(
-                LinearGradient(colors: Self.palette, startPoint: .leading, endPoint: .trailing)
+    private var moon: some View {
+        GlyphArt(
+            rows: TerminaArt.moon,
+            size: 12,
+            rowSpacing: -3.5,
+            fill: LinearGradient(
+                colors: [Self.moonPale, Self.moonWarm, Self.moonDeep],
+                startPoint: .top,
+                endPoint: .bottom
             )
-            .hueRotation(.degrees(huePhase))
+        )
+        // The halo is a background rather than a sibling, so it can overflow
+        // without claiming layout space and shoving the wordmark down.
+        .background {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Self.moonWarm.opacity(0.5), Self.moonDeep.opacity(0.11), .clear],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: isGlowing ? 200 : 160
+                    )
+                )
+                .frame(width: 420, height: 420)
+        }
+        .shadow(color: Self.moonWarm.opacity(0.5), radius: isGlowing ? 24 : 14)
+        // The moon does not hang in Termina. It arrives.
+        .offset(y: isDescending ? 14 : 0)
+        .allowsHitTesting(false)
+    }
+
+    private var town: some View {
+        ZStack(alignment: .bottom) {
+            // The art is a fixed width; this carries the ground to the edges.
+            Rectangle()
+                .fill(Self.silhouette)
+                .frame(height: 26)
+
+            ZStack {
+                GlyphArt(
+                    rows: TerminaArt.skyline,
+                    size: 11,
+                    rowSpacing: -3,
+                    fill: Self.silhouette
+                )
+                // Same grid, so the lit clock lands exactly in the tower.
+                GlyphArt(
+                    rows: TerminaArt.clockFace,
+                    size: 11,
+                    rowSpacing: -3,
+                    fill: Self.lampAmber
+                )
+                .shadow(color: Self.lampAmber.opacity(0.9), radius: 7)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Content
+
+    private var content: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 24)
+
+            moon
+
+            Spacer(minLength: 24)
+
+            GlyphArt(
+                rows: TerminaArt.wordmark,
+                size: 11,
+                rowSpacing: -3,
+                fill: LinearGradient(
+                    colors: [Self.moonPale, Self.moonWarm],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .shadow(color: Self.moonWarm.opacity(0.35), radius: 12)
+
+            Text("Dawn of a new terminal")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Self.moonPale.opacity(0.55))
+                .padding(.top, 12)
+
+            callToAction
+                .padding(.top, 26)
+
+            hints
+                .padding(.top, 18)
+        }
+        .padding(.bottom, 132)
     }
 
     private var callToAction: some View {
@@ -107,24 +157,26 @@ struct EmptyStateView: View {
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background {
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(.black.opacity(0.22))
+                        RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.28))
                     }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(red: 0.16, green: 0.09, blue: 0.05))
             .padding(.horizontal, 26)
             .padding(.vertical, 15)
             .background {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(
                         LinearGradient(
-                            colors: [Self.palette[0], Self.palette[1], Self.palette[2]],
-                            startPoint: .leading,
-                            endPoint: .trailing
+                            colors: [Self.moonPale, Self.moonWarm],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
                     )
-                    .hueRotation(.degrees(huePhase))
-                    .shadow(color: Self.palette[1].opacity(isCTAHovered ? 0.6 : 0.3), radius: isCTAHovered ? 20 : 10, y: 4)
+                    .shadow(
+                        color: Self.moonWarm.opacity(isCTAHovered ? 0.75 : 0.4),
+                        radius: isCTAHovered ? 22 : 12,
+                        y: 4
+                    )
             }
             .scaleEffect(isCTAHovered ? 1.04 : 1)
             .contentShape(.rect)
@@ -142,7 +194,6 @@ struct EmptyStateView: View {
             hint("⇧⌘P", "jump between terminals")
             hint("⌘W", "close a tab")
         }
-        .foregroundStyle(.secondary)
     }
 
     private func hint(_ key: String, _ description: String) -> some View {
@@ -152,11 +203,11 @@ struct EmptyStateView: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background {
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(.white.opacity(0.08))
+                    RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.09))
                 }
             Text(description)
                 .font(.system(size: 11))
         }
+        .foregroundStyle(Self.moonPale.opacity(0.42))
     }
 }
