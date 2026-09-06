@@ -72,6 +72,10 @@ struct TabSidebarView: View {
                 // that makes it look placed rather than dropped in.
                 .padding(.leading, Self.inset + 7)
                 .padding(.trailing, Self.inset)
+                // On top of the breathing room already left below the titlebar,
+                // so the mark clears the traffic lights rather than sitting on
+                // the same line as them.
+                .padding(.top, 10)
                 .padding(.bottom, 24)
 
             ScrollView(.vertical, showsIndicators: false) {
