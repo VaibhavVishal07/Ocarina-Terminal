@@ -106,7 +106,15 @@ public final class OcarinaModel {
     /// transcript change — which never comes once you stop typing, so the
     /// better titles appeared minutes later or not at all.
     public var tasks: [AgentTask] {
-        rawTasks.map { task in
+        _ = clearedRevision
+        let visible: [AgentTask]
+        if let directory = selectedSession?.workingDirectory,
+           let mark = cleared.mark(for: directory) {
+            visible = rawTasks.filter { $0.askedAt > mark }
+        } else {
+            visible = rawTasks
+        }
+        return visible.map { task in
             guard let better = taskSummariser.titles[task.id] else { return task }
             return AgentTask(
                 id: task.id,
@@ -119,6 +127,11 @@ public final class OcarinaModel {
     }
 
     @ObservationIgnored private let taskSource = AgentTaskSource()
+    /// Per-project line under the list. Observed, so clearing redraws the panel
+    /// without waiting for the next poll.
+    @ObservationIgnored private var cleared = ClearedTasks()
+    /// Bumped when the line moves, purely so the computed `tasks` is re-read.
+    private var clearedRevision = 0
     /// Better names for the same tasks, when an agent is around to write them.
     public let taskSummariser = TaskSummariser()
     @ObservationIgnored private var taskRefresh: Task<Void, Never>?
@@ -195,14 +208,43 @@ public final class OcarinaModel {
 
     @ObservationIgnored private var lastTaskSignature: String?
 
-    /// Hands a filled-in draft to the user's mail app.
+    /// Draws a line under everything asked so far in this tab.
     ///
-    /// Opening a `mailto:` is the send — nothing leaves the machine from here,
-    /// and the message sits in their drafts until they press send themselves.
-    public func composeFeedback(_ message: String) {
+    /// The transcript is not touched: it belongs to the agent, and deleting
+    /// somebody's prompts out of Claude's history to tidy a panel would be the
+    /// worst kind of helpful.
+    public func clearTasks() {
+        guard let directory = selectedSession?.workingDirectory else { return }
+        // The newest task's own timestamp, not `now`: a prompt sent while the
+        // panel was open but not yet polled would otherwise survive the clear
+        // and reappear two seconds later.
+        let newest = rawTasks.map(\.askedAt).max() ?? Date()
+        cleared.clear(directory, at: max(newest, Date()))
+        clearedRevision += 1
+    }
+
+    /// Whether there is anything to clear, so the control can say so.
+    public var canClearTasks: Bool { !tasks.isEmpty }
+
+    /// Opens a prefilled issue in the browser. No mail app, no address, no key
+    /// in the binary — the repository is public and the report is a URL.
+    public func openFeedbackIssue(_ message: String) {
         isFeedbackVisible = false
-        guard !message.isEmpty, let url = FeedbackMail.url(for: message) else { return }
+        guard !message.isEmpty, let url = FeedbackReport.issueURL(for: message) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    /// The same report on the clipboard, for whoever would rather not open an
+    /// account to say a button is broken.
+    public func copyFeedback(_ message: String) {
+        guard !message.isEmpty else { return }
+        let report = FeedbackReport.body(
+            message,
+            version: FeedbackReport.version,
+            system: FeedbackReport.system
+        )
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(report, forType: .string)
     }
 
     /// Types text into the selected tab without running it. Every path that

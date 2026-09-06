@@ -95,7 +95,7 @@ public struct OcarinaWindowView: View {
             // and animating that resize is what made the old drawer judder: a
             // SIGWINCH per frame, the shell repainting through the whole slide.
             if model.isTaskPanelVisible {
-                TaskPanelView(tasks: model.tasks)
+                TaskPanelView(tasks: model.tasks) { model.clearTasks() }
             }
         }
         // Not a sheet. A sheet on macOS is modal and will not dismiss on a
@@ -144,7 +144,8 @@ public struct OcarinaWindowView: View {
         }
         .sheet(isPresented: $model.isFeedbackVisible) {
             FeedbackView(
-                send: { model.composeFeedback($0) },
+                openIssue: { model.openFeedbackIssue($0) },
+                copy: { model.copyFeedback($0) },
                 cancel: { model.isFeedbackVisible = false }
             )
             .environment(\.theme, model.themes.theme)

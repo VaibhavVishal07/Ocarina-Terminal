@@ -10,6 +10,9 @@ import SwiftUI
 struct TaskPanelView: View {
     @Environment(\.theme) private var theme
     let tasks: [AgentTask]
+    let clear: () -> Void
+
+    @State private var isClearHovered = false
 
     static let width: CGFloat = 230
 
@@ -48,6 +51,24 @@ struct TaskPanelView: View {
                     .foregroundStyle(theme.chrome.textTertiary.color)
             }
             Spacer(minLength: 4)
+
+            // Only when there is something to clear, and only on hover: a
+            // permanently lit "clear" over a list you are reading is an
+            // invitation to lose it by accident.
+            if !tasks.isEmpty {
+                Button(action: clear) {
+                    Image(systemName: "eraser.line.dashed")
+                        .font(theme.uiFont(10.5, weight: .medium))
+                        .foregroundStyle(isClearHovered
+                                         ? theme.chrome.textPrimary.color
+                                         : theme.chrome.textTertiary.color)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .onHover { isClearHovered = $0 }
+                .animation(.easeOut(duration: 0.12), value: isClearHovered)
+                .help("Clear this list. The agent's own history is not touched.")
+            }
         }
         .padding(.horizontal, 12)
         // 40 here was clearing the titlebar a second time — the window's safe

@@ -400,15 +400,28 @@ struct TabSidebarView: View {
             .lineLimit(1)
             .fixedSize()
 
-            if let shortcut {
-                Text(shortcut)
-                    .font(theme.uiFont(10.5, weight: .medium))
-                    .foregroundStyle(theme.chrome.textTertiary.color)
-                    .fixedSize()
-            }
+            // Always present, empty when there is no key. As a conditional the
+            // two rows had a different number of children and the switch on one
+            // of them settled 2pt right of the other.
+            Text(shortcut ?? "")
+                .font(theme.uiFont(10.5, weight: .medium))
+                .foregroundStyle(theme.chrome.textTertiary.color)
+                .fixedSize()
 
-            Spacer(minLength: 4)
-
+            // Small on purpose. The switch is laid over the row, so this only
+            // has to stop the label running under it — and a large minimum is
+            // what broke the alignment: with `fixedSize` labels, 44 here put
+            // the "Keep Awake" row's minimum width above the 145pt column, so
+            // that row overflowed its own frame and took the overlay's trailing
+            // edge with it. "Tasks ⌘J" is shorter and fitted, which is why only
+            // one of the two moved.
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 7)
+        .frame(maxWidth: .infinity, minHeight: Self.rowHeight)
+        // The switch is laid over the row's trailing edge rather than placed in
+        // the flow, so where the label stops cannot move it.
+        .overlay(alignment: .trailing) {
             // Tinted rather than left on the system accent, which painted it
             // the brightest object in a window that is otherwise greys and
             // terminal text.
@@ -417,9 +430,12 @@ struct TabSidebarView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .tint(theme.chrome.accent.color)
+                // 36 is what the control measures; a smaller box would leave
+                // it overflowing, and an overflowing child is placed by rules
+                // that are not the alignment you asked for.
+                .frame(width: 36, alignment: .trailing)
+                .padding(.trailing, 7)
         }
-        .padding(.horizontal, 7)
-        .frame(minHeight: Self.rowHeight)
     }
 
     private var sleepHelp: String {
