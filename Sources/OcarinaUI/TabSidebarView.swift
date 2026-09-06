@@ -218,15 +218,24 @@ struct TabSidebarView: View {
             Image(systemName: symbol)
                 .font(theme.uiFont(10.5, weight: .medium))
                 .frame(width: 9)
+            // The label names the row, so it is never the thing that gets cut.
+            // `fixedSize` on the *value* meant the opposite: "High Contrast" is
+            // long enough to overrun the 165pt column, and what gave way was
+            // "Theme", which rendered as "The…".
             Text(title)
                 .font(theme.uiFont(12, weight: .medium))
                 .lineLimit(1)
-            Spacer(minLength: 4)
-            Text(trailing)
                 .fixedSize()
+            Spacer(minLength: 4)
+            // The value takes the squeeze instead, and takes it by shrinking
+            // rather than by losing its tail: a theme is picked by name, and
+            // "High Contra…" is a worse thing to read than a point of type.
+            Text(trailing)
                 .font(theme.uiFont(10.5, weight: .medium))
                 .foregroundStyle(theme.chrome.textTertiary.color)
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .truncationMode(.tail)
         }
         .foregroundStyle(hovered ? theme.chrome.textPrimary.color
                                  : theme.chrome.textSecondary.color)
