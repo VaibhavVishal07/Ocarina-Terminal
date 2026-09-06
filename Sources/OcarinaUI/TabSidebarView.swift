@@ -52,6 +52,7 @@ struct TabSidebarView: View {
     @State private var toolTip: ToolTipTarget?
     @State private var isNewTabHovered = false
     @State private var isThemeHovered = false
+    @State private var isFeedbackHovered = false
 
     private static let space = "tabsidebar"
 
@@ -63,6 +64,15 @@ struct TabSidebarView: View {
             // the clearance itself — reserving the full height of the titlebar
             // here as well is what left the first tab stranded halfway down.
             Color.clear.frame(height: Self.inset)
+
+            wordmark
+                // The icon column, not the row's outer edge: the status
+                // dots, the plus and the palette all start at inset + 7,
+                // and the mark reading against that line is the only thing
+                // that makes it look placed rather than dropped in.
+                .padding(.leading, Self.inset + 7)
+                .padding(.trailing, Self.inset)
+                .padding(.bottom, 24)
 
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 4) {
@@ -126,9 +136,6 @@ struct TabSidebarView: View {
             .frame(height: 110)
             .frame(maxHeight: .infinity, alignment: .top)
 
-            if let pattern = theme.pattern {
-                PatternView(motif: pattern)
-            }
         }
         .allowsHitTesting(false)
     }
@@ -202,9 +209,56 @@ struct TabSidebarView: View {
             .buttonStyle(.plain)
             .onHover { isThemeHovered = $0 }
             .animation(.easeOut(duration: 0.12), value: isThemeHovered)
+
+            // Under Theme rather than buried in a menu: the people this app is
+            // for are the ones least likely to go looking for where to complain.
+            Button {
+                model.isFeedbackVisible = true
+            } label: {
+                footerRow(
+                    symbol: "bubble.left.and.text.bubble.right",
+                    title: "Share Feedback",
+                    trailing: "",
+                    hovered: isFeedbackHovered
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { isFeedbackHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isFeedbackHovered)
         }
         .padding(.horizontal, Self.inset)
         .padding(.bottom, 6)
+    }
+
+    /// The app's mark, in the board's own alphabet.
+    ///
+    /// The same `DotMatrixText` the empty state is built from, which is the one
+    /// piece of pure identity Ocarina has — so the window carries it whether or
+    /// not there is a terminal open, rather than only when there is nothing to
+    /// show.
+    ///
+    /// A mark, not a headline. Seven characters is 41 cells across, so a 1.4pt
+    /// cell on a 0.7pt gap comes to 85pt in a 145pt column — a bit over half its
+    /// width, which is where a signature sits without competing with the list
+    /// underneath it.
+    ///
+    /// Lit, and with the bloom on, the same as the empty state's board: the mark
+    /// is the app's one piece of pure identity and a greyed-out logo is a logo
+    /// that has been switched off. It was the size that made it shout, not the
+    /// brightness — 85pt of it does not compete with the list the way 122 did.
+    ///
+    /// The titlebar's own "Ocarina" is hidden in `main.swift`, or the window
+    /// would wear its name twice, ten points apart.
+    private var wordmark: some View {
+        DotMatrixText(
+            text: "OCARINA",
+            cell: 1.4,
+            gap: 0.7,
+            lit: theme.board.lit.color,
+            unlit: theme.board.unlit.color
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityHidden(true)
     }
 
     /// Same shape as a tab row, because it is the same list.
@@ -277,78 +331,95 @@ struct TabSidebarView: View {
                 .frame(height: 1)
                 .padding(.bottom, 6)
 
-            // The switch carries its own shortcut, because this is the only
-            // place the panel can be turned off and a key that is not written
-            // down anywhere is a key nobody presses.
-            HStack(spacing: 6) {
-                Text("Tasks")
-                    .font(theme.uiFont(11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize()
-
-                Text("\u{2318}J")
-                    .font(theme.uiFont(10.5, weight: .medium))
-                    .foregroundStyle(theme.chrome.textTertiary.color)
-                    .fixedSize()
-
-                Spacer(minLength: 4)
-
-                Toggle("", isOn: Binding(
+            // Both rows are built like the Theme row above them, because they
+            // are the same kind of row. They were not: one sat at inset+inset
+            // and one at inset+7, against a Theme label at inset+7+9+7, so the
+            // three settings had three different left edges.
+            switchRow(
+                symbol: "checklist",
+                title: "Tasks",
+                shortcut: "\u{2318}J",
+                isOn: Binding(
                     get: { model.isTaskPanelVisible },
                     set: { model.setTaskPanel(visible: $0) }
-                ))
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .labelsHidden()
-                .tint(theme.chrome.accent.color)
-            }
-            .padding(.horizontal, Self.inset)
-            .padding(.bottom, 8)
+                )
+            )
+            .padding(.bottom, 2)
 
-            HStack(spacing: 6) {
-                // The tip hangs off the label, not the row. Over the switch
-                // it would be explaining a control you are already using, and
-                // the switch is an AppKit view with tracking of its own —
-                // leaving the row *from* the switch swallowed the exit, and
-                // the bubble stayed up until something else replaced it.
-                Text("Keep Awake")
-                    .font(theme.uiFont(11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    // Two words fit the column with room to spare; the three
-                    // word version did not, and truncated to "Keep Mac aw…".
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(.rect)
-                    .toolTip(sleepHelp, in: Self.space, target: $toolTip)
-
-                // The system switch, which is the control everyone already
-                // knows how to work — only tinted, because the one thing wrong
-                // with it was that the accent painted it the brightest object
-                // in a window that is otherwise greys and terminal text.
-                Toggle("", isOn: Binding(
+            switchRow(
+                symbol: "cup.and.saucer",
+                title: "Keep Awake",
+                shortcut: nil,
+                isOn: Binding(
                     get: { model.sleepGuard.isEnabled },
                     set: { isOn in
                         model.sleepGuard.isEnabled = isOn
                         TactileClick.shared.play(.down)
                     }
-                ))
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                // The board's dimmed cell rather than its lit one. A lit cell
-                // is sized for 5x7 dots with unlit ones around them; the same
-                // colour poured into a solid switch track is the brightest
-                // thing in the panel again, which was the whole complaint
-                // about the system accent. `litDim` is the board's own answer
-                // to "this line matters less", and still reads as on.
-                .tint(theme.chrome.accent.color)
-            }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
+                ),
+                // The tip hangs off the label, not the row. Over the switch it
+                // would be explaining a control you are already using, and the
+                // switch is an AppKit view with tracking of its own — leaving
+                // the row *from* the switch swallowed the exit, and the bubble
+                // stayed up until something else replaced it.
+                tip: sleepHelp
+            )
         }
         .padding(.horizontal, Self.inset)
         .padding(.bottom, Self.inset)
+    }
+
+    /// A settings row with a switch, laid out exactly like `footerRow`: a 9pt
+    /// symbol column at inset + 7, and the label after it. Sharing the geometry
+    /// is the point — these sit directly under the Theme row and any difference
+    /// in the left edge is visible as a ragged column.
+    private func switchRow(
+        symbol: String,
+        title: String,
+        shortcut: String?,
+        isOn: Binding<Bool>,
+        tip: String? = nil
+    ) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(theme.uiFont(10.5, weight: .medium))
+                .frame(width: 9)
+                .foregroundStyle(theme.chrome.textTertiary.color)
+
+            Group {
+                if let tip {
+                    Text(title)
+                        .contentShape(.rect)
+                        .toolTip(tip, in: Self.space, target: $toolTip)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(theme.uiFont(11.5, weight: .medium))
+            .foregroundStyle(theme.chrome.textSecondary.color)
+            .lineLimit(1)
+            .fixedSize()
+
+            if let shortcut {
+                Text(shortcut)
+                    .font(theme.uiFont(10.5, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+                    .fixedSize()
+            }
+
+            Spacer(minLength: 4)
+
+            // Tinted rather than left on the system accent, which painted it
+            // the brightest object in a window that is otherwise greys and
+            // terminal text.
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(theme.chrome.accent.color)
+        }
+        .padding(.horizontal, 7)
+        .frame(minHeight: Self.rowHeight)
     }
 
     private var sleepHelp: String {

@@ -51,6 +51,11 @@ private func run() {
     // one surface. Which build this is still shows in the menu bar, the Dock
     // and ⌘-Tab, all of which read the bundle rather than this.
     window.title = AppIdentity.product
+    // The sidebar carries the wordmark in the board's dot matrix now, and the
+    // titlebar's text sits about ten points above it. One of them had to go, and
+    // the drawn one is the one that is ours. The title itself stays set, so the
+    // Window menu and the accessibility tree still name the window.
+    window.titleVisibility = .hidden
     window.setContentSize(NSSize(width: 980, height: 620))
     // Without this the window shrinks past what the content can lay out, and
     // AppKit simply clips the overflow: the sidebar slides off the left edge,
