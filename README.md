@@ -82,6 +82,14 @@ find a tab by remembering where it is and what it was called. What the agent is
 on *right now* is the subtitle, the tooltip and the task panel, all of which are
 free to move.
 
+The words themselves come from the same place the task list's do. A word filter
+cuts the prompt down the moment it is read, and Claude rewrites it a beat later
+— "Toggle option near right-hand" was what the filter made of a tab, and "Move
+toggle to right side" is what it is called now. The panel had this and the tab
+strip did not, which is why the two columns beside each other read as two
+different qualities of the same sentence. One cache and one queue serve both, so
+a prompt that appears in the list and on the tab is asked about once.
+
 A dot on each row says idle, running, succeeded or failed, so a column of twenty
 can be read down the edge without stopping at any of the names.
 
@@ -109,8 +117,10 @@ Three rules follow from where that work happens.
 
 - The local condenser runs first, so a title is on screen immediately and a
   machine with no agent installed loses nothing it had.
-- Every prompt is asked about once, ever, cached on disk by the transcript's own
-  uuid. This spends your Claude allowance.
+- Every prompt is asked about once, ever, cached on disk under a hash of the
+  prompt rather than of where it was found — so the tab strip and the task list
+  asking about the same sentence cost one call between them. This spends your
+  Claude allowance.
 - **It waits for a keystroke.** Running the `claude` binary means a subprocess,
   and a subprocess inherits the app's TCC identity — every protected thing it
   reads is asked about in Ocarina's name. Doing it at startup put "Ocarina would
@@ -182,11 +192,19 @@ invented for it would be worse than no meter.
 
 The window itself is reconstructed from the timestamps, which the transcripts
 do record: a block opens on the first request made after the last one lapsed
-and runs five hours. Tokens are counted once each — what was sent, what was
-written to cache, what came back. Cache *reads* are left out on purpose: they
-are the same tokens being read back, already counted on the turn that wrote
-them, and adding them charges a long conversation for its whole context on
-every single turn.
+and runs five hours — from the *top of the hour* that request landed in, which
+is where the account puts the boundary. Counted from the timestamp itself the
+card was up to an hour late: it went on filling a block the account had already
+renewed, so a limit that had just reset was reported as a window nearly out of
+time. And once a block has been established it is kept until the clock ends it,
+rather than re-derived on every poll — the reading only looks back ten hours, so
+a chain rebuilt from whatever is still inside that window moves under a user who
+has done nothing.
+
+Tokens are counted once each — what was sent, what was written to cache, what
+came back. Cache *reads* are left out on purpose: they are the same tokens being
+read back, already counted on the turn that wrote them, and adding them charges
+a long conversation for its whole context on every single turn.
 
 ## It tells you what to type
 
@@ -361,6 +379,48 @@ Themes used to carry a background motif as well — petals, leaves, embers, rain
 Read at one row it was texture; read down a column of tabs it was litter behind
 the thing you were trying to scan. It is gone from the renderer and from the
 format, because a field left in the format is a promise to keep drawing it.
+
+A theme also reaches inside the programs the terminal runs. Setting the sixteen
+ANSI colours used to be the whole of a palette, and it is not how the tools
+people run colour themselves any more: Claude Code names its gold outright,
+`38;5;220`, and no theme can touch a colour named in full. Choosing Matrix and
+opening an agent gave you a green window with a gold program sitting in it.
+
+Sending every such colour to its nearest slot fixes that and breaks something
+worse. Against a theme built around one hue — Matrix, whose palette's "yellow"
+is a green — an agent's gold chrome and its added lines both came back green,
+and *added* against *removed* is the one distinction in a terminal you cannot
+afford to lose. So the rule is narrow, and it is about what a colour is for:
+
+- **Red and green are left exactly as the program sent them.** They are the two
+  colours that carry meaning rather than decoration — failed and passed, removed
+  and added — and a theme does not get a vote on those.
+- **A program's own accent is toned down to plain text.** The gold is branding:
+  the loudest thing on the screen, saying nothing the words beside it do not.
+  Plain text means the theme's foreground *with the hue taken out* — near-white
+  on a dark theme, near-black on a light one — and not the foreground itself,
+  which is not neutral in every theme: Matrix sets it to `#8CF5A3`, so an accent
+  handed the text colour came out bright green, which is a long way from toned
+  down. The way to stop a colour shouting is to give it no hue at all. As a
+  *background* it keeps a hue — a warm bar is a marked row, a white one is
+  nothing.
+- **The cool hues take the theme's own — unless the theme answers with a red or
+  a green.** Blue, cyan and magenta are where a TUI draws its furniture, and
+  furniture is decoration. But the colour Claude Code paints the *selected*
+  option of a yes/no prompt in is that pale blue, and Matrix answers "blue"
+  with `#8AF0A5` — so "No, exit" came up green, a negative call to action
+  wearing the colour of go. The theme's answer is checked before it is given:
+  a recolour may change how decoration looks, never what it appears to mean.
+- **Greys are left alone.** A grey is already neutral, so there is nothing in it
+  for a theme to answer, and answering anyway is how a program's quiet secondary
+  text came back faintly green, or faintly pink.
+
+The eight ANSI colours and their bright variants pass through untouched — those
+were already the theme's to answer. The ground is its own case: a program
+painting its background the colour of the terminal's is asking for the
+background, so it gets the *default* one and the window's glass shows through,
+rather than an opaque slab of the theme's black. A switch under the swatches
+turns the whole thing off.
 
 The picker is not a sheet. A sheet on macOS is modal and will not dismiss on a
 click outside it, and picking a theme is a thing you do by trying three and then
