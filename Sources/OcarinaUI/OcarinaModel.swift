@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import OcarinaTerminalContext
 import Observation
@@ -45,6 +46,7 @@ public final class OcarinaModel {
     public let recipes: [RecipeGroup] = RecipeCatalog.load()
 
     public var isQuickActionsVisible = false
+    public var isFeedbackVisible = false
     public var isThemePickerVisible = false
 
     /// Dismissed per failure, not for good: the next failing command shows it
@@ -192,6 +194,16 @@ public final class OcarinaModel {
     }
 
     @ObservationIgnored private var lastTaskSignature: String?
+
+    /// Hands a filled-in draft to the user's mail app.
+    ///
+    /// Opening a `mailto:` is the send — nothing leaves the machine from here,
+    /// and the message sits in their drafts until they press send themselves.
+    public func composeFeedback(_ message: String) {
+        isFeedbackVisible = false
+        guard !message.isEmpty, let url = FeedbackMail.url(for: message) else { return }
+        NSWorkspace.shared.open(url)
+    }
 
     /// Types text into the selected tab without running it. Every path that
     /// puts a command in front of the user ends here, and none of them press

@@ -142,6 +142,13 @@ public struct OcarinaWindowView: View {
             QuickActionsView(model: model)
                 .environment(\.theme, model.themes.theme)
         }
+        .sheet(isPresented: $model.isFeedbackVisible) {
+            FeedbackView(
+                send: { model.composeFeedback($0) },
+                cancel: { model.isFeedbackVisible = false }
+            )
+            .environment(\.theme, model.themes.theme)
+        }
     }
 
     /// System controls draw themselves — the keep-awake switch, menus, the
