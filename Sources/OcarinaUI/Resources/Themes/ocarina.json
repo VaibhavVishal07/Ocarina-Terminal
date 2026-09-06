@@ -53,11 +53,5 @@
     "unlit": "#191C22",
     "backdrop": "#060709",
     "highlight": "#FFB838"
-  },
-  "pattern": {
-    "shape": "notes",
-    "opacity": 0.05,
-    "scale": 13,
-    "color": "#38C2FF"
   }
 }

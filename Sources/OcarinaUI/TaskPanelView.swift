@@ -28,9 +28,6 @@ struct TaskPanelView: View {
         .background {
             ZStack {
                 theme.chrome.panelTop.color
-                if let pattern = theme.pattern {
-                    PatternView(motif: pattern)
-                }
             }
             // Under the titlebar as well, or the panel stops short of it and
             // leaves the raw window backdrop showing in the corner.

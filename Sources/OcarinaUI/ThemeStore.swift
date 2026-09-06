@@ -154,8 +154,7 @@ public extension Theme {
             backdrop: ThemeColor(hex: "#060709"),
             highlight: ThemeColor(hex: "#FFB838")
         ),
-        typography: nil,
-        pattern: Motif(shape: .notes, opacity: 0.05, scale: 13, color: ThemeColor(hex: "#38C2FF"))
+        typography: nil
     )
 }
 

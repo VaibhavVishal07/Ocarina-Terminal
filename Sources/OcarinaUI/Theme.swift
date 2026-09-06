@@ -84,8 +84,6 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
     public let typography: Typography?
     /// The faint motif behind the panels. Optional: High Contrast has none on
     /// purpose, because texture is the last thing that helps somebody who
-    /// needed to turn contrast up.
-    public let pattern: Motif?
 
     /// The terminal surface. SwiftTerm owns the drawing; these are the knobs
     /// it exposes.

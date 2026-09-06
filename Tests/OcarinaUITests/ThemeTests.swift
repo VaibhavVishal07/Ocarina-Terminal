@@ -64,55 +64,6 @@ struct ThemeTests {
         }
     }
 
-    @Test("A motif, where there is one, stays behind the text")
-    func patterns() {
-        for theme in bundled {
-            guard let motif = theme.pattern else { continue }
-            // Above about 0.07 it stops being texture and starts competing
-            // with the text in front of it.
-            #expect(motif.opacity > 0 && motif.opacity <= 0.07,
-                    "\(theme.id) motif opacity \(motif.opacity)")
-            #expect(motif.scale >= 2 && motif.scale <= 40)
-        }
-    }
-
-    @Test("Some themes are deliberately plain")
-    func someAreClean() {
-        // Not every theme wants a texture, and somebody who turned contrast up
-        // certainly did not ask for wallpaper.
-        let clean = bundled.filter { $0.pattern == nil }.map(\.id)
-        #expect(clean.contains("high-contrast"))
-        #expect(clean.count >= 3, "expected a few plain themes, got \(clean)")
-    }
-
-    @Test("Every scattered motif draws a shape you could see")
-    func motifsDraw() {
-        let scattered: [Motif.Shape] = [.petals, .leaves, .notes, .sprigs, .dots,
-                                        .embers, .waves, .rain, .crest]
-        for shape in scattered {
-            let bounds = PatternView.path(for: shape).boundingRect
-            // Rain streaks are legitimately thin, so the bar is "has area at
-            // all" plus "is a real size in at least one direction".
-            #expect(bounds.width > 0.03 && bounds.height > 0.03, "\(shape) is empty")
-            #expect(max(bounds.width, bounds.height) > 0.3, "\(shape) is too small to see")
-            // Drawn in a unit box centred on the origin, because the scatter
-            // transform assumes it.
-            #expect(bounds.width <= 1.2 && bounds.height <= 1.2, "\(shape) overflows its box")
-        }
-    }
-
-    @Test("Textures are drawn as a surface, not scattered as objects")
-    func texturesAreNotScattered() {
-        // Brushed metal and a grid cover the panel; their `path` is only a
-        // placeholder, so they are exempt from the shape rules above and have
-        // to say so for themselves.
-        #expect(Motif.Shape.brushed.isTexture)
-        #expect(Motif.Shape.grid.isTexture)
-        for shape in [Motif.Shape.petals, .leaves, .rain, .crest] {
-            #expect(shape.isTexture == false, "\(shape) is a scattered motif")
-        }
-    }
-
     @Test("The bundled typeface is there and the mono half is monospaced")
     func geistIsBundled() {
         BundledFonts.register()
