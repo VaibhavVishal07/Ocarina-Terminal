@@ -28,7 +28,7 @@ struct TokenUsageTests {
         #expect(TokenUsageSource.tokens(in: [:]) == 0)
     }
 
-    @Test("The window is the five hours from the request that opened it")
+    @Test("The window is the five hours from the hour the first request landed in")
     func windowFromFirstRequest() throws {
         let now = Date()
         let samples = [
@@ -38,8 +38,58 @@ struct TokenUsageTests {
         ]
         let window = try #require(TokenUsageSource.window(from: samples, now: now))
         #expect(window.tokens == 6_000)
-        #expect(window.startedAt == samples[0].at)
-        #expect(window.resetsAt == samples[0].at.addingTimeInterval(5 * 3600))
+        #expect(window.startedAt == TokenUsageSource.blockStart(containing: samples[0].at))
+        #expect(window.resetsAt == window.startedAt.addingTimeInterval(5 * 3600))
+    }
+
+    @Test("A block opens on the hour, not on the minute the request was sent")
+    func blocksAreAnchoredToTheHour() throws {
+        // The account resets on the hour. Counting five hours from 09:47 puts
+        // the card's reset 47 minutes after the real one, which is exactly
+        // long enough to still be reporting a spent block after the renewal.
+        let opened = try #require(ISO8601DateFormatter.transcript().date(from: "2026-09-06T09:47:12.000Z"))
+        let now = opened.addingTimeInterval(3600)
+        let window = try #require(TokenUsageSource.window(from: [.init(at: opened, tokens: 10)], now: now))
+
+        let expected = try #require(ISO8601DateFormatter.transcript().date(from: "2026-09-06T09:00:00.000Z"))
+        #expect(window.startedAt == expected)
+        #expect(window.resetsAt == expected.addingTimeInterval(5 * 3600))
+    }
+
+    @Test("An established block is kept until the clock ends it")
+    func anchorHoldsTheWindowSteady() throws {
+        // The samples a reading is built from are only the ones inside the
+        // lookback. Without an anchor, the oldest of them falling out of it
+        // re-anchors the chain and the reported window moves under a user who
+        // has done nothing.
+        let now = Date()
+        let anchor = TokenUsageSource.blockStart(containing: now.addingTimeInterval(-2 * 3600))
+        let window = try #require(
+            TokenUsageSource.window(from: [sample(30, 500, from: now)], now: now, anchor: anchor)
+        )
+        #expect(window.startedAt == anchor)
+        #expect(window.tokens == 500)
+    }
+
+    @Test("A lapsed block is replaced by what was spent after it, not before")
+    func anchorIsReplacedWhenItLapses() throws {
+        let now = Date()
+        // A block that opened six hours ago has ended, whatever is in it.
+        let anchor = TokenUsageSource.blockStart(containing: now.addingTimeInterval(-6 * 3600))
+        let samples = [
+            sample(340, 9_000, from: now),   // inside the block that ended
+            sample(20, 400, from: now)       // the request that opened the new one
+        ]
+        let window = try #require(TokenUsageSource.window(from: samples, now: now, anchor: anchor))
+        #expect(window.startedAt == TokenUsageSource.blockStart(containing: samples[1].at))
+        #expect(window.tokens == 400)
+    }
+
+    @Test("A lapsed block with nothing after it is no window at all")
+    func anchorLapsesToNothing() {
+        let now = Date()
+        let anchor = TokenUsageSource.blockStart(containing: now.addingTimeInterval(-6 * 3600))
+        #expect(TokenUsageSource.window(from: [sample(340, 9_000, from: now)], now: now, anchor: anchor) == nil)
     }
 
     @Test("A request after the window lapsed opens the next one")
@@ -53,7 +103,7 @@ struct TokenUsageTests {
         let window = try #require(TokenUsageSource.window(from: samples, now: now))
         // Only the request inside the live block counts against it.
         #expect(window.tokens == 1_500)
-        #expect(window.startedAt == samples[2].at)
+        #expect(window.startedAt == TokenUsageSource.blockStart(containing: samples[2].at))
     }
 
     @Test("Nothing spent in a live window is nothing to report")
@@ -125,7 +175,7 @@ struct TokenUsageTests {
         try (record(30, 100) + "\n" + record(20, 200) + "\n")
             .write(to: transcript, atomically: true, encoding: .utf8)
 
-        let meter = TokenUsageMeter(source: TokenUsageSource(root: root))
+        let meter = TokenUsageMeter(source: TokenUsageSource(root: root), store: nil)
         let first = try #require(await meter.read())
         #expect(first.tokens == 302)
 
@@ -139,7 +189,7 @@ struct TokenUsageTests {
         #expect(second.tokens == 803)
 
         // And a meter that has never seen the file must reach the same number.
-        let fresh = TokenUsageMeter(source: TokenUsageSource(root: root))
+        let fresh = TokenUsageMeter(source: TokenUsageSource(root: root), store: nil)
         #expect(await fresh.read()?.tokens == second.tokens)
     }
 
@@ -164,7 +214,7 @@ struct TokenUsageTests {
         try (record(30, 100) + "\n" + record(20, 200) + "\n")
             .write(to: transcript, atomically: true, encoding: .utf8)
 
-        let meter = TokenUsageMeter(source: TokenUsageSource(root: root))
+        let meter = TokenUsageMeter(source: TokenUsageSource(root: root), store: nil)
         #expect(await meter.read()?.tokens == 300)
 
         try (record(10, 700) + "\n").write(to: transcript, atomically: true, encoding: .utf8)

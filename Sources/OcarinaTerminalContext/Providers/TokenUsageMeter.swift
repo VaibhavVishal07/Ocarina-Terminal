@@ -10,6 +10,12 @@ import Foundation
 public actor TokenUsageMeter {
     private let source: TokenUsageSource
     private var cached: [URL: Reading] = [:]
+    /// The block last reported, so it is kept until the clock ends it rather
+    /// than re-derived from a lookback that is sliding underneath it. See
+    /// `TokenUsageSource.window(from:now:anchor:)`.
+    private var anchor: Date?
+    private let store: UserDefaults?
+    private static let anchorKey = "ocarina.usage.blockStart"
 
     private struct Reading {
         let signature: String
@@ -19,8 +25,16 @@ public actor TokenUsageMeter {
         let samples: [TokenUsageSource.Sample]
     }
 
-    public init(source: TokenUsageSource = TokenUsageSource()) {
+    /// The anchor outlives the app on purpose. Ocarina is quit and reopened
+    /// several times inside one five-hour block, and a meter that re-derives
+    /// the block on every launch is a meter whose countdown can move by an
+    /// hour because the window was closed for lunch.
+    public init(source: TokenUsageSource = TokenUsageSource(), store: UserDefaults? = .standard) {
         self.source = source
+        self.store = store
+        if let stamp = store?.object(forKey: Self.anchorKey) as? Double {
+            anchor = Date(timeIntervalSince1970: stamp)
+        }
     }
 
     /// The window that is running now, or nil when nothing has been spent in
@@ -47,8 +61,8 @@ public actor TokenUsageMeter {
                 // drop whatever has fallen out of the window since.
                 reading = Reading(
                     signature: signature,
-                    readTo: size,
-                    samples: previous.samples.filter { $0.at >= cutoff } + appended
+                    readTo: appended.readTo,
+                    samples: previous.samples.filter { $0.at >= cutoff } + appended.samples
                 )
             } else {
                 reading = Reading(
@@ -67,7 +81,26 @@ public actor TokenUsageMeter {
         // A cached file was read against an older cutoff than this one, and the
         // cutoff moves with the clock: without this, a sample from six hours
         // ago could still be the one that looks like it opened the window.
-        return TokenUsageSource.window(from: samples.filter { $0.at >= cutoff }, now: now)
+        let window = TokenUsageSource.window(
+            from: samples.filter { $0.at >= cutoff },
+            now: now,
+            anchor: anchor
+        )
+        remember(window?.startedAt)
+        return window
+    }
+
+    /// A block that has lapsed with nothing to replace it is forgotten, so the
+    /// next request made opens a block of its own rather than being counted
+    /// into one that ended hours ago.
+    private func remember(_ start: Date?) {
+        guard anchor != start else { return }
+        anchor = start
+        if let start {
+            store?.set(start.timeIntervalSince1970, forKey: Self.anchorKey)
+        } else {
+            store?.removeObject(forKey: Self.anchorKey)
+        }
     }
 
     private static func size(of url: URL) -> UInt64 {

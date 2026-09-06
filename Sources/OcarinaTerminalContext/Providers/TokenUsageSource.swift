@@ -160,7 +160,7 @@ public struct TokenUsageSource: Sendable {
     /// poll is re-reading the same megabytes to find the two lines that are
     /// new. Reading forward from where the last read stopped costs what
     /// actually happened since.
-    static func samples(in transcript: URL, since cutoff: Date, from offset: UInt64) -> [Sample]? {
+    static func samples(in transcript: URL, since cutoff: Date, from offset: UInt64) -> Appended? {
         guard let handle = try? FileHandle(forReadingFrom: transcript),
               let end = try? handle.seekToEnd()
         else { return nil }
@@ -168,7 +168,7 @@ public struct TokenUsageSource: Sendable {
         // Shorter than last time means it is not the same file any more —
         // rotated, truncated, replaced. Start again rather than guess.
         guard end >= offset else { return nil }
-        guard end > offset else { return [] }
+        guard end > offset else { return Appended(samples: [], readTo: end) }
 
         try? handle.seek(toOffset: offset)
         guard let data = try? handle.read(upToCount: Int(end - offset)) else { return nil }
@@ -184,7 +184,20 @@ public struct TokenUsageSource: Sendable {
             else { continue }
             samples.append(Sample(at: at, tokens: tokens(in: usage)))
         }
-        return samples
+        return Appended(samples: samples, readTo: end)
+    }
+
+    /// What a forward read found, and where it stopped.
+    ///
+    /// The offset comes back from the read itself rather than from a `stat`
+    /// taken beside it. They are not the same number: a transcript being
+    /// written to grows between the two, and recording the smaller one meant
+    /// the next poll started inside bytes already counted and added the same
+    /// responses to the window again. A meter that overcounts the busiest
+    /// session on the machine is the one case where it matters most.
+    struct Appended: Sendable {
+        let samples: [Sample]
+        let readTo: UInt64
     }
 
     /// How much of a transcript is read at a time.
@@ -227,29 +240,65 @@ public struct TokenUsageSource: Sendable {
 
     // MARK: - The window
 
+    /// A block opens on the hour, not on the request that opened it.
+    ///
+    /// This is the difference between a countdown that agrees with the one the
+    /// account is actually keeping and one that is up to an hour out. A block
+    /// runs from the top of the hour containing its first request — a first
+    /// message at 09:47 opens a block that ends at 14:00, not 14:47 — so a
+    /// window rebuilt from the raw timestamp reports a reset that has already
+    /// happened, and goes on counting the spent block into the renewed one.
+    ///
+    /// Floored in UTC, which is where the hour boundary is: an account on a
+    /// half-hour offset resets at half past the local hour.
+    static func blockStart(containing date: Date) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        return calendar.dateInterval(of: .hour, for: date)?.start ?? date
+    }
+
     /// The block the given samples are currently inside.
     ///
-    /// A block opens on the first request after the previous one lapsed and
-    /// runs `windowLength`. Walking forward from the oldest sample rebuilds
-    /// that: each request that lands after the open block has expired opens
-    /// the next one.
-    static func window(from samples: [Sample], now: Date = Date()) -> UsageWindow? {
+    /// A block opens on the hour of the first request made after the previous
+    /// one lapsed, and runs `windowLength`. Walking forward from the oldest
+    /// sample rebuilds that: each request that lands after the open block has
+    /// expired opens the next one.
+    ///
+    /// `anchor` is the block this meter last reported, and it is what keeps
+    /// the card steady. Reconstruction alone cannot: the samples it works from
+    /// are only the ones inside the lookback, so as the oldest of them fall
+    /// out the chain re-anchors and the reported window moves under a user who
+    /// has done nothing. A block that has been established is kept until the
+    /// clock says it has lapsed, and only then is the next one derived — from
+    /// the requests made after it ended, never from the ones that filled it.
+    static func window(from samples: [Sample], now: Date = Date(), anchor: Date? = nil) -> UsageWindow? {
         let ordered = samples.sorted { $0.at < $1.at }
-        guard var start = ordered.first?.at else { return nil }
+        let start: Date
 
-        for sample in ordered where sample.at >= start.addingTimeInterval(windowLength) {
-            start = sample.at
+        if let anchor, anchor <= now, now < anchor.addingTimeInterval(windowLength) {
+            start = anchor
+        } else {
+            // A lapsed anchor draws a line under itself: the block that has
+            // ended cannot name the one that follows it.
+            let lapsed = anchor.map { $0.addingTimeInterval(windowLength) }
+            guard let opener = ordered.first(where: { lapsed == nil || $0.at >= lapsed! })?.at
+            else { return nil }
+
+            var derived = blockStart(containing: opener)
+            for sample in ordered where sample.at >= derived.addingTimeInterval(windowLength) {
+                derived = blockStart(containing: sample.at)
+            }
+            // The last block has already lapsed: nothing has been spent in the
+            // one that is open now, because nothing has opened it yet.
+            guard derived.addingTimeInterval(windowLength) > now else { return nil }
+            start = derived
         }
 
-        let resetsAt = start.addingTimeInterval(windowLength)
-        // The last block has already lapsed: nothing has been spent in the one
-        // that is open now, because nothing has opened it yet.
-        guard resetsAt > now else { return nil }
-
+        let end = start.addingTimeInterval(windowLength)
         let tokens = ordered
-            .filter { $0.at >= start }
+            .filter { $0.at >= start && $0.at < end }
             .reduce(0) { $0 + $1.tokens }
-        return UsageWindow(tokens: tokens, startedAt: start, resetsAt: resetsAt)
+        return UsageWindow(tokens: tokens, startedAt: start, resetsAt: end)
     }
 }
 
