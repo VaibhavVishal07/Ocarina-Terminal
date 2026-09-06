@@ -59,6 +59,35 @@ public struct ThemeColor: Codable, Sendable, Equatable, Hashable {
         )
     }
 
+    /// The same colour with its hue turned down to at most `ceiling`, or
+    /// unchanged if it was already quieter than that.
+    ///
+    /// Pulled towards the grey of the same *luminance* rather than towards the
+    /// midpoint of its channels, so the result reads as light as the colour it
+    /// came from. A green sits far above its own midpoint — take the hue out
+    /// of `#8CF5A3` by averaging and the text arrives visibly darker than it
+    /// was authored to be.
+    public func chromaCapped(at ceiling: Double) -> ThemeColor {
+        let chroma = max(red, green, blue) - min(red, green, blue)
+        guard chroma > ceiling, chroma > 0 else { return self }
+
+        let grey = luminanceLevel
+        let keep = ceiling / chroma
+        func channel(_ value: Double) -> Int {
+            Int((min(max(grey + (value - grey) * keep, 0), 1) * 255).rounded())
+        }
+        return ThemeColor(hex: String(
+            format: "#%02X%02X%02X", channel(red), channel(green), channel(blue)
+        ))
+    }
+
+    /// Lightness as the eye takes it, before the WCAG gamma curve — which is
+    /// the right measure for "a grey as light as this colour", where
+    /// `luminance` is the right one for contrast.
+    var luminanceLevel: Double {
+        0.2126 * red + 0.7152 * green + 0.0722 * blue
+    }
+
     /// WCAG relative luminance. Used by the contrast floor, which is the one
     /// thing standing between a pretty theme and unreadable error text.
     public var luminance: Double {
@@ -180,6 +209,41 @@ public extension Theme.Terminal {
     var fontIsUsable: Bool {
         NSFont(name: fontName, size: fontSize)?.isFixedPitch ?? false
     }
+
+    /// How much hue the text you read all day is allowed to carry.
+    ///
+    /// Body text is white with a *tinge* of the theme, not the theme's colour
+    /// set as words. Thirteen of the fourteen bundled themes were already
+    /// written that way, at a chroma between 0.01 and 0.13 — Matrix was the
+    /// exception at 0.41, and its screen was the one where the text was the
+    /// theme rather than wearing it.
+    ///
+    /// A ceiling rather than a fixed amount, because the themes that were
+    /// already right must come through untouched: this takes the loud ones
+    /// down to the level the quiet ones already sit at, and leaves everything
+    /// below it alone. It applies to anyone's own theme too, which a
+    /// hand-edited palette would not have.
+    ///
+    /// Set a hair above Ember's 0.133 rather than through it. A ceiling that
+    /// cuts the loudest theme that was already right is a ceiling in the wrong
+    /// place — it would be trimming a colour somebody had chosen, by an amount
+    /// too small to see.
+    static var textChroma: Double { 0.14 }
+
+    /// The colour body text is actually drawn in.
+    var text: ThemeColor { foreground.chromaCapped(at: Self.textChroma) }
+
+    /// The sixteen as they are drawn.
+    ///
+    /// The two whites answer to the same ceiling as the text: they *are* the
+    /// text colour in every bundled theme, so capping one and not the other
+    /// would leave a program printing in white looking greener than the line
+    /// above it.
+    var palette: [ThemeColor] {
+        ansi.enumerated().map { index, colour in
+            index == 7 || index == 15 ? colour.chromaCapped(at: Self.textChroma) : colour
+        }
+    }
 }
 
 public extension Theme {
@@ -236,7 +300,10 @@ public struct ThemeReport: Sendable, Equatable {
             if ratio < floor { findings.append(Finding(what: name, ratio: ratio)) }
         }
 
-        check("foreground", theme.terminal.foreground)
+        // What is drawn, not what was written down: the text and the two
+        // whites are capped on their way to the screen, so the floor has to be
+        // measured against the colours that actually arrive there.
+        check("foreground", theme.terminal.text)
 
         // The two extremes of the ramp — ANSI 0 and 15 — are the pair a theme
         // uses as a *ground*: black is the background on a dark theme, white on
@@ -247,7 +314,7 @@ public struct ThemeReport: Sendable, Equatable {
         //
         // Everything between them is text somebody reads, including ANSI 8,
         // which is where dim output and comments land.
-        for (index, colour) in theme.terminal.ansi.enumerated() {
+        for (index, colour) in theme.terminal.palette.enumerated() {
             let isGround = index == 0 || index == 15
             check("ansi[\(index)]", colour, floor: isGround ? 3 : ThemeReport.minimumContrast)
         }

@@ -168,11 +168,14 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
         palette.isEnabled = tintingOutput
         let terminal = theme.terminal
         terminalView.font = terminal.resolvedFont
-        terminalView.nativeForegroundColor = terminal.foreground.nsColor
+        // `text` and `palette`, not `foreground` and `ansi`: body text is
+        // white with a tinge of the theme rather than the theme's colour set
+        // as words. See `Theme.Terminal.textChroma`.
+        terminalView.nativeForegroundColor = terminal.text.nsColor
         terminalView.nativeBackgroundColor = .clear
         terminalView.caretColor = terminal.cursor.nsColor
         terminalView.selectedTextBackgroundColor = terminal.selection.nsColor
-        terminalView.installColors(terminal.ansi.map(\.swiftTermColor))
+        terminalView.installColors(terminal.palette.map(\.swiftTermColor))
 
         // A bar, not a block. SwiftTerm defaults to a filled cell, which is
         // what a terminal has always done — but it sits *over* the character

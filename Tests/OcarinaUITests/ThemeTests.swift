@@ -36,6 +36,43 @@ struct ThemeTests {
         }
     }
 
+    @Test("Body text is white with a tinge of the theme, never the theme itself")
+    func textCarriesOnlyATinge() {
+        func chroma(_ colour: ThemeColor) -> Double {
+            max(colour.red, colour.green, colour.blue) - min(colour.red, colour.green, colour.blue)
+        }
+        for theme in bundled {
+            let terminal = theme.terminal
+            // The slack is one 8-bit step: the cap is applied in floating
+            // point and written back as three bytes.
+            #expect(
+                chroma(terminal.text) <= Theme.Terminal.textChroma + 1.0 / 255,
+                "\(theme.id) sets its text in the theme's colour rather than in white wearing it"
+            )
+            // The two whites are the text colour in every bundled theme, so
+            // they answer to the same ceiling — capping one and not the other
+            // leaves a program printing in white louder than the line above it.
+            #expect(chroma(terminal.palette[7]) <= Theme.Terminal.textChroma + 1.0 / 255)
+            #expect(chroma(terminal.palette[15]) <= Theme.Terminal.textChroma + 1.0 / 255)
+        }
+    }
+
+    @Test("A theme already written that quietly is left exactly as it is")
+    func quietThemesAreUntouched() throws {
+        // The ceiling takes the loud ones down to where the quiet ones already
+        // sit. Thirteen of the fourteen were already there, and a rule that
+        // rewrote them too would be redecorating somebody's theme.
+        let untouched = try #require(bundled.first { $0.id == "ocarina" }).terminal
+        #expect(untouched.text == untouched.foreground)
+        #expect(untouched.palette == untouched.ansi)
+
+        let loud = try #require(bundled.first { $0.id == "matrix" }).terminal
+        #expect(loud.text != loud.foreground)
+        // And it stays as light as it was authored: pulled towards the grey of
+        // its own luminance, not towards the midpoint of its channels.
+        #expect(abs(loud.text.luminanceLevel - loud.foreground.luminanceLevel) < 0.01)
+    }
+
     @Test("Every bundled theme is a dark theme")
     func allDark() {
         // A terminal is looked at for hours in a dim room; a light one is a

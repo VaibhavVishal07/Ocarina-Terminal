@@ -187,7 +187,7 @@ private struct ThemeSwatch: View {
     /// them and told you nothing at this size that the base row did not.
     private var swatches: some View {
         HStack(spacing: 1.5) {
-            ForEach(Array(theme.terminal.ansi.prefix(8).enumerated()), id: \.offset) { _, colour in
+            ForEach(Array(theme.terminal.palette.prefix(8).enumerated()), id: \.offset) { _, colour in
                 RoundedRectangle(cornerRadius: 1)
                     .fill(colour.color)
                     .frame(height: 6)

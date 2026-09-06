@@ -56,14 +56,14 @@ public struct PaletteFilter: Sendable {
     public init(theme: Theme, isEnabled: Bool = true) {
         self.isEnabled = isEnabled
         background = theme.terminal.background
-        foreground = theme.terminal.foreground
-        ansi = theme.terminal.ansi
+        foreground = theme.terminal.text
+        ansi = theme.terminal.palette
     }
 
     public mutating func use(_ theme: Theme) {
         background = theme.terminal.background
-        foreground = theme.terminal.foreground
-        ansi = theme.terminal.ansi
+        foreground = theme.terminal.text
+        ansi = theme.terminal.palette
     }
 
     // MARK: - The stream
@@ -403,8 +403,7 @@ extension ThemeColor {
     /// channels instead would send a green text colour to a grey a good deal
     /// darker than it reads.
     var desaturated: ThemeColor {
-        let level = 0.2126 * red + 0.7152 * green + 0.0722 * blue
-        let byte = Int((min(max(level, 0), 1) * 255).rounded())
+        let byte = Int((min(max(luminanceLevel, 0), 1) * 255).rounded())
         return ThemeColor(red: byte, green: byte, blue: byte)
     }
 
