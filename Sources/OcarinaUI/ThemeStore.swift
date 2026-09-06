@@ -22,7 +22,21 @@ public final class ThemeStore {
     /// find is worse than one listed as broken.
     public private(set) var rejected: [ThemeReport]
 
+    /// Whether a program's own colours are rewritten into the theme's. See
+    /// `PaletteFilter`.
+    ///
+    /// On by default, because the alternative is a theme that stops at the
+    /// edge of the terminal: the window, the panels and the shell all follow
+    /// the palette, and then the tool you spend the day inside is whatever
+    /// colour its author picked. Off is here for the times a colour is the
+    /// content — a diff you are reading closely, an image drawn in half
+    /// blocks — where a faithful colour beats a consistent one.
+    public var tintsProgramColours: Bool {
+        didSet { UserDefaults.standard.set(tintsProgramColours, forKey: Self.tintKey) }
+    }
+
     private static let key = "ocarina.theme"
+    private static let tintKey = "ocarina.tintProgramColours"
     private static let houseThemeID = "ocarina"
 
     public var theme: Theme {
@@ -53,6 +67,7 @@ public final class ThemeStore {
 
         available = usable
         rejected = bad
+        tintsProgramColours = UserDefaults.standard.object(forKey: Self.tintKey) as? Bool ?? true
         // Saved choice, else the house theme, else whatever loaded. Falling
         // straight to `usable[0]` meant the alphabetically first file won, so a
         // fresh install opened in High Contrast — a theme for people who need

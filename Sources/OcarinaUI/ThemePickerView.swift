@@ -41,6 +41,8 @@ struct ThemePickerView: View {
             }
             .frame(maxHeight: 460)
 
+            tinting
+
             if !model.themes.rejected.isEmpty { rejected }
         }
         .frame(width: 572)
@@ -79,6 +81,41 @@ struct ThemePickerView: View {
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 2)
+    }
+
+    /// The one thing about a theme that is a choice rather than a colour.
+    ///
+    /// It sits under the swatches instead of in the sidebar's settings,
+    /// because it is not a setting about the app: it is the answer to "how far
+    /// does the theme go", and the place you ask that is the place you are
+    /// choosing the theme.
+    private var tinting: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill(theme.chrome.border.color.opacity(0.14)).frame(height: 1)
+
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Recolour programs to match")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(theme.chrome.textPrimary.color)
+                    Text("A program's own accent — Claude Code's gold — is toned down to plain text, and its blues take the theme's unless that would read as a red or a green. Red, green and grey are left alone. Output already on screen keeps the colours it arrived in.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.chrome.textTertiary.color)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Toggle("", isOn: Binding(
+                    get: { model.themes.tintsProgramColours },
+                    set: { model.setTinting($0) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(theme.chrome.accent.color)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
     }
 
     /// Themes that loaded and were turned away, with the reason. Listed rather
