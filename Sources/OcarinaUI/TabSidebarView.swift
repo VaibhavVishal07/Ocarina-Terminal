@@ -10,17 +10,18 @@ import SwiftUI
 /// fit. Vertically the list has the room to be long, which is what a task list
 /// needs, and the terminal keeps the width it lost to the strip's full span.
 struct TabSidebarView: View {
-    /// Narrow on purpose. A name that does not fit is truncated rather than
-    /// given more room: the column is for picking a tab out of a list, and the
-    /// terminal beside it is what the window is actually for.
-    static let width: CGFloat = 165
+    /// The shared side-panel width. It was 165 — narrow on purpose, on the
+    /// argument that the terminal is what the window is for — but the names
+    /// this app generates are up to four words, and 165 left about 77pt for
+    /// them. Twelve characters. Nearly every name in the column arrived
+    /// already cut, which is not a column you can pick a tab out of.
+    static let width: CGFloat = OcarinaWindowView.panelWidth
     /// Only catches pathological names — the width truncates long ones long
     /// before this does.
     static let titleLimit = 34
-    /// Both trailing glyphs — the pin and the close button — are drawn at this
-    /// size, in a circle of this diameter, in the same slot. A pinned tab and
-    /// a hovered one then have identical geometry and nothing shifts as they
-    /// swap.
+    /// The close button's glyph size and the diameter of the circle behind it.
+    /// The slot is reserved whether or not the button is in it, so a row does
+    /// not reflow as the pointer arrives.
     private static let badgeSize: CGFloat = 18
     private static let badgeGlyph: CGFloat = 9
     /// Rows sit in from the panel's edges rather than running up against them,
@@ -33,15 +34,28 @@ struct TabSidebarView: View {
     /// a rounded rectangle this size from looking stamped out.
     private static let rowCorner: CGFloat = 10
     /// One height for everything in the list, tabs and the new-tab button
-    /// alike. A row is a single line of 12pt text; at 48 it carried more empty
-    /// space than text and stood apart from the rest of the column instead of
-    /// belonging to it, and 38 still read as tall for one line.
+    /// alike.
     ///
-    /// 32 is the floor rather than a taste: hovering adds a 9.5pt subtitle
-    /// under the 12pt name, and those two lines plus their spacing measure
-    /// about 27pt. The row absorbs that inside its own height, so the list
-    /// does not shift down as the pointer arrives.
-    private static let rowHeight: CGFloat = 32
+    /// It was 32, and 32 was a floor rather than a taste: hovering used to add
+    /// a 9.5pt subtitle under the name, and the row had to be tall enough to
+    /// absorb it so the list did not shift as the pointer arrived. The
+    /// subtitle is gone, and with it the constraint — so the height is now
+    /// chosen for how a row should sit rather than for what it has to swallow.
+    /// A name needs air around it more than the column needs another two rows
+    /// on screen.
+    private static let rowHeight: CGFloat = 40
+
+    /// And a tighter one for the settings card.
+    ///
+    /// A tab row is 40 because a name wants air around it. Four settings in a
+    /// stack want the opposite: at 40 apiece they took 160pt off the bottom of
+    /// the column — a sixth of the window — to say four short words.
+    ///
+    /// Fixed rather than a minimum. As a minimum the two rows carrying a switch
+    /// came out taller than the two carrying a link — the control has an
+    /// intrinsic height of its own and the row grew to it — so a card of four
+    /// identical rows rendered as four different ones.
+    private static let settingsRowHeight: CGFloat = 27
 
     @Environment(\.theme) private var theme
     @Bindable var model: OcarinaModel
@@ -57,12 +71,39 @@ struct TabSidebarView: View {
     private static let space = "tabsidebar"
 
 
+    /// Two cards, not one.
+    ///
+    /// The tabs and the settings were a single panel with the settings drawn
+    /// as an inset box inside it — a card in a card, which is a shape the rest
+    /// of the window does not use anywhere. The right-hand column had already
+    /// answered this: the task list and the token widget are two separate
+    /// panels with the window's ground between them. This is the same answer
+    /// on the other side, so the four panels in the window are four of the
+    /// same kind of object rather than three and a nested one.
     var body: some View {
+        VStack(spacing: OcarinaWindowView.panelGap) {
+            listCard
+            settingsCard
+        }
+        .frame(width: Self.width)
+        .coordinateSpace(name: Self.space)
+        .overlay(alignment: .topLeading) {
+            GeometryReader { geometry in
+                if let toolTip {
+                    ToolTipBubble(
+                        target: toolTip,
+                        width: geometry.size.width,
+                        height: geometry.size.height
+                    )
+                }
+            }
+        }
+    }
+
+    /// The mark and the list of tabs.
+    private var listCard: some View {
         VStack(spacing: 0) {
-            // The window's titlebar safe area already pushes the sidebar clear
-            // of the traffic lights. This is the breathing room below them, not
-            // the clearance itself — reserving the full height of the titlebar
-            // here as well is what left the first tab stranded halfway down.
+            // Breathing room at the top of the card.
             Color.clear.frame(height: Self.inset)
 
             wordmark
@@ -72,9 +113,8 @@ struct TabSidebarView: View {
                 // that makes it look placed rather than dropped in.
                 .padding(.leading, Self.inset + 7)
                 .padding(.trailing, Self.inset)
-                // On top of the breathing room already left below the titlebar,
-                // so the mark clears the traffic lights rather than sitting on
-                // the same line as them.
+                // On top of the spacer above, so the mark sits a clear step
+                // inside the card rather than against its top edge.
                 .padding(.top, 10)
                 .padding(.bottom, 24)
 
@@ -91,28 +131,29 @@ struct TabSidebarView: View {
                 .padding(.horizontal, Self.inset)
                 .padding(.bottom, Self.inset)
             }
+        }
+        // The list gives way, and the settings never do. Without this the
+        // scroller kept its full height once there were enough tabs to fill
+        // it and the card below was pushed off the bottom of the window —
+        // the tabs ran straight into Theme and Share Feedback.
+        .frame(maxHeight: .infinity)
+        .layoutPriority(0)
+        .background(card())
+    }
 
-            footerLinks
-            sleepPanel
-        }
-        .frame(width: Self.width)
-        // Under the titlebar too. SwiftUI insets content for the titlebar's
-        // safe area, which is right for the tabs and wrong for the surface
-        // behind them: it left the top strip showing the raw window backdrop,
-        // a flat grey band across a themed window.
-        .background(metal.ignoresSafeArea(edges: .top))
-        .coordinateSpace(name: Self.space)
-        .overlay(alignment: .topLeading) {
-            GeometryReader { geometry in
-                if let toolTip {
-                    ToolTipBubble(
-                        target: toolTip,
-                        width: geometry.size.width,
-                        height: geometry.size.height
-                    )
-                }
+    /// The surface both cards are drawn on.
+    ///
+    /// A background rather than a clip: the tool tips are an overlay on this
+    /// view and they are meant to hang off its edge, so clipping the sidebar
+    /// would cut every one of them in half. That is also why neither card uses
+    /// `panel()`, which clips.
+    private func card(mirrored: Bool = false) -> some View {
+        metal(mirrored: mirrored)
+            .clipShape(OcarinaWindowView.PanelStyle.shape)
+            .overlay {
+                OcarinaWindowView.PanelStyle.shape
+                    .stroke(theme.chrome.border.color.opacity(0.16), lineWidth: 1)
             }
-        }
     }
 
     // MARK: - Surface
@@ -122,24 +163,10 @@ struct TabSidebarView: View {
     /// thing on a screen whose other half is a nearly black terminal. This is
     /// an opaque dark panel with one faint highlight along the top — enough to
     /// read as a brushed surface catching light, not enough to shine.
-    private var metal: some View {
+    private func metal(mirrored: Bool) -> some View {
         ZStack {
-            LinearGradient(
-                colors: [theme.chrome.panelTop.color, theme.chrome.panelBottom.color],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            // The sheen is light falling on a surface, so it is drawn in the
-            // theme's own text colour rather than always in white: on a pale
-            // panel a white highlight is invisible and a dark one reads.
-            LinearGradient(
-                colors: [theme.chrome.textPrimary.color.opacity(0.035), .clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 110)
-            .frame(maxHeight: .infinity, alignment: .top)
-
+            OcarinaWindowView.panelFill(theme, mirrored: mirrored)
+            OcarinaWindowView.panelSheen(theme, mirrored: mirrored)
         }
         .allowsHitTesting(false)
     }
@@ -189,15 +216,18 @@ struct TabSidebarView: View {
         .padding(.top, 3)
     }
 
-    // MARK: - Footer
+    // MARK: - Settings
 
-    /// The two things that otherwise live only in the menu bar — the one place
-    /// a person coming from a web interface does not think to look.
+    /// Theme, feedback, the task panel and keep-awake, in one card.
     ///
-    /// No Tasks row any more: the panel it used to open is always on screen, so
-    /// the link led nowhere a glance to the right would not already show.
-    private var footerLinks: some View {
-        VStack(spacing: 2) {
+    /// They were two loose stacks with a rule between them, sitting directly
+    /// on the sidebar's own surface — so with enough tabs open the list ran
+    /// into them and there was nothing to say where the list stopped and the
+    /// settings began. One card, edged like the token widget across the
+    /// window, is that edge; and it is one object for the layout to keep hold
+    /// of rather than four rows to push around.
+    private var settingsCard: some View {
+        VStack(spacing: 1) {
             // Opens the picker rather than a list of names: choosing a look
             // from words asks you to remember what Matcha looked like.
             Button {
@@ -206,7 +236,11 @@ struct TabSidebarView: View {
                 footerRow(
                     symbol: "paintpalette",
                     title: "Theme",
-                    trailing: model.themes.theme.name,
+                    // Not the theme's name. The window is *wearing* the theme —
+                    // the answer is the thing you are looking at, and printing
+                    // it as well spent the row's whole trailing edge repeating
+                    // what every other pixel already said.
+                    trailing: "",
                     hovered: isThemeHovered
                 )
             }
@@ -229,9 +263,43 @@ struct TabSidebarView: View {
             .buttonStyle(.plain)
             .onHover { isFeedbackHovered = $0 }
             .animation(.easeOut(duration: 0.12), value: isFeedbackHovered)
+
+            switchRow(
+                symbol: "checklist",
+                title: "Tasks",
+                shortcut: "\u{2318}J",
+                isOn: Binding(
+                    get: { model.isTaskPanelVisible },
+                    set: { model.setTaskPanel(visible: $0) }
+                )
+            )
+
+            switchRow(
+                symbol: "cup.and.saucer",
+                title: "Keep Awake",
+                shortcut: nil,
+                isOn: Binding(
+                    get: { model.sleepGuard.isEnabled },
+                    set: { isOn in
+                        model.sleepGuard.isEnabled = isOn
+                        TactileClick.shared.play(.down)
+                    }
+                ),
+                // The tip hangs off the label, not the row. Over the switch it
+                // would be explaining a control you are already using, and the
+                // switch is an AppKit view with tracking of its own — leaving
+                // the row *from* the switch swallowed the exit, and the bubble
+                // stayed up until something else replaced it.
+                tip: sleepHelp
+            )
         }
+        // The rows sit in from the card's edges by the same amount the tab
+        // rows sit in from theirs, so the two cards' contents line up down the
+        // column rather than each starting somewhere of its own.
         .padding(.horizontal, Self.inset)
-        .padding(.bottom, 6)
+        .padding(.vertical, Self.inset - 2)
+        .layoutPriority(1)
+        .background(card(mirrored: true))
     }
 
     /// The app's mark, in the board's own alphabet.
@@ -277,9 +345,10 @@ struct TabSidebarView: View {
                 .font(theme.uiFont(10.5, weight: .medium))
                 .frame(width: 9)
             // The label names the row, so it is never the thing that gets cut.
-            // `fixedSize` on the *value* meant the opposite: "High Contrast" is
-            // long enough to overrun the 165pt column, and what gave way was
-            // "Theme", which rendered as "The…".
+            // `fixedSize` on the *value* meant the opposite: a long value —
+            // "High Contrast", when this row still printed the theme's name —
+            // overran the column, and what gave way was "Theme", which
+            // rendered as "The…".
             Text(title)
                 .font(theme.uiFont(12, weight: .medium))
                 .lineLimit(1)
@@ -298,7 +367,7 @@ struct TabSidebarView: View {
         .foregroundStyle(hovered ? theme.chrome.textPrimary.color
                                  : theme.chrome.textSecondary.color)
         .padding(.horizontal, 7)
-        .frame(maxWidth: .infinity, minHeight: Self.rowHeight)
+        .frame(maxWidth: .infinity, minHeight: Self.settingsRowHeight, maxHeight: Self.settingsRowHeight)
         .background {
             RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
                 .fill(theme.chrome.rowHover.color.opacity(hovered ? 0.07 : 0))
@@ -422,7 +491,9 @@ struct TabSidebarView: View {
             Spacer(minLength: 8)
         }
         .padding(.horizontal, 7)
-        .frame(maxWidth: .infinity, minHeight: Self.rowHeight)
+        .frame(maxWidth: .infinity,
+               minHeight: Self.settingsRowHeight,
+               maxHeight: Self.settingsRowHeight)
         // The switch is laid over the row's trailing edge rather than placed in
         // the flow, so where the label stops cannot move it.
         .overlay(alignment: .trailing) {
@@ -509,24 +580,18 @@ struct TabSidebarView: View {
         }
     }
 
-    /// A pinned name is the user's, not ours. Same glyph size and same circle
-    /// as the close button, in the same slot.
-    private var pinBadge: some View {
-        Image(systemName: "pin.fill")
-            .font(.system(size: Self.badgeGlyph, weight: .bold))
-            .frame(width: Self.badgeSize, height: Self.badgeSize)
-            .background { Circle().fill(theme.chrome.border.color.opacity(0.10)) }
-            .foregroundStyle(theme.chrome.textSecondary.color)
-    }
-
     /// The row's outline. Renaming owns the edge outright — it is a mode, and
     /// the accent border is the only thing saying so. Otherwise selection is
     /// brightest, hover is quieter but unmistakably present, and a row at rest
     /// has no edge at all so the column stays a list rather than a grid.
     private func rowStroke(isSelected: Bool, isHovered: Bool, isRenaming: Bool) -> Color {
         if isRenaming { return theme.chrome.accent.color }
-        if isSelected { return theme.chrome.border.color.opacity(0.16) }
-        if isHovered { return theme.chrome.border.color.opacity(0.10) }
+        // The selected row wears the theme's accent. It was a white-ish border
+        // at 16% over a white-ish wash at 12%, which is the same faint grey
+        // edge in all fourteen themes — the one row you look at most, saying
+        // nothing about which theme you are in.
+        if isSelected { return theme.chrome.accent.color.opacity(0.34) }
+        if isHovered { return theme.chrome.border.color.opacity(0.12) }
         return .clear
     }
 
@@ -582,37 +647,64 @@ struct TabSidebarView: View {
                         }
                     }
             } else {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(tab.title.ellipsised(to: TabSidebarView.titleLimit))
-                        .font(theme.uiFont(12, weight: isSelected ? .semibold : .regular))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                // The name, and only the name.
+                //
+                // Hovering used to bring a second line — "Claude Code ·
+                // ~/Ocarina-Terminal" — under it. Two things were wrong with
+                // it: the row grew a second line of type at the exact moment
+                // the pointer was moving through the column, which is the
+                // worst possible moment to change what a row looks like; and
+                // it answered a question nobody was asking, since the tab is
+                // named for the work and the directory is a click away. It is
+                // still on the tooltip for when it is genuinely wanted.
+                Text(tab.title.ellipsised(to: TabSidebarView.titleLimit))
+                    .font(theme.uiFont(12, weight: isSelected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    // `layoutPriority(1)` would be the wrong way round: the
+                    // name is the part that gives, and the badge beside it is
+                    // 18pt whatever happens. Zero priority and a flexible
+                    // frame is what makes the truncation land on the name
+                    // rather than on the row's width.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(0)
 
-                    // Secondary information appears only when asked for.
-                    if isHovered, let subtitle = tab.subtitle {
-                        Text(subtitle)
-                            .font(theme.uiFont(9.5))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                // One slot, two glyphs: the pin while the row is at rest, the
-                // close button while the pointer is on it. Hovering a pinned
-                // tab is already the moment you are reaching for the cross.
+                // One slot, one glyph: the close button, and only while the
+                // pointer is on the row.
+                //
+                // There was a pin here too, marking a tab you had renamed by
+                // hand, and the slot swapped between the two. It went for the
+                // simplest reason — a badge has to earn the corner it sits in,
+                // and this one was reporting a fact about the tab's *history*
+                // rather than offering anything you could do. What it mostly
+                // achieved was an icon that changed under the pointer.
+                //
+                // Not animated, unlike the rest of the row: the row's hover
+                // animation crossfades, and a crossfade in a `ZStack` draws
+                // both states at once.
                 ZStack {
-                    if isHovered {
-                        closeButton(for: tab)
-                    } else if tab.isManuallyNamed {
-                        pinBadge
-                    }
+                    if isHovered { closeButton(for: tab) }
                 }
                 .frame(width: Self.badgeSize, height: Self.badgeSize)
+                .animation(nil, value: isHovered)
             }
         }
         .padding(.horizontal, 7)
-        .frame(minHeight: Self.rowHeight, alignment: .leading)
+        // `maxWidth: .infinity`, like every other row in this column. With
+        // only a minimum height the row took its *content's* width, so a name
+        // that did not compress grew the row — and the pill behind it — past
+        // the panel's own edge and out over the terminal. The column is 165pt
+        // whatever the names in it are.
+        .frame(maxWidth: .infinity, minHeight: Self.rowHeight, alignment: .leading)
+        // Nothing in the row draws outside the pill. Belt to the frame's
+        // braces: a name is one thing that can overrun a row, and whatever is
+        // added to this row next does not get to rediscover that.
+        //
+        // Above the background rather than below it, or the clip would take
+        // the outer half of the row's own 1pt stroke with it — and the 1.5pt
+        // accent edge that says a row is being renamed would come out thinner
+        // than the thing it is meant to stand out from.
+        .clipShape(RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous))
         .background {
             // Milled out of the same metal rather than a pane laid over it:
             // material here caught the light the panel no longer does.
@@ -625,7 +717,7 @@ struct TabSidebarView: View {
             // the row, the stroke is what actually draws the container, and
             // selection stays a clear step above hover on both.
             RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)
-                .fill(isSelected ? theme.chrome.rowSelected.color.opacity(0.12)
+                .fill(isSelected ? theme.chrome.accent.color.opacity(0.11)
                                  : theme.chrome.rowHover.color.opacity(isHovered ? 0.07 : 0))
                 .overlay {
                     RoundedRectangle(cornerRadius: Self.rowCorner, style: .continuous)

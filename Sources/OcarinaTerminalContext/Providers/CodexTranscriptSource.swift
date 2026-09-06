@@ -59,10 +59,11 @@ public struct CodexTranscriptSource: LLMTranscriptSource {
         return URL(fileURLWithPath: cwd).standardizedFileURL == directory.standardizedFileURL
     }
 
-    /// Recent human prompts, most recent first.
+    /// The prompts that open this conversation, oldest first. See the note on
+    /// `ClaudeTranscriptSource.prompts(in:)` for why the head and not the tail.
     private func prompts(in rollout: URL) -> [String] {
         var found: [String] = []
-        for line in JSONLReader.tailLines(of: rollout).reversed() {
+        for line in JSONLReader.headLines(of: rollout) {
             guard let object = JSONLReader.object(line),
                   object["type"] as? String == "event_msg",
                   let payload = object["payload"] as? [String: Any],

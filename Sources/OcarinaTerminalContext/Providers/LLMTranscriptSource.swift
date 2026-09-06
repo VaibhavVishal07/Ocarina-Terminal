@@ -16,11 +16,12 @@ public struct TranscriptQuery: Sendable, Equatable {
     }
 }
 
-/// One session's recent history, newest first.
+/// How a session names itself: its opening prompts, oldest first.
 public struct TranscriptReading: Sendable, Equatable {
-    /// Recent human prompts, most recent first. More than one, because the
-    /// most recent is often a pronoun-shaped follow-up — "run it", "now the
-    /// other one" — that names nothing on its own.
+    /// The human prompts that open this conversation, oldest first — the
+    /// candidates for its name, best first. More than one, because an opening
+    /// line is often throat-clearing — "hey", "look at this" — that names
+    /// nothing on its own.
     public var prompts: [String]
     /// Identifies the conversation these came from, so the naming engine can
     /// tell "this session moved on" apart from "a different session won".
@@ -39,6 +40,19 @@ public struct TranscriptReading: Sendable, Equatable {
 /// permitted to ship terminal contents anywhere to get a title.
 public protocol LLMTranscriptSource: Sendable {
     func latestPrompts(for query: TranscriptQuery) async -> TranscriptReading?
+
+    /// Whether the agent is mid-turn, or waiting for the next thing you say.
+    ///
+    /// Read from the *end* of the transcript, unlike the name, which is read
+    /// from the beginning: what a conversation is about was settled by its
+    /// first prompt, and what it is doing is settled by its last record.
+    ///
+    /// Nil when it cannot be told — no transcript, or nothing in it yet.
+    func isAwaitingUser(for query: TranscriptQuery) async -> Bool?
+}
+
+public extension LLMTranscriptSource {
+    func isAwaitingUser(for query: TranscriptQuery) async -> Bool? { nil }
 }
 
 /// Used by providers whose on-disk format has not been verified yet, so they

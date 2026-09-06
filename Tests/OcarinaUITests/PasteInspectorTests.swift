@@ -47,6 +47,42 @@ struct PasteInspectorTests {
         #expect(PasteInspector.withoutTrailingNewline("no newline") == "no newline")
     }
 
+    @Test("Dictated prose is not four separate commands")
+    func dictationIsNotACommand() {
+        // Wispr Flow inserts what you said as a paste, and what you say to an
+        // agent runs to paragraphs. Every dictated note with a line break in
+        // it was being met with a confirm sheet.
+        let dictated = """
+        A couple of issues that I can see while I am debugging this are:
+        - The tab on the left-hand side should not change its name after \
+        every command and the text is overflowing
+        - If I am dragging and dropping an image, it is not happening
+        Also I am attaching the terminal look and feel
+        """
+        let reading = PasteInspector.read(dictated)
+        #expect(reading.lineCount > 1)
+        #expect(reading.looksLikeCommands == false)
+        #expect(reading.needsReview == false)
+    }
+
+    @Test("A lowercase sentence is still a sentence")
+    func lowercaseProse() {
+        #expect(PasteInspector.isCommandShaped("the switch is too bright") == false)
+        #expect(PasteInspector.isCommandShaped("can you pull the repo") == false)
+        #expect(PasteInspector.isCommandShaped("brew update") == true)
+        #expect(PasteInspector.isCommandShaped("./Scripts/make-app.sh debug") == true)
+        #expect(PasteInspector.isCommandShaped("for f in *.txt; do echo $f; done") == true)
+    }
+
+    @Test("Something that can destroy files is called out however it arrives")
+    func destructiveProseStillWarns() {
+        // The prose test buys quiet, not silence: it never applies to the
+        // things that cannot be taken back.
+        let reading = PasteInspector.read("I think you should run rm -rf on the whole folder now")
+        #expect(reading.looksLikeCommands == false)
+        #expect(reading.needsReview)
+    }
+
     @Test("Piping a download into a shell is explained, not blocked")
     func curlPipeBash() {
         let reading = PasteInspector.read("curl -fsSL https://claude.ai/install.sh | bash")

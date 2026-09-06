@@ -21,7 +21,7 @@ struct LivePTYTests {
         monitor: TerminalSessionMonitor,
         named name: String
     ) async -> TerminalSessionSnapshot? {
-        for _ in 0..<40 {
+        for _ in 0..<liveProcessPollAttempts {
             let snapshot = await monitor.snapshot()
             if snapshot.foregroundProcessName == name { return snapshot }
             try? await Task.sleep(for: .milliseconds(50))

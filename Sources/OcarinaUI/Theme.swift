@@ -48,6 +48,17 @@ public struct ThemeColor: Codable, Sendable, Equatable, Hashable {
         NSColor(srgbRed: red, green: green, blue: blue, alpha: 1)
     }
 
+    /// The same colour, every channel scaled. Clamped, so a factor above 1 on
+    /// an already-bright swatch cannot wrap round to something else.
+    public func scaled(by factor: Double) -> ThemeColor {
+        func channel(_ value: Double) -> Int {
+            Int((min(max(value * factor, 0), 1) * 255).rounded())
+        }
+        return ThemeColor(
+            hex: String(format: "#%02X%02X%02X", channel(red), channel(green), channel(blue))
+        )
+    }
+
     /// WCAG relative luminance. Used by the contrast floor, which is the one
     /// thing standing between a pretty theme and unreadable error text.
     public var luminance: Double {
@@ -258,5 +269,23 @@ public extension ThemeColor {
             green8: UInt16(green * 255),
             blue8: UInt16(blue * 255)
         )
+    }
+}
+
+public extension Theme {
+    /// The window's own ground: what shows in the gaps between the panels, and
+    /// behind the titlebar.
+    ///
+    /// Derived rather than declared. A new field in `Chrome` would mean
+    /// editing every bundled theme, and would come back mid-grey on anybody's
+    /// own theme file — a window whose ground is grey while its panels are the
+    /// palette is exactly the mismatch this exists to fix.
+    ///
+    /// It is the sidebar's darker end taken one step further from the text, so
+    /// the cards sit *in front of* it rather than level with it. A dark theme
+    /// can take a real step down; a light one cannot, or the frame around the
+    /// panels reads as a shadow rather than as a surface.
+    var ground: ThemeColor {
+        chrome.panelBottom.scaled(by: isDark ? 0.62 : 0.94)
     }
 }

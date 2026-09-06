@@ -44,7 +44,14 @@ private func run() {
     container.addSubview(hosting)
     window.contentView = container
     window.isOpaque = false
-    window.backgroundColor = .clear
+    // Repainted from the theme as soon as the view appears; this is only what
+    // the window wears for the frame before that.
+    window.backgroundColor = .black
+    // The bar keeps its place in the layout — the content still starts below
+    // it — but takes the window's colour rather than the system's, so it is
+    // the same surface as the ground the panels float on. The hairline under
+    // it is asked for by name in `tintWindows`, because transparency drops it.
+    window.titlebarAppearsTransparent = true
     // Just the product name. The full bundle name — "Ocarina Test Build" —
     // was long enough to straddle the sidebar's edge, half on the panel and
     // half on the terminal; one short word sits inside the panel and stays on
@@ -62,8 +69,20 @@ private func run() {
     // taking the first characters of every tab name with it.
     window.contentMinSize = NSSize(width: OcarinaWindowView.minimumSize.width,
                                    height: OcarinaWindowView.minimumSize.height)
-    window.styleMask.insert(.fullSizeContentView)
-    window.titlebarAppearsTransparent = true
+    // A real titlebar, with nothing written in it.
+    //
+    // It was `.fullSizeContentView` over a transparent titlebar, which is the
+    // arrangement that hides the bar entirely and lets the content run up
+    // under the traffic lights. Every edge in the window then had to clear a
+    // bar that was not drawn — the sidebar with a spacer, the terminal with an
+    // inset, the error banner with 30pt of padding — and the top of the window
+    // was one unbroken surface with three lights floating on it.
+    //
+    // The bar is back and it earns its place twice: it is somewhere to hold
+    // the window that is not the text you are reading, and the hairline under
+    // it is the line the panels below now sit clear of. Nothing is written
+    // there; `titleVisibility` keeps the name for the Window menu and the
+    // accessibility tree without drawing it.
     window.center()
     window.makeKeyAndOrderFront(nil)
 

@@ -6,17 +6,54 @@ public struct OcarinaWindowView: View {
     /// the window's left edge and clipped — the tab names lose their first
     /// characters and the rows look jammed into the corner — so the window is
     /// held to it rather than the content merely refusing to shrink.
-    public static let minimumSize = CGSize(width: 820, height: 420)
+    public static let minimumSize = CGSize(width: 900, height: 440)
 
-    /// The terminal's gap from the top and the left, which are one number
-    /// because they are one gap seen twice.
+    /// The gap around the panels, and between them.
     ///
-    /// 22 rather than 24 because the terminal cell carries about 2pt of its
-    /// own above and to the left of the first glyph. Measured off the rendered
-    /// window, 22 here is the 24 you see; 24 here would read as 26.
-    private static let terminalInset: CGFloat = 22
+    /// One number for both, because a card floating in a window and two cards
+    /// floating beside each other are the same relationship seen twice — the
+    /// moment the outer gap and the inner gap differ, the pair stops reading as
+    /// a set and starts reading as a mistake.
+    static let panelGap: CGFloat = 10
+
+    /// One width for both side panels.
+    ///
+    /// They were 165 and 230, which read as two different kinds of thing
+    /// rather than two of the same thing — and the narrow one was the one that
+    /// needed the room: at 165 a generated tab name got about 77pt, some
+    /// twelve characters, so nearly every name in the column arrived already
+    /// cut. Equal, and the sidebar gains half its width again.
+    static let panelWidth: CGFloat = 230
+
+    /// The panels' corner. Continuous rather than circular, like the rows
+    /// inside them: at this size the difference between the two is the whole
+    /// difference between drawn and stamped out.
+    static let panelCorner: CGFloat = 12
+
+    /// The terminal's gap from the left edge of its card.
+    ///
+    /// 16 rather than 18 because the terminal cell carries about 2pt of its
+    /// own to the left of the first glyph. Measured off the rendered window,
+    /// 16 here is the 18 you see. It was 22 against the window's own edge;
+    /// inside a card that already floats 10pt off that edge, 22 more put the
+    /// first column a third of the way to the sidebar.
+    private static let terminalInset: CGFloat = 16
+
+    /// The gap above the first line and below the last.
+    ///
+    /// Equal, and both measured from the *card*, which is what changed: there
+    /// is no titlebar overhead to allow for any more, so the top no longer
+    /// needs a different number from the bottom. Before this the first line
+    /// sat some 50pt down a window whose last line was flush against the
+    /// bottom edge — the text was visibly high in its own bed.
+    private static let terminalVerticalInset: CGFloat = 14
 
     private let model: OcarinaModel
+
+    /// Drives the usage card's countdown. A minute is the finest thing it
+    /// shows, so a minute is how often it needs waking.
+    @State private var now = Date()
+    private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     public init(model: OcarinaModel) {
         self.model = model
@@ -33,10 +70,13 @@ public struct OcarinaWindowView: View {
 
     public var body: some View {
         @Bindable var model = model
-        return HStack(spacing: 0) {
+        return HStack(spacing: Self.panelGap) {
             // With nothing open there is no list to draw: the empty state gets
             // the whole window rather than sitting beside an empty sidebar.
             if !model.tabs.isEmpty {
+                // No `.panel()` here: the sidebar draws its own card, because
+                // a tool tip has to be able to hang off the edge of it and a
+                // clip would take the half that hangs.
                 TabSidebarView(model: model)
                     // A tool tip hangs off the sidebar's edge, and the terminal
                     // is drawn after it in the stack.
@@ -48,28 +88,33 @@ public struct OcarinaWindowView: View {
                 // is the only thing between the text and the window's glass.
                 theme.chrome.bed.color
                     .opacity(theme.chrome.bedOpacity)
-                    .ignoresSafeArea(edges: .top)
                 if let session = model.selectedSession {
                     // The terminal had no inset at all: the first column sat on
                     // the window edge (clipping its left half) and the top line
                     // ran under the titlebar.
                     //
-                    // The top was 34 against a leading 10, so the first line
-                    // sat three times as far from the titlebar as the first
-                    // column did from the edge. That 34 was clearing the
-                    // titlebar a second time: the window's safe area already
-                    // does it — which is what the sidebar relies on, and why
-                    // it needs nothing but its own 10 of breathing room. Same
-                    // number on both sides now, and the same number the
-                    // sidebar uses, so the two halves start together.
+                    // Four numbers rather than one, because the four edges are
+                    // not the same edge. The top already has the titlebar's
+                    // safe area under it and needs breathing room, not
+                    // clearance; the bottom has nothing under it at all and
+                    // needs the margin outright; the trailing side leaves the
+                    // scrollbar its lane. See each constant for its own
+                    // reasoning.
                     TerminalHostView(session: session)
                         .id(session.id)
                         .padding(.leading, Self.terminalInset)
-                        .padding(.trailing, 6)
-                        .padding(.top, Self.terminalInset)
+                        // The scroller's lane. It only appears while you are
+                        // scrolling now, but it appears *over* the trailing
+                        // edge, and text running under a knob that fades in is
+                        // worse than text that stops a few points short.
+                        .padding(.trailing, 8)
+                        .padding(.vertical, Self.terminalVerticalInset)
                 } else {
                     EmptyStateView { model.newTab() }
                 }
+            }
+            .overlay {
+                if model.isDropTarget { DropZoneView() }
             }
             .overlay(alignment: .top) {
                 if let code = model.selectedFailure, model.isErrorBannerVisible {
@@ -79,12 +124,14 @@ public struct OcarinaWindowView: View {
                         explain: { model.explainLastFailure() },
                         dismiss: { model.isErrorBannerVisible = false }
                     )
-                    // Clear of the titlebar, which the content sits under.
-                    .padding(.top, 30)
+                    // Inside its own card now, rather than clearing a titlebar
+                    // the content used to run under.
+                    .padding(.top, Self.panelGap)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .animation(.easeOut(duration: 0.18), value: model.selectedFailure)
+            .panel()
 
             // A column again, and a permanent one. It was an overlay only so it
             // could animate in without resizing the terminal — every frame of
@@ -94,10 +141,54 @@ public struct OcarinaWindowView: View {
             // No animation on this. Showing the column resizes the terminal,
             // and animating that resize is what made the old drawer judder: a
             // SIGWINCH per frame, the shell repainting through the whole slide.
-            if model.isTaskPanelVisible {
-                TaskPanelView(tasks: model.tasks) { model.clearTasks() }
+            // The right-hand column: the task list, and under it the usage
+            // card — the shorter list is what pays for the card, which is the
+            // trade the card is worth.
+            //
+            // Gone entirely unless there is an agent in front of you.
+            //
+            // Both panels are *about* an agent conversation — what has been
+            // asked of it, what it has spent — so a shell at a prompt has
+            // nothing to put in either. It used to open on launch regardless
+            // and sit there saying "No tasks yet" at somebody who had not yet
+            // started an agent and had no way to know that was the point.
+            if !model.tabs.isEmpty, model.isAgentSelected,
+               model.isTaskPanelVisible || model.usage != nil {
+                VStack(spacing: Self.panelGap) {
+                    if model.isTaskPanelVisible {
+                        TaskPanelView(tasks: model.tasks) { model.clearTasks() }
+                            .frame(maxHeight: .infinity)
+                            .panel()
+                    }
+                    if let usage = model.usage {
+                        // Mirrored, so the light running down the task list
+                        // carries on into this rather than starting again.
+                        UsageCardView(usage: usage, now: now, mirrored: model.isTaskPanelVisible)
+                            .panel()
+                    }
+                }
+                .frame(width: Self.panelWidth)
             }
         }
+        // Panels appear and disappear, they do not travel.
+        //
+        // Showing or hiding a column resizes the terminal, and every frame of
+        // an animated resize is an `ioctl(TIOCSWINSZ)` and a SIGWINCH — the
+        // shell repainting itself through the whole slide, which is what made
+        // the old drawer judder. The task panel already knew this; the sidebar
+        // and the usage card were still inheriting an animation from further
+        // up the view tree. Nothing in this stack animates now.
+        .transaction { $0.animation = nil }
+        // The gap that makes them float: the same on all four sides as it is
+        // between them.
+        .padding(Self.panelGap)
+        // And the ground it floats on, in the theme rather than in the
+        // system's own grey. The gap used to show the raw `NSVisualEffectView`
+        // straight through, so a themed window sat in a frame that belonged to
+        // no theme at all. Not quite opaque, so the material underneath still
+        // carries what is behind the window — which is the whole reason the
+        // backdrop is there.
+        .background(theme.ground.color.opacity(0.94).ignoresSafeArea())
         // Not a sheet. A sheet on macOS is modal and will not dismiss on a
         // click outside it, and picking a theme is a thing you do by trying
         // three and then getting on with your work.
@@ -122,10 +213,13 @@ public struct OcarinaWindowView: View {
             model.start()
             model.applyThemeToSessions()
             Self.matchSystemAppearance(to: model.themes.theme)
+            Self.tintWindows(with: model.themes.theme)
         }
+        .onReceive(clock) { now = $0 }
         .onChange(of: model.themes.selectedID) { _, _ in
             model.applyThemeToSessions()
             Self.matchSystemAppearance(to: model.themes.theme)
+            Self.tintWindows(with: model.themes.theme)
         }
         .sheet(isPresented: $model.isCommandPaletteVisible) {
             CommandPaletteView(model: model)
@@ -152,6 +246,74 @@ public struct OcarinaWindowView: View {
         }
     }
 
+    /// The fill a stacked panel is drawn in.
+    ///
+    /// Two cards above one another each ran their own gradient top to bottom,
+    /// so the column went bright, dim, bright, dim — the light restarted at
+    /// every card and the pair read as two objects that happened to be near
+    /// each other. Mirroring the lower one puts its dim end against the upper
+    /// one's dim end, and the light falls across the stack once rather than
+    /// twice.
+    static func panelFill(_ theme: Theme, mirrored: Bool) -> LinearGradient {
+        LinearGradient(
+            colors: [theme.chrome.panelTop.color, theme.chrome.panelBottom.color],
+            startPoint: mirrored ? .bottom : .top,
+            endPoint: mirrored ? .top : .bottom
+        )
+    }
+
+    /// The sheen on that fill: light landing on a surface, at whichever end
+    /// the surface is facing.
+    ///
+    /// Drawn in the theme's own text colour rather than always in white — on a
+    /// pale panel a white highlight is invisible and a dark one reads.
+    static func panelSheen(_ theme: Theme, mirrored: Bool) -> some View {
+        LinearGradient(
+            colors: [theme.chrome.textPrimary.color.opacity(0.035), .clear],
+            startPoint: mirrored ? .bottom : .top,
+            endPoint: mirrored ? .top : .bottom
+        )
+        .frame(height: 110)
+        .frame(maxHeight: .infinity, alignment: mirrored ? .bottom : .top)
+    }
+
+    /// Rounds a panel off and draws its edge.
+    ///
+    /// No drop shadow. The gap and the hairline are what say a panel is a
+    /// separate surface; a shadow under each of three cards in a window this
+    /// size reads as depth for its own sake, and it has to be fought off every
+    /// overlay that leaves the panel it belongs to.
+    struct PanelStyle: ViewModifier {
+        @Environment(\.theme) private var theme
+
+        static var shape: RoundedRectangle {
+            RoundedRectangle(cornerRadius: OcarinaWindowView.panelCorner, style: .continuous)
+        }
+
+        func body(content: Content) -> some View {
+            content
+                .clipShape(Self.shape)
+                .overlay {
+                    Self.shape.stroke(theme.chrome.border.color.opacity(0.16), lineWidth: 1)
+                }
+        }
+    }
+
+    /// The titlebar is the one surface SwiftUI cannot reach.
+    ///
+    /// It is drawn by the window, above the content view, so a background in
+    /// the view hierarchy stops at the bar and leaves it standing in system
+    /// grey over a themed window. `titlebarAppearsTransparent` hands it the
+    /// window's own background colour instead, which is this — and the
+    /// separator is asked for explicitly, because transparency takes the
+    /// hairline with it and that line is the border the panels sit under.
+    private static func tintWindows(with theme: Theme) {
+        for window in NSApp.windows where window.contentView != nil {
+            window.backgroundColor = theme.ground.nsColor
+            window.titlebarSeparatorStyle = .line
+        }
+    }
+
     /// System controls draw themselves — the keep-awake switch, menus, the
     /// window's own furniture — and they take their cue from `NSAppearance`,
     /// not from us. Without this a light theme keeps a dark switch and dark
@@ -159,4 +321,9 @@ public struct OcarinaWindowView: View {
     private static func matchSystemAppearance(to theme: Theme) {
         NSApp.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
     }
+}
+
+extension View {
+    /// Makes a view read as one of the window's floating panels.
+    func panel() -> some View { modifier(OcarinaWindowView.PanelStyle()) }
 }

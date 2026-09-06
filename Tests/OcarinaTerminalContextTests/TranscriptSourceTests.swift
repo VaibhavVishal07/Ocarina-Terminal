@@ -13,7 +13,7 @@ struct TranscriptSourceTests {
         return url
     }
 
-    @Test("Claude transcripts yield the latest typed prompt, not tool results")
+    @Test("Claude transcripts yield what a person typed, not tool results")
     func claudeTranscript() async throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -44,6 +44,42 @@ struct TranscriptSourceTests {
         )
         #expect(reading?.prompts.first == "Fix the payment failure state on the checkout page.")
         #expect(reading?.sessionID == "session")
+    }
+
+    @Test("A conversation is named for its opening ask, not its latest one")
+    func claudeNamesFromTheOpeningPrompt() async throws {
+        // The tab renamed itself on every command, because the title tracked
+        // whatever had just been typed. A name you cannot rely on is not a
+        // name, so it is anchored to the one prompt that never moves.
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let workingDirectory = URL(fileURLWithPath: "/Users/me/checkout")
+        let projectDirectory = root
+            .appendingPathComponent("projects", isDirectory: true)
+            .appendingPathComponent(ClaudeTranscriptSource.slug(for: workingDirectory), isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+
+        let lines = [
+            #"{"type":"user","isSidechain":false,"message":{"role":"user","content":"Rewrite the checkout page."}}"#,
+            #"{"type":"assistant","message":{"role":"assistant","content":"Done."}}"#,
+            #"{"type":"user","isSidechain":false,"message":{"role":"user","content":"Now update the invoice PDF."}}"#,
+            #"{"type":"user","isSidechain":false,"message":{"role":"user","content":"And the email receipts."}}"#
+        ]
+        try lines.joined(separator: "\n").write(
+            to: projectDirectory.appendingPathComponent("session.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let source = ClaudeTranscriptSource(root: root)
+        let reading = await source.latestPrompts(
+            for: TranscriptQuery(workingDirectory: workingDirectory)
+        )
+        #expect(reading?.prompts.first == "Rewrite the checkout page.")
+        // The later asks are still there, as the fallbacks for an opener that
+        // names nothing — they are just no longer what the tab is called.
+        #expect(reading?.prompts.contains("And the email receipts.") == true)
     }
 
     @Test("Claude slugs match the on-disk project directory naming")
@@ -202,5 +238,90 @@ struct TranscriptSourceTests {
             for: TranscriptQuery(workingDirectory: URL(fileURLWithPath: "/Users/me/checkout"))
         )
         #expect(reading == nil)
+    }
+}
+
+@Suite("The dot for an agent tab")
+struct AgentActivityTests {
+
+    private func writeTranscript(_ lines: [String]) throws -> (root: URL, directory: URL) {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-activity-\(UUID().uuidString)", isDirectory: true)
+        let directory = URL(fileURLWithPath: "/Users/me/checkout")
+        let folder = root
+            .appendingPathComponent("projects", isDirectory: true)
+            .appendingPathComponent(ClaudeTranscriptSource.slug(for: directory), isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try lines.joined(separator: "\n").write(
+            to: folder.appendingPathComponent("session.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+        return (root, directory)
+    }
+
+    private let prompt =
+        #"{"type":"user","promptSource":"typed","message":{"role":"user","content":"Fix the tab dot."}}"#
+    private let endTurn =
+        #"{"type":"assistant","message":{"role":"assistant","stop_reason":"end_turn"}}"#
+
+    @Test("An agent that has stopped is finished, however much it is still drawing")
+    func stoppedAgentIsFinished() async throws {
+        // This is the bug the whole thing exists for. A coding agent holds the
+        // foreground from launch to quit and repaints its own input box while
+        // it waits, so "bytes arrived recently" — the monitor's test — is true
+        // for the entire life of the tab. The dot blinked *working* at a tab
+        // whose job had finished minutes ago.
+        let (root, directory) = try writeTranscript([prompt, endTurn])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = ClaudeTranscriptSource(root: root)
+        #expect(await source.isAwaitingUser(for: TranscriptQuery(workingDirectory: directory)) == true)
+
+        let provider = LLMSessionContextProvider.claude(transcripts: source)
+        let activity = await provider.activity(
+            TerminalSessionSnapshot(
+                foregroundProcessName: "claude",
+                workingDirectory: directory,
+                activity: .running
+            )
+        )
+        #expect(activity == .succeeded)
+    }
+
+    @Test("An agent mid-answer is working, however quiet it is")
+    func workingAgentIsRunning() async throws {
+        // The other half: an agent thinking between tool calls draws nothing
+        // for seconds at a time, and the monitor would call that finished.
+        let (root, directory) = try writeTranscript([prompt, endTurn, prompt])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = ClaudeTranscriptSource(root: root)
+        #expect(await source.isAwaitingUser(for: TranscriptQuery(workingDirectory: directory)) == false)
+
+        let provider = LLMSessionContextProvider.claude(transcripts: source)
+        let activity = await provider.activity(
+            TerminalSessionSnapshot(
+                foregroundProcessName: "claude",
+                workingDirectory: directory,
+                activity: .succeeded
+            )
+        )
+        #expect(activity == .running)
+    }
+
+    @Test("Nothing to read means no opinion, and the monitor's reading stands")
+    func silenceIsNotAnAnswer() async throws {
+        let (root, directory) = try writeTranscript([
+            #"{"type":"system","message":"booted"}"#
+        ])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = ClaudeTranscriptSource(root: root)
+        #expect(await source.isAwaitingUser(for: TranscriptQuery(workingDirectory: directory)) == nil)
+        let provider = LLMSessionContextProvider.claude(transcripts: source)
+        #expect(await provider.activity(
+            TerminalSessionSnapshot(foregroundProcessName: "claude", workingDirectory: directory)
+        ) == nil)
     }
 }

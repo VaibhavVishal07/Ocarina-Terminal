@@ -52,7 +52,7 @@ struct ActivityTests {
         defer { pty.terminate() }
         let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
 
-        for _ in 0..<40 {
+        for _ in 0..<liveProcessPollAttempts {
             if await monitor.snapshot().foregroundProcessName == "sleep" { break }
             try? await Task.sleep(for: .milliseconds(50))
         }
@@ -71,7 +71,7 @@ struct ActivityTests {
         defer { pty.terminate() }
         let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
 
-        for _ in 0..<40 {
+        for _ in 0..<liveProcessPollAttempts {
             if await monitor.snapshot().foregroundProcessName == "python3" { break }
             try? await Task.sleep(for: .milliseconds(50))
         }
@@ -126,7 +126,7 @@ struct ActivityTests {
         pty.write(Array("false\n".utf8))
 
         var activity: TabActivity = .idle
-        for _ in 0..<40 {
+        for _ in 0..<liveProcessPollAttempts {
             activity = await monitor.snapshot().activity
             if case .failed = activity { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -134,7 +134,7 @@ struct ActivityTests {
         #expect(activity == .failed(exitCode: 1))
 
         pty.write(Array("true\n".utf8))
-        for _ in 0..<40 {
+        for _ in 0..<liveProcessPollAttempts {
             activity = await monitor.snapshot().activity
             if activity == .succeeded { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -169,3 +169,17 @@ private final class MonitorBox: @unchecked Sendable {
         Task { await monitor.ingest(bytes) }
     }
 }
+
+/// How long a test waits for a freshly spawned process to show up as the
+/// foreground one.
+///
+/// It was 40 attempts — two seconds — which is ample for one test and not
+/// nearly enough for the whole suite. These tests spawn real processes on real
+/// ptys and the runner runs them in parallel, so under that load `python3`
+/// routinely took longer than two seconds to be up and visible through
+/// `tcgetpgrp`: the suite failed roughly one run in three, always on whichever
+/// live-process test happened to be unlucky, and always passed on its own.
+///
+/// The loop exits the moment the process appears, so a longer ceiling costs
+/// nothing when the machine is quiet. Six seconds is a timeout, not a wait.
+let liveProcessPollAttempts = 120

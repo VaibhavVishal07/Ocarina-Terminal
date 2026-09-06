@@ -6,9 +6,9 @@ import SwiftTerm
 struct TerminalHostView: NSViewRepresentable {
     let session: TerminalSession
 
-    func makeNSView(context: Context) -> TerminalView {
+    func makeNSView(context: Context) -> DroppableTerminalView {
         session.terminalView
     }
 
-    func updateNSView(_ view: TerminalView, context: Context) {}
+    func updateNSView(_ view: DroppableTerminalView, context: Context) {}
 }

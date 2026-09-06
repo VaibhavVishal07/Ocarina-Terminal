@@ -28,8 +28,24 @@ public enum PasteInspector {
         /// More than one command, which is the thing people paste without
         /// noticing: the copy button on a docs page often takes three lines.
         public let lineCount: Int
+        /// Whether any of this reads as something a shell would run.
+        ///
+        /// Dictation is the case that forced this. Wispr Flow inserts what you
+        /// said as a paste, and what you say to an agent is paragraphs — so
+        /// every dictated sentence with a line break in it was met with "this
+        /// is 4 separate commands, not one", over text that is not a command
+        /// at all. The sheet is for the moment before you run something you
+        /// did not read. Prose is never that moment.
+        public let looksLikeCommands: Bool
 
-        public var needsReview: Bool { !concerns.isEmpty || lineCount > 1 }
+        public var needsReview: Bool {
+            // Anything that can destroy something is said out loud whatever
+            // shape it arrived in: the cost of a needless sheet is a click,
+            // and the cost of a missed `rm -rf` is the afternoon.
+            if isDestructive { return true }
+            guard looksLikeCommands else { return false }
+            return !concerns.isEmpty || lineCount > 1
+        }
         public var isDestructive: Bool { concerns.contains(where: \.isDestructive) }
     }
 
@@ -74,9 +90,65 @@ public enum PasteInspector {
             // Destructive first: if there is one dangerous thing in here, it is
             // the sentence that has to be read.
             concerns: concerns.sorted { $0.isDestructive && !$1.isDestructive },
-            lineCount: lines.count
+            lineCount: lines.count,
+            looksLikeCommands: lines.contains { isCommandShaped(String($0)) }
         )
     }
+
+    /// Whether one line reads as a command rather than as something said.
+    ///
+    /// Two things separate them, and neither needs a dictionary of binaries.
+    /// A command opens with a bare lowercase word — `brew`, `git`, `./setup` —
+    /// where a sentence opens with a capital, an article, or a bullet. And a
+    /// command is short unless it is punctuated with shell syntax; a clause
+    /// that runs past a dozen words with no pipe, no flag and no path in it is
+    /// somebody talking.
+    static func isCommandShaped(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard let first = trimmed.split(separator: " ").first.map(String.init) else { return false }
+
+        // Shell syntax settles it before anything else is asked, so a `for`
+        // loop is not mistaken for a sentence beginning "for".
+        if trimmed.contains(where: { Self.shellPunctuation.contains($0) }) { return true }
+
+        if first.hasPrefix("./") || first.hasPrefix("/") || first.hasPrefix("~/") { return true }
+
+        // A sentence can open lowercase — dictation rarely capitalises — so
+        // the opening word being bare is not enough on its own. No shell
+        // command has ever begun with "the".
+        let bare = first.allSatisfy { $0.isLowercase || $0.isNumber || "_-.".contains($0) }
+        guard bare,
+              first.contains(where: \.isLetter),
+              !Self.sentenceOpeners.contains(first.trimmingCharacters(in: .punctuationCharacters))
+        else { return false }
+
+        if trimmed.contains(" -") { return true }
+        return trimmed.split(separator: " ").count <= Self.conversationalWordCount
+    }
+
+    /// Words that open a sentence and never a command. Short enough to be
+    /// obvious rather than a grammar: this is here to stop one clipped
+    /// dictated clause — "the switch is too bright" — reading as a command
+    /// because it happened to be four words long.
+    private static let sentenceOpeners: Set<String> = [
+        "a", "an", "the", "this", "that", "these", "those", "there", "then",
+        "i", "you", "we", "they", "he", "she", "it", "my", "our", "your",
+        "and", "but", "or", "if", "so", "also", "when", "while", "because",
+        "is", "are", "was", "were", "be", "been", "do", "does", "did", "done",
+        "have", "has", "had", "can", "could", "should", "would", "will",
+        "please", "just", "now", "no", "not", "yes", "ok", "okay", "hey",
+        "how", "what", "why", "who", "where", "which", "let", "lets", "as",
+        "for", "with", "from", "of", "to", "in", "on", "at", "by", "about",
+    ]
+
+    /// Syntax with no meaning outside a shell. A line carrying any of it is a
+    /// command however long it is.
+    private static let shellPunctuation: Set<Character> = ["|", "&", ";", "$", ">", "<", "`", "*"]
+
+    /// Past this many words, a line with no shell syntax in it is a sentence.
+    /// Real commands do get long — but they get long on flags and paths, which
+    /// the check above has already caught.
+    private static let conversationalWordCount = 12
 
     /// Text with a trailing newline runs the moment it lands. That turns a
     /// paste into an execution the user never confirmed, so the newline is

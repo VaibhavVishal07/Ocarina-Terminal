@@ -102,11 +102,31 @@ private struct ToolTipModifier: ViewModifier {
                 }
             }
 
-        if let onClick {
-            measured.overlay { HoverCatcher(onClick: onClick, onHover: hover) }
+        let wired: AnyView = if let onClick {
+            AnyView(measured.overlay { HoverCatcher(onClick: onClick, onHover: hover) })
         } else {
-            measured.onHover(perform: hover)
+            AnyView(measured.onHover(perform: hover))
         }
+
+        wired.onDisappear(perform: dismiss)
+    }
+
+    /// Takes the bubble down when the control it explains is removed.
+    ///
+    /// This is the "Close this tab (⌘W)" tip that would not go away. The close
+    /// button only exists while its row is hovered, and a view taken out of
+    /// the tree never gets `mouseExited` — so leaving the row quickly enough
+    /// deleted the control while its tip was up, and nothing was left to
+    /// retract it. It sat there until some other control replaced it.
+    ///
+    /// Every control that can disappear under the pointer has the same
+    /// problem, which is why this is here rather than in the tab row.
+    private func dismiss() {
+        showTask?.cancel()
+        hideTask?.cancel()
+        isHovering = false
+        if let shown, target?.text == shown { target = nil }
+        shown = nil
     }
 
     private func hover(_ hovering: Bool) {

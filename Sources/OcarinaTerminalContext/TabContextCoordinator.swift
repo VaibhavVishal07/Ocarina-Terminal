@@ -71,7 +71,12 @@ public actor TabContextCoordinator {
 
         // Secondary information tracks the live process even when no provider
         // had anything worth renaming the tab for.
-        context.activity = session.activity
+        //
+        // A provider that can see what the tab is *doing* overrules the
+        // monitor, which only sees bytes. For an agent that is the difference
+        // between a dot that goes green when the work stops and one that
+        // blinks for the life of the session.
+        context.activity = await activity(for: session) ?? session.activity
         context.processName = displayName(for: session)
         context.workingDirectory = session.workingDirectory ?? context.workingDirectory
         context.projectName = session.projectName ?? context.projectName
@@ -81,6 +86,14 @@ public actor TabContextCoordinator {
 
         contexts[session.tabID] = context
         return context
+    }
+
+    /// The first provider with an opinion on whether this tab is working.
+    private func activity(for session: TerminalSessionSnapshot) async -> TabActivity? {
+        for provider in providers where provider.canHandle(session) {
+            if let activity = await provider.activity(session) { return activity }
+        }
+        return nil
     }
 
     private func displayName(for session: TerminalSessionSnapshot) -> String? {

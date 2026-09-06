@@ -14,11 +14,21 @@ struct TaskPanelView: View {
 
     @State private var isClearHovered = false
 
-    static let width: CGFloat = 230
+    /// The shared side-panel width — this column and the sidebar are the same
+    /// width, because they are the same kind of object.
+    static let width: CGFloat = OcarinaWindowView.panelWidth
 
     /// The breathing room below the titlebar, matching the gap the sidebar
     /// leaves above its first tab so the two columns start on the same line.
     private static let inset: CGFloat = 10
+
+    /// The gap between the panel's edge and the words in it.
+    ///
+    /// The list sat 8 from the top and 8 from the left, inside a card that is
+    /// itself flush against the window's gutter, and the text read as pressed
+    /// into the corner. This is the one number for all four sides of it, so
+    /// the header and the list cannot drift apart.
+    private static let textInset: CGFloat = 12
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -28,26 +38,23 @@ struct TaskPanelView: View {
             if tasks.isEmpty { empty } else { list }
         }
         .frame(width: Self.width)
-        .background {
-            ZStack {
-                theme.chrome.panelTop.color
-            }
-            // Under the titlebar as well, or the panel stops short of it and
-            // leaves the raw window backdrop showing in the corner.
-            .ignoresSafeArea(edges: .top)
-        }
+        .background(theme.chrome.panelTop.color)
     }
 
     /// No dismiss control: the panel is part of the window now, like the
     /// sidebar. The count is the whole header.
     private var header: some View {
         HStack(spacing: 6) {
+            // Bigger than the rows under it, and only it. The whole panel was
+            // scaled to 16 when the heading was the only part that wanted to
+            // be — which left every task set larger than "New Tab" and "Theme"
+            // in the sidebar beside it, so the two columns read as two apps.
             Text("Tasks")
-                .font(theme.uiFont(12, weight: .semibold))
+                .font(theme.uiFont(14, weight: .semibold))
                 .foregroundStyle(theme.chrome.textPrimary.color)
             if !tasks.isEmpty {
                 Text("\(tasks.filter { $0.state == .finished }.count)/\(tasks.count)")
-                    .font(theme.uiFont(10.5))
+                    .font(theme.uiFont(11))
                     .foregroundStyle(theme.chrome.textTertiary.color)
             }
             Spacer(minLength: 4)
@@ -56,9 +63,18 @@ struct TaskPanelView: View {
             // permanently lit "clear" over a list you are reading is an
             // invitation to lose it by accident.
             if !tasks.isEmpty {
+                // The word, not a control drawn around it.
+                //
+                // It was an eraser glyph, which is an icon button — a thing
+                // with a shape, sitting in a corner, asking to be pressed. The
+                // panel is a list you read; the one action on it should be a
+                // quiet marker you can find when you want it and not notice
+                // when you do not. Text at tertiary weight that comes up to
+                // full on hover is that, and it also says what it does, which
+                // a picture of an eraser never quite did.
                 Button(action: clear) {
-                    Image(systemName: "eraser.line.dashed")
-                        .font(theme.uiFont(10.5, weight: .medium))
+                    Text("Clear")
+                        .font(theme.uiFont(11, weight: .medium))
                         .foregroundStyle(isClearHovered
                                          ? theme.chrome.textPrimary.color
                                          : theme.chrome.textTertiary.color)
@@ -70,12 +86,11 @@ struct TaskPanelView: View {
                 .help("Clear this list. The agent's own history is not touched.")
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, Self.textInset)
         // 40 here was clearing the titlebar a second time — the window's safe
         // area already does it, which is what the sidebar relies on. It left the
         // header stranded a third of the way down an otherwise empty column.
-        .padding(.top, Self.inset)
-        .padding(.bottom, Self.inset)
+        .padding(.vertical, Self.textInset)
     }
 
     /// Says what it is waiting for, in the middle of the space it will fill.
@@ -90,7 +105,7 @@ struct TaskPanelView: View {
                 .foregroundStyle(theme.chrome.textTertiary.color.opacity(0.65))
 
             Text("No tasks yet")
-                .font(theme.uiFont(12, weight: .semibold))
+                .font(theme.uiFont(14, weight: .semibold))
                 .foregroundStyle(theme.chrome.textSecondary.color)
 
             Text("Ask the agent in this tab for something and it appears here.")
@@ -111,8 +126,8 @@ struct TaskPanelView: View {
                     row(task)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.horizontal, Self.textInset)
+            .padding(.vertical, Self.textInset)
         }
     }
 
@@ -146,8 +161,8 @@ struct TaskPanelView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 7)
         .help(task.prompt)
     }
 }

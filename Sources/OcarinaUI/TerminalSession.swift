@@ -13,7 +13,7 @@ import SwiftTerm
 // the main thread, which is where this session lives.
 public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelegate {
     public let id: UUID
-    public let terminalView: TerminalView
+    public let terminalView: DroppableTerminalView
     /// Where this tab's shell started. The task panel needs it to find the
     /// right transcript — agents write per project directory, so reading the
     /// home folder's would show another tab's work.
@@ -31,15 +31,27 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// terminal, which is a thing that cannot happen at launch.
     public var onInput: (() -> Void)?
 
+    /// A drag is over this terminal, or has left it.
+    public var onDragStateChange: ((Bool) -> Void)?
+
     public init(workingDirectory: URL? = nil) {
         id = UUID()
         self.workingDirectory = workingDirectory
             ?? FileManager.default.homeDirectoryForCurrentUser
         shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        terminalView = TerminalView(frame: CGRect(x: 0, y: 0, width: 800, height: 480))
+        terminalView = DroppableTerminalView(frame: CGRect(x: 0, y: 0, width: 800, height: 480))
         super.init()
 
         terminalView.terminalDelegate = self
+        // A dropped file arrives as text at the prompt, so it goes through the
+        // same door as everything else typed here rather than round the back.
+        terminalView.onDropText = { [weak self] text in
+            self?.type(text)
+            self?.onInput?()
+        }
+        terminalView.onDragStateChange = { [weak self] isOver in
+            self?.onDragStateChange?(isOver)
+        }
         // Let the window's glass show through; the bed behind it in
         // OcarinaWindowView keeps text legible.
         terminalView.nativeBackgroundColor = .clear

@@ -40,10 +40,10 @@ public struct LLMSessionContextProvider: TerminalContextProvider, Sendable {
             sessionStartedAt: session.foregroundProcessStartTime
         )
         if let reading = await transcripts.latestPrompts(for: query) {
-            // The newest prompt is often "run it" or "now the other one" —
-            // a continuation that names nothing on its own. Walking back to
-            // the last prompt with a subject in it keeps the tab on the work
-            // rather than on the latest aside.
+            // The opening ask, which is what the conversation is *for*, and
+            // the one thing about it that never changes. Walking forward from
+            // it covers an opener with no subject in it — "hey", "look at
+            // this" — without ever reaching for the latest aside.
             for prompt in reading.prompts {
                 guard let title = TitleFormatter.title(fromNaturalLanguage: prompt) else { continue }
                 return ContextObservation(
@@ -78,6 +78,28 @@ public struct LLMSessionContextProvider: TerminalContextProvider, Sendable {
         // Nothing task-shaped to say. Staying silent leaves the tab on its
         // project name, which beats twenty tabs all reading `Claude`.
         return nil
+    }
+
+    /// The dot, from the transcript rather than from the byte stream.
+    ///
+    /// A coding agent holds the foreground from launch to quit and redraws
+    /// itself while it waits — the input box, the status line, the cursor — so
+    /// the monitor's "something drew recently" test is true for the whole life
+    /// of the tab. A tab that had just finished a job sat there blinking
+    /// *working* indefinitely, which is the one thing the dot exists to tell
+    /// you apart.
+    ///
+    /// `end_turn` is the agent saying it has stopped. It does not promise the
+    /// work was any good — the same caveat `AgentTaskSource` carries about the
+    /// word "finished" — but "the agent has stopped and is waiting for you" is
+    /// exactly what the green dot claims.
+    public func activity(_ session: TerminalSessionSnapshot) async -> TabActivity? {
+        let query = TranscriptQuery(
+            workingDirectory: session.workingDirectory,
+            sessionStartedAt: session.foregroundProcessStartTime
+        )
+        guard let awaiting = await transcripts.isAwaitingUser(for: query) else { return nil }
+        return awaiting ? .succeeded : .running
     }
 
     public func displayName(forProcess process: String) -> String? {

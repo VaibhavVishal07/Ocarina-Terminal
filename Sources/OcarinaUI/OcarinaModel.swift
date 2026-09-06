@@ -126,6 +126,76 @@ public final class OcarinaModel {
         }
     }
 
+    // MARK: - Dropping
+
+    /// A drag is over the terminal right now, so the panel can draw the target.
+    ///
+    /// This is all that is left of it. A chip under the prompt was built —
+    /// thumbnail, name, and an × that took the path back off the line — and it
+    /// was one thing too many: the path is already at the prompt, in the place
+    /// you are about to press Return on, which makes a second widget saying the
+    /// same thing furniture. The overlay stays because it is the part that
+    /// teaches; the receipt was never needed.
+    public private(set) var isDropTarget = false
+
+    // MARK: - Usage
+
+    /// What has gone through the limit window the selected agent is inside, or
+    /// nil when the tab in front is not an agent at all.
+    ///
+    /// Nil is the common case and it is the one that matters: the card is
+    /// about a conversation, and a shell at a prompt is not having one.
+    public private(set) var usage: UsageWindow?
+
+    @ObservationIgnored private let usageMeter = TokenUsageMeter()
+    @ObservationIgnored private var usageRefresh: Task<Void, Never>?
+    /// The same reading in the menu bar, for when Ocarina is not the window
+    /// in front.
+    @ObservationIgnored private let usageStatusItem = UsageStatusItem()
+
+    /// Whether the tab in front is running a coding agent.
+    ///
+    /// Matched the way the tab icon matches: on the naming layer's
+    /// `processName`, which is a provider's display name when one recognised
+    /// the process and the raw executable otherwise, so "Claude Code" and
+    /// "claude" both land.
+    public var isAgentSelected: Bool {
+        guard let name = selectedTab?.processName?.lowercased() else { return false }
+        return Self.agentPrefixes.contains { name.hasPrefix($0) }
+    }
+
+    private static let agentPrefixes = ["claude", "codex", "gemini", "opencode"]
+
+    public var selectedTab: TabItem? {
+        selectedTabID.flatMap { id in tabs.first { $0.id == id } }
+    }
+
+    /// Re-reads usage on a slow timer.
+    ///
+    /// Slower than the task panel's two seconds by a lot: a window is five
+    /// hours long, the number moves once per agent turn, and the read touches
+    /// every project rather than one. Fifteen seconds is finer than anything
+    /// the card can show.
+    public func startWatchingUsage() {
+        usageRefresh?.cancel()
+        usageRefresh = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshUsage()
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
+    }
+
+    private func refreshUsage() async {
+        guard isAgentSelected else {
+            usage = nil
+            usageStatusItem.update(with: nil)
+            return
+        }
+        usage = await usageMeter.read()
+        usageStatusItem.update(with: usage)
+    }
+
     @ObservationIgnored private let taskSource = AgentTaskSource()
     /// Per-project line under the list. Observed, so clearing redraws the panel
     /// without waiting for the next poll.
@@ -184,17 +254,33 @@ public final class OcarinaModel {
     /// Now: a `stat` on the main thread, the parse on a background one, and
     /// nothing at all when the file has not changed since the last look.
     private func refreshTasks() {
-        guard let directory = selectedSession?.workingDirectory else { rawTasks = []; return }
+        guard let session = selectedSession else { rawTasks = []; return }
 
-        let signature = taskSource.signature(for: directory)
-        guard signature != lastTaskSignature || rawTasks.isEmpty else { return }
-        lastTaskSignature = signature
-
+        let directory = session.workingDirectory
+        let monitor = session.monitor
         let source = taskSource
+        // Which tab asked. Every step below can suspend, and a tab switch in
+        // the middle of one is exactly the case this is here for: a read that
+        // comes back for a tab you have already left must not be applied.
+        let asking = selectedTabID
+
         Task { [weak self] in
-            let read = await Task.detached { source.tasks(for: directory) }.value
-            guard let self else { return }
-            apply(read)
+            // When the agent in *this* tab started, which is what picks its
+            // conversation out of the several a project can have open.
+            let startedAt = await monitor?.snapshot().foregroundProcessStartTime
+            let signature = await Task.detached {
+                source.signature(for: directory, startedAt: startedAt)
+            }.value
+
+            guard let self, self.selectedTabID == asking else { return }
+            guard signature != self.lastTaskSignature || self.rawTasks.isEmpty else { return }
+            self.lastTaskSignature = signature
+
+            let read = await Task.detached {
+                source.tasks(for: directory, startedAt: startedAt)
+            }.value
+            guard self.selectedTabID == asking else { return }
+            self.apply(read)
         }
     }
 
@@ -306,6 +392,7 @@ public final class OcarinaModel {
     public func newTab(workingDirectory: URL? = nil) -> TabItem {
         let session = TerminalSession(workingDirectory: workingDirectory)
         session.onInput = { [weak self] in self?.noteUserInput() }
+        session.onDragStateChange = { [weak self] isOver in self?.isDropTarget = isOver }
         // Styled before it is ever shown, so a new tab never flashes the
         // default palette on its way to the chosen one.
         session.apply(themes.theme)
@@ -334,10 +421,34 @@ public final class OcarinaModel {
         if selectedTabID == id {
             selectedTabID = tabs.first?.id
         }
+        // The last tab going takes the right-hand column with it, and the
+        // column is drawn from this — left set, it would have been a usage
+        // card for a conversation that is no longer on screen.
+        if tabs.isEmpty {
+            usage = nil
+            rawTasks = []
+            lastTaskSignature = nil
+        }
     }
 
     public func selectTab(_ id: UUID) {
+        guard id != selectedTabID else { return }
         selectedTabID = id
+
+        // The list belongs to the tab, so it goes with the tab — at once, not
+        // on the next poll. Leaving it up meant switching tabs showed the tab
+        // you had just left: its tasks stood there for a beat, blanked, and
+        // were replaced by the new tab's. A panel that shows the wrong list
+        // and then corrects itself is worse than one that shows nothing for a
+        // moment, because you cannot tell which of the two you are reading.
+        rawTasks = []
+        lastTaskSignature = nil
+        refreshTasks()
+        // Without this the usage card outlives the tab it belonged to for up
+        // to a poll: switch from an agent to a shell and it sat there for
+        // fifteen seconds, reporting a conversation that is no longer on
+        // screen.
+        Task { await refreshUsage() }
     }
 
     // MARK: - Naming
@@ -347,6 +458,7 @@ public final class OcarinaModel {
         sleepGuard.start()
         if tabs.isEmpty { newTab() }
         startWatchingTasks()
+        startWatchingUsage()
     }
 
     /// A hand-typed name wins and stops automatic naming for that tab.

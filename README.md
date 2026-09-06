@@ -8,7 +8,7 @@
 
 </div>
 
-<img src="docs/images/window.png" alt="The Ocarina window: tab sidebar, terminal, task panel">
+<img src="docs/images/window.png" alt="The Ocarina window: tab list and settings on the left, the terminal, and the task list and token card on the right">
 
 A terminal assumes you already know. It opens a blank rectangle, prints a `%`,
 and waits. If you know what to type, it is the fastest tool on the machine. If
@@ -18,7 +18,8 @@ ask.
 
 Ocarina is the same terminal, built the other way round. It says what it is
 doing, keeps the list of what you asked for, offers the command instead of
-expecting it, explains the error instead of printing it, and never runs anything
+expecting it, explains the error instead of printing it, takes a file you drag
+onto it, tells you what the last five hours have cost, and never runs anything
 you did not trigger yourself.
 
 That turns out to matter twice over. The person who has never opened a terminal
@@ -74,8 +75,23 @@ the directory the shell is sitting in. A stability layer decides when a new
 answer is good enough to replace the one on screen, so a title does not flicker
 every time a command finishes.
 
+An agent conversation is named for the ask that opened it, not for the last
+thing typed into it. Reading the newest prompt meant a tab renamed itself on
+essentially every command, which is the opposite of what a name is for: you
+find a tab by remembering where it is and what it was called. What the agent is
+on *right now* is the subtitle, the tooltip and the task panel, all of which are
+free to move.
+
 A dot on each row says idle, running, succeeded or failed, so a column of twenty
 can be read down the edge without stopping at any of the names.
+
+For an agent the dot comes from the transcript, not from the byte stream. A
+coding agent holds the foreground from launch to quit and repaints its own
+input box, status line and cursor while it waits — so "something drew recently",
+which is the right test for a shell, is true for the entire life of the tab. A
+tab whose job had finished minutes ago sat there blinking *working*, which is
+the one distinction the dot exists to draw. `stop_reason: "end_turn"` says it
+exactly: the agent has stopped and is waiting for you.
 
 [How the naming works](docs/context-aware-tab-naming.md) — the provider chain,
 the priorities and the stability rules.
@@ -115,6 +131,54 @@ deleting somebody's prompts out of Claude's history to tidy a panel would be the
 worst kind of helpful. Ask for something new and it appears, being newer than
 the line.
 
+The token card's meter is drawn as lamps on a dot-matrix board, in the same
+alphabet as the wordmark and the empty state. A departure board is a thing for
+counting down, which is what the meter is doing, and the app already owns that
+language — so it costs nothing and stops the card looking like every dashboard
+tile ever shipped.
+
+Panels stacked one above another mirror their gradients. Each card used to run
+its own light top to bottom, so a column went bright, dim, bright, dim and the
+pair read as two objects that happened to be near each other. The lower one is
+flipped, so its dim end meets the upper one's dim end and the light falls
+across the stack once.
+
+## It says what the window has cost
+
+Neither the task list nor this appears until there is an agent in front of you.
+Both are about a conversation, so a shell at a prompt has nothing to put in
+either; the column used to open on launch regardless and say "No tasks yet" to
+somebody who had not started an agent and had no way to know that was the point.
+
+Under the task list, a small card: tokens spent in the five-hour window this
+agent is inside, and how long that window has left to run. A label with its
+value on the same line and a meter under it — the meter drawn as ticks rather
+than one filled capsule, because a solid bar reads as a proportion of something
+continuous and invites exactly the reading this card must not invite. The ticks
+are counted units and they really are counted: the window in quarter-hours, of
+which some have gone. It is there only
+while the tab in front is running an agent — a shell at a prompt is not having
+a conversation — and the same reading sits in the menu bar beside the Wi-Fi,
+for when Ocarina is not the window you are looking at.
+
+It says **used**, not **left**, and that is not a hedge. Nothing on the machine
+records the size of the allowance or when the account's quota renews: not
+`~/.claude.json`, whose two rate-limit tier fields are null; not the session
+files; not the transcripts, which carry no rate-limit record of any kind. That
+number exists only in the responses Anthropic sends back, and the only way to
+ask for it would be to take the OAuth token out of the user's home directory
+and spend it on a request they did not make. A terminal does not get to do
+that, so the card shows what can be shown honestly. A meter with a denominator
+invented for it would be worse than no meter.
+
+The window itself is reconstructed from the timestamps, which the transcripts
+do record: a block opens on the first request made after the last one lapsed
+and runs five hours. Tokens are counted once each — what was sent, what was
+written to cache, what came back. Cache *reads* are left out on purpose: they
+are the same tokens being read back, already counted on the turn that wrote
+them, and adding them charges a long conversation for its whole context on
+every single turn.
+
 ## It tells you what to type
 
 <img src="docs/images/quick-actions.png" alt="The quick actions drawer: install an agent, and the things agents need">
@@ -140,6 +204,37 @@ emulator.
 Anything unremarkable is pasted with no ceremony, because a terminal that
 interrupts every paste is one people learn to click through. Only multi-command
 or risky text stops for review, with a line on each part saying what it will do.
+
+Prose is never multi-command, whatever line breaks are in it. Dictation arrives
+as a paste — Wispr Flow inserts what you said the moment you let go of the key
+— and a spoken paragraph was being met with "this is 4 separate commands, not
+one". A line has to read as something a shell would run before the count
+against it means anything. Text that can destroy something is still called out
+however it arrives.
+
+## You can drop a file on it
+
+A path is the worst thing to type and the easiest thing to drag. Drop a file
+onto the terminal and its path lands at the prompt, quoted if it needs to be,
+with a space after it so you can carry on typing.
+
+An image that has no file behind it — dragged off a web page, out of a message,
+straight from a screenshot — is written out to a real file first, so there is
+still a path to hand an agent. Terminal.app rejects those.
+
+While you are over it the panel dims, a dashed box appears, and it says what
+letting go will do: *the file's location is typed at the prompt, nothing is
+uploaded and nothing runs.* That is the web gesture, not the native one — a
+native app draws a two-point focus ring and says nothing, which is fine if you
+already know that terminals take files and what they do with them. Nobody
+arriving at this app knows either.
+
+Then the path lands, and that is the whole of it. A chip under the prompt was
+built — thumbnail, name, and an × that took the path back off the line — and it
+was one thing too many: the path is already there, in the place you are about
+to press Return on, so a second widget saying the same thing is furniture. The
+overlay stays because it is the part that teaches. The receipt was never
+needed.
 
 ## It explains what just broke
 
@@ -168,6 +263,31 @@ which quietly demanded both a configured mail client and the reporter's own
 identity attached to a complaint. Neither is fair to ask of somebody whose whole
 contribution is telling you a button is broken.
 
+## Four panels, floating
+
+The tab list, the settings, the terminal and the task panel are separate cards
+with the window's own ground between them, sitting under a real titlebar with
+nothing written in it — Apple Notes and Chrome hold their panes the same way.
+
+The sidebar was one card with the settings drawn as an inset box inside it — a
+card in a card, a shape used nowhere else in the window. The right-hand column
+had already answered this, with the task list and the token widget as two
+panels and the ground between them, so the left-hand side now answers it the
+same way. Four panels of one kind beats three and a nested one.
+
+It was one unbroken surface running up under a hidden titlebar, which meant
+every edge had to clear a bar that was not drawn: a spacer in the sidebar, an
+inset in the terminal, thirty points of padding on the error banner, and three
+traffic lights floating on the tab list. The bar earns its place — somewhere to
+hold the window that is not the text you are reading — and the gap around the
+cards does the rest.
+
+The terminal's scroll indicator only appears while you are scrolling. SwiftTerm
+puts a bare `NSScroller` in the view rather than one inside an `NSScrollView`,
+and an overlay scroller only knows to fade out because a scroll view tells it
+to — so it drew a permanent knob down the right-hand edge, over text, in a
+window with no other always-on furniture in it.
+
 ## It looks like something you chose
 
 <img src="docs/images/themes.png" alt="The theme picker, fourteen themes">
@@ -175,6 +295,58 @@ contribution is telling you a button is broken.
 Fourteen bundled themes, applied as you pick. Each is a JSON file carrying the
 chrome colours, the terminal bed and a sixteen-colour ANSI palette. Drop your own
 in `~/.ocarina/themes/` and they appear beside the bundled ones.
+
+They used to be one theme with different wallpaper. The terminal palettes had
+always carried real colour; the *chrome* did not — panels at 5–30% saturation
+read as near-black whatever hue was nominally in them, four themes drew their
+borders and row washes in pure white, and the house theme had no hue at all.
+Every panel, edge, wash, accent and text weight is now mixed from the theme's
+own hue.
+
+Getting there took four goes and two of them are worth recording. Adding hue at
+the old lightness changed nothing you could see. Raising the *lightness* fixed
+that and broke something better: panels at 19% are not a dark theme any more.
+
+Colour at low lightness comes from saturation, not from light — a panel at 10%
+lightness and 34% saturation is a navy or a wine, unmistakably that colour and
+*darker* than the grey it replaced. The fourth pass is the same idea with the
+volume down, because "enough saturation to see" and "as much as the formula
+allows" are not the same number and the third pass reached for the second one.
+A panel should read as a dark room with a colour in it, not as the colour:
+
+    ground   3%      the window, behind everything
+    bed      5%      the terminal card
+    panel   7-10%    the sidebar, the task list, the settings
+
+The terminal ramp gets the twelve-degree hue pull and nothing else — no
+saturation or lightness push. Sixteen colours turned up together is the largest
+bright surface in the window, and it was the other half of what made the set
+feel lit rather than dark.
+
+`terminal.background` is now set to what is genuinely behind the text — the bed
+composited over the ground at the bed's own opacity — rather than to a colour
+nothing draws. It is the number the legibility floor measures against, so the
+floor now guards what the eye is actually reading.
+
+The selected tab wears the accent, fill and edge, at 11% and 34% — enough to
+say which theme you are in, not enough to be the brightest thing on screen. It
+was a white-ish wash under a white-ish border, which is the same faint grey
+rectangle in all fourteen themes, on the one row you look at most.
+
+Ten of the fourteen also shipped the *same* sixteen terminal colours, so `git
+status` came out identical whichever you picked — which is most of why the set
+felt flat. Each ramp is now pulled towards its theme's hue, and pulled by no
+more than twelve degrees. That cap is the whole lesson of the first attempt: a
+fraction of the way round the wheel takes the shortest path, and from red to a
+blue theme the shortest path runs backwards through magenta. Twenty per cent of
+it landed on pink, and yellow landed on red — a theme whose "yellow" output
+printed in the colour its errors print in. Twelve degrees is a family
+resemblance that cannot be misread as a different colour; the rest of the
+character comes from saturation and lightness, which carry no meaning to break.
+
+Every colour is then checked against the reading floor and lifted until it
+clears — turning saturation up takes light out of a colour, and one theme's dim
+grey, which is where comments land, fell to 4.38 against a floor of 4.5.
 
 Themes used to carry a background motif as well — petals, leaves, embers, rain.
 Read at one row it was texture; read down a column of tabs it was litter behind
@@ -446,6 +618,16 @@ view's own background is cleared and a themed bed sits behind it — the glass
 reads through, and the text stays legible.
 
 ## Tool tips
+
+A tip is taken down when the control it explains is *removed*, not only when
+the pointer leaves it. The close button on a tab exists only while its row is
+hovered, and a view taken out of the tree never receives `mouseExited` — so
+leaving a row briskly deleted the button while its "Close this tab (⌘W)" was
+up, and nothing was left to retract it. It sat there until some other control
+happened to replace it. Every control that can vanish under the pointer has the
+same problem, which is why the fix is in the modifier rather than in the tab
+row.
+
 
 Three mechanisms were tried. SwiftUI's `.help` produces nothing in a plain
 `NSHostingController` — walk the view tree and there is no tool tip on it at

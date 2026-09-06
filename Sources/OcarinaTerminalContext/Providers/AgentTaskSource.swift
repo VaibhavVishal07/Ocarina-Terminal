@@ -53,10 +53,17 @@ public struct AgentTaskSource: Sendable {
             .appendingPathComponent(".claude/projects", isDirectory: true)
     }
 
-    /// Tasks for a working directory, oldest first.
-    public func tasks(for directory: URL, limit: Int = 50) -> [AgentTask] {
+    /// Tasks for one terminal, oldest first.
+    ///
+    /// `startedAt` is when the agent in that tab started, and it is what makes
+    /// this a tab's list rather than a folder's. Without it the panel read
+    /// whichever transcript in the directory had been written to last — so two
+    /// tabs open on one project showed each other's tasks, and switching
+    /// between them showed the first tab's list for as long as it took the
+    /// next poll to overwrite it.
+    public func tasks(for directory: URL, startedAt: Date? = nil, limit: Int = 50) -> [AgentTask] {
         let folder = root.appendingPathComponent(Self.slug(for: directory), isDirectory: true)
-        guard let transcript = newestTranscript(in: folder) else { return [] }
+        guard let transcript = JSONLReader.session(in: folder, startedAt: startedAt) else { return [] }
         return Self.tasks(inTranscript: transcript, limit: limit)
     }
 
@@ -65,9 +72,9 @@ public struct AgentTaskSource: Sendable {
     /// The panel polls, and a poll that re-parses an unchanged file is pure
     /// waste — on a large transcript, a fifth of a second of it. Comparing a
     /// path, a size and a modification date costs one `stat`.
-    public func signature(for directory: URL) -> String? {
+    public func signature(for directory: URL, startedAt: Date? = nil) -> String? {
         let folder = root.appendingPathComponent(Self.slug(for: directory), isDirectory: true)
-        guard let transcript = newestTranscript(in: folder),
+        guard let transcript = JSONLReader.session(in: folder, startedAt: startedAt),
               let values = try? transcript.resourceValues(
                   forKeys: [.fileSizeKey, .contentModificationDateKey]
               )
@@ -84,22 +91,6 @@ public struct AgentTaskSource: Sendable {
             slug.append(character == "/" || character == "." || character == "_" ? "-" : character)
         }
         return slug
-    }
-
-    private func newestTranscript(in folder: URL) -> URL? {
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: folder,
-            includingPropertiesForKeys: [.contentModificationDateKey]
-        )) ?? []
-        return files
-            .filter { $0.pathExtension == "jsonl" }
-            .max { a, b in
-                let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?
-                    .contentModificationDate ?? .distantPast
-                let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]))?
-                    .contentModificationDate ?? .distantPast
-                return da < db
-            }
     }
 
     /// Walks a transcript once, in order.

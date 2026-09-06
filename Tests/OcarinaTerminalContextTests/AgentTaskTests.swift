@@ -168,3 +168,61 @@ struct AgentTaskBulletTests {
         #expect(AgentTaskSource.title(from: "* Fix the login button") == "Fix login button")
     }
 }
+
+@Suite("Tasks belong to a tab")
+struct AgentTaskSessionTests {
+
+    /// Two agents open on one project write two transcripts side by side.
+    /// Reading whichever was written to last showed each tab the other's work,
+    /// and made switching tabs flash the list you had just left.
+    @Test("A tab's tasks are its own conversation's, not the folder's")
+    func tasksAreTabCentric() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-tabs-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let directory = URL(fileURLWithPath: "/Users/me/checkout")
+        let folder = root.appendingPathComponent(
+            AgentTaskSource.slug(for: directory), isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        func write(_ name: String, prompt: String, created: Date, modified: Date) throws {
+            let line = """
+            {"type":"user","promptSource":"typed","uuid":"\(name)",\
+            "message":{"role":"user","content":"\(prompt)"}}
+            """
+            let url = folder.appendingPathComponent("\(name).jsonl")
+            try line.write(to: url, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes(
+                [.creationDate: created, .modificationDate: modified],
+                ofItemAtPath: url.path
+            )
+        }
+
+        let now = Date()
+        // The older conversation is the one still being typed into, so it is
+        // also the most recently *modified* — which is the trap.
+        try write("first", prompt: "Rewrite the checkout page",
+                  created: now.addingTimeInterval(-3600), modified: now)
+        try write("second", prompt: "Add the watchlist endpoint",
+                  created: now.addingTimeInterval(-600),
+                  modified: now.addingTimeInterval(-300))
+
+        let source = AgentTaskSource(root: root)
+
+        // The tab whose agent started ten minutes ago gets the file that
+        // appeared after it did, not the busier neighbour.
+        let second = source.tasks(for: directory, startedAt: now.addingTimeInterval(-620))
+        #expect(second.first?.prompt == "Add the watchlist endpoint")
+
+        // And the tab that has been open an hour gets its own.
+        let first = source.tasks(for: directory, startedAt: now.addingTimeInterval(-3610))
+        #expect(first.first?.prompt == "Rewrite the checkout page")
+
+        // The fingerprint follows the same file, or a poll would compare one
+        // tab's list against another tab's signature and skip the read.
+        #expect(source.signature(for: directory, startedAt: now.addingTimeInterval(-620))
+                != source.signature(for: directory, startedAt: now.addingTimeInterval(-3610)))
+    }
+}
