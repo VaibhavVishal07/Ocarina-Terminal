@@ -10,9 +10,12 @@ import SwiftUI
 struct TaskPanelView: View {
     @Environment(\.theme) private var theme
     let tasks: [AgentTask]
-    let close: () -> Void
 
     static let width: CGFloat = 230
+
+    /// The breathing room below the titlebar, matching the gap the sidebar
+    /// leaves above its first tab so the two columns start on the same line.
+    private static let inset: CGFloat = 10
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -33,42 +36,54 @@ struct TaskPanelView: View {
             // leaves the raw window backdrop showing in the corner.
             .ignoresSafeArea(edges: .top)
         }
-        .overlay(alignment: .leading) {
-            Rectangle().fill(theme.chrome.border.color.opacity(0.10)).frame(width: 1)
-        }
     }
 
+    /// No dismiss control: the panel is part of the window now, like the
+    /// sidebar. The count is the whole header.
     private var header: some View {
         HStack(spacing: 6) {
-                Text("Tasks")
-                    .font(theme.uiFont(11.5, weight: .semibold))
-                    .foregroundStyle(theme.chrome.textPrimary.color)
+            Text("Tasks")
+                .font(theme.uiFont(11.5, weight: .semibold))
+                .foregroundStyle(theme.chrome.textPrimary.color)
+            if !tasks.isEmpty {
                 Text("\(tasks.filter { $0.state == .finished }.count)/\(tasks.count)")
                     .font(theme.uiFont(10.5))
                     .foregroundStyle(theme.chrome.textTertiary.color)
-                Spacer(minLength: 4)
-            Button {
-                close()
-            } label: {
-                Image(systemName: "sidebar.right")
-                    .font(theme.uiFont(10, weight: .medium))
-                    .foregroundStyle(theme.chrome.textSecondary.color)
-                    .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            Spacer(minLength: 4)
         }
         .padding(.horizontal, 12)
-        .padding(.top, 40)
-        .padding(.bottom, 10)
+        // 40 here was clearing the titlebar a second time — the window's safe
+        // area already does it, which is what the sidebar relies on. It left the
+        // header stranded a third of the way down an otherwise empty column.
+        .padding(.top, Self.inset)
+        .padding(.bottom, Self.inset)
     }
 
+    /// Says what it is waiting for, in the middle of the space it will fill.
+    ///
+    /// A single line in the top corner read as a panel that had failed to load
+    /// something. Centred, with the mark above it, the emptiness looks
+    /// deliberate — this is a list with nothing in it yet, not a broken one.
     private var empty: some View {
-        // Says what it is waiting for. A blank pane reads as broken.
-        Text("Ask the agent in this tab for something and it appears here.")
-            .font(theme.uiFont(11))
-            .foregroundStyle(theme.chrome.textTertiary.color)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(12)
+        VStack(spacing: 9) {
+            Image(systemName: "checklist")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(theme.chrome.textTertiary.color.opacity(0.65))
+
+            Text("No tasks yet")
+                .font(theme.uiFont(11.5, weight: .semibold))
+                .foregroundStyle(theme.chrome.textSecondary.color)
+
+            Text("Ask the agent in this tab for something and it appears here.")
+                .font(theme.uiFont(11))
+                .foregroundStyle(theme.chrome.textTertiary.color)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var list: some View {

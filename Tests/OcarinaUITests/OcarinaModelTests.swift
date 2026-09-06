@@ -23,6 +23,35 @@ struct OcarinaModelTests {
         return false
     }
 
+    @Test("Nothing shells out for names until the terminal is used")
+    func summariserWaitsForInput() throws {
+        let directory = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = OcarinaModel()
+        let tab = model.newTab(workingDirectory: directory)
+        defer { model.closeTab(tab.id) }
+
+        // Summarising runs the `claude` binary, and a subprocess asks for its
+        // permissions in Ocarina's name. A window that has only just opened has
+        // asked for nothing, so it must not have earned that yet.
+        #expect(!model.summarisingAllowed)
+    }
+
+    @Test("Typing is what lets the summariser run")
+    func inputAllowsSummarising() throws {
+        let directory = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = OcarinaModel()
+        let tab = model.newTab(workingDirectory: directory)
+        defer { model.closeTab(tab.id) }
+        #expect(!model.summarisingAllowed)
+
+        model.session(for: tab.id)?.type("x")
+        #expect(model.summarisingAllowed)
+    }
+
     @Test("A new tab starts named for where it is")
     func newTabUsesProjectName() throws {
         let directory = try makeProjectDirectory()

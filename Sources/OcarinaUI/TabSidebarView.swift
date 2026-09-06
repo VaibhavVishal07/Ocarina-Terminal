@@ -52,7 +52,6 @@ struct TabSidebarView: View {
     @State private var toolTip: ToolTipTarget?
     @State private var isNewTabHovered = false
     @State private var isThemeHovered = false
-    @State private var isTasksHovered = false
 
     private static let space = "tabsidebar"
 
@@ -88,9 +87,6 @@ struct TabSidebarView: View {
         // behind them: it left the top strip showing the raw window backdrop,
         // a flat grey band across a themed window.
         .background(metal.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .trailing) {
-            Rectangle().fill(theme.chrome.border.color.opacity(0.10)).frame(width: 1)
-        }
         .coordinateSpace(name: Self.space)
         .overlay(alignment: .topLeading) {
             GeometryReader { geometry in
@@ -187,26 +183,10 @@ struct TabSidebarView: View {
     /// The two things that otherwise live only in the menu bar — the one place
     /// a person coming from a web interface does not think to look.
     ///
-    /// Tasks is here *and* on the tab at the right edge. That is deliberate
-    /// duplication: the tab is the discoverable one and sits beside the panel
-    /// it opens, and this is the one you find when you are already reading the
-    /// column of settings, with its shortcut written next to it.
+    /// No Tasks row any more: the panel it used to open is always on screen, so
+    /// the link led nowhere a glance to the right would not already show.
     private var footerLinks: some View {
         VStack(spacing: 2) {
-            Button {
-                model.setTaskPanel(visible: !model.isTaskPanelVisible)
-            } label: {
-                footerRow(
-                    symbol: "checklist",
-                    title: "Tasks",
-                    trailing: "\u{2318}J",
-                    hovered: isTasksHovered
-                )
-            }
-            .buttonStyle(.plain)
-            .onHover { isTasksHovered = $0 }
-            .animation(.easeOut(duration: 0.12), value: isTasksHovered)
-
             // Opens the picker rather than a list of names: choosing a look
             // from words asks you to remember what Matcha looked like.
             Button {

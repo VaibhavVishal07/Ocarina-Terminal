@@ -51,14 +51,20 @@ public final class OcarinaModel {
     /// again, because the next one is a new thing the user does not understand.
     public var isErrorBannerVisible = true
 
-    public var isTaskPanelVisible = false
-    /// Set when *you* close the panel, so it stops opening itself.
+    /// Whether the summariser may shell out yet.
     ///
-    /// The panel appears on its own the first time a tab has tasks, because
-    /// somebody who has just prompted an agent has no reason to know the panel
-    /// exists. Doing that twice would be a fight rather than a hint.
-    @ObservationIgnored private var autoOpenSuppressed = false
-    @ObservationIgnored private var watchTask: Task<Void, Never>?
+    /// `TaskSummariser` runs the `claude` binary, and a subprocess inherits the
+    /// app's TCC identity: every protected thing it reads is asked about in
+    /// Ocarina's name. Run at startup it put "Ocarina would like to access your
+    /// Photo Library" — and a network volume prompt on the next run — in front
+    /// of someone who had done nothing but open a terminal, about a feature they
+    /// had not asked for and could not see.
+    ///
+    /// The panel is always open now, so "you opened it" is no longer a signal
+    /// anything can wait for. The first keystroke is: it cannot happen at
+    /// launch, and it means the session is genuinely in use. The heuristic
+    /// titles are on screen the whole time; only the better names wait.
+    @ObservationIgnored private(set) var summarisingAllowed = false
 
     /// Set when a paste needs a word said about it first.
     public var pendingPaste: PasteInspector.Reading?
@@ -112,15 +118,9 @@ public final class OcarinaModel {
     /// Polling rather than watching: the file is appended to constantly by a
     /// process we do not own, and a two-second read of one file costs less than
     /// keeping a file descriptor and a coalescing timer correct.
-    public func setTaskPanel(visible: Bool) {
-        // A deliberate close is the one signal that the panel is unwanted.
-        if !visible { autoOpenSuppressed = true }
-        isTaskPanelVisible = visible
+    /// The panel is permanent, so this runs for the life of the window.
+    public func startWatchingTasks() {
         taskRefresh?.cancel()
-        // The list is left where it is on the way out. Emptying it made the
-        // rows vanish a frame before the panel did, so the slide-out was of an
-        // empty box rather than of the thing you were reading.
-        guard visible else { return }
         refreshTasks()
         taskRefresh = Task { [weak self] in
             while !Task.isCancelled {
@@ -131,33 +131,14 @@ public final class OcarinaModel {
         }
     }
 
-    /// Watches for a tab's first tasks while the panel is shut.
-    ///
-    /// Reading one JSONL file every four seconds is cheaper than the machinery
-    /// to be told about it, and it stops the moment the panel opens — from then
-    /// on the panel's own poll is doing the same work.
-    func startWatchingForTasks() {
-        watchTask?.cancel()
-        watchTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(4))
-                guard let self, !Task.isCancelled else { return }
-                guard !isTaskPanelVisible, !autoOpenSuppressed,
-                      let directory = selectedSession?.workingDirectory
-                else { continue }
-                let source = taskSource
-                let any = await Task.detached {
-                    !source.tasks(for: directory).isEmpty
-                }.value
-                guard !Task.isCancelled, !isTaskPanelVisible, !autoOpenSuppressed else { continue }
-                if any {
-                    setTaskPanel(visible: true)
-                    // `setTaskPanel` only suppresses on a close; opening here
-                    // must not look like the user asked.
-                    autoOpenSuppressed = false
-                }
-            }
-        }
+    /// Somebody typed. Names may now cost a subprocess.
+    private func noteUserInput() {
+        guard !summarisingAllowed else { return }
+        summarisingAllowed = true
+        // The transcript is usually already read and unchanged, and
+        // `refreshTasks` skips an unchanged one — so without this the better
+        // names would wait on the next agent turn rather than the next poll.
+        lastTaskSignature = nil
     }
 
     /// Reads the transcript off the main thread.
@@ -189,6 +170,7 @@ public final class OcarinaModel {
         // The heuristic title is on screen the moment this lands; Claude's
         // replaces it through `tasks` when the summariser answers.
         rawTasks = read
+        guard summarisingAllowed else { return }
         taskSummariser.refresh(read)
     }
 
@@ -252,6 +234,7 @@ public final class OcarinaModel {
     @discardableResult
     public func newTab(workingDirectory: URL? = nil) -> TabItem {
         let session = TerminalSession(workingDirectory: workingDirectory)
+        session.onInput = { [weak self] in self?.noteUserInput() }
         // Styled before it is ever shown, so a new tab never flashes the
         // default palette on its way to the chosen one.
         session.apply(themes.theme)
@@ -292,6 +275,7 @@ public final class OcarinaModel {
         Task { await namingService.start() }
         sleepGuard.start()
         if tabs.isEmpty { newTab() }
+        startWatchingTasks()
     }
 
     /// A hand-typed name wins and stops automatic naming for that tab.

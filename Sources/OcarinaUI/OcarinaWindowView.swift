@@ -85,19 +85,14 @@ public struct OcarinaWindowView: View {
                 }
             }
             .animation(.easeOut(duration: 0.18), value: model.selectedFailure)
-            // Floating, not a column. A column of its own showed the raw
-            // window backdrop as a grey band down the edge; over the terminal
-            // it sits on the theme, and the inset keeps it off the scroller.
-            .overlay(alignment: .trailing) {
-                PanelHandle(model: model).padding(.trailing, 13)
-            }
 
-            if model.isTaskPanelVisible {
-                TaskPanelView(tasks: model.tasks) { model.setTaskPanel(visible: false) }
-                    .transition(.move(edge: .trailing))
-            }
+            // A column again, and a permanent one. It was an overlay only so it
+            // could animate in without resizing the terminal — every frame of
+            // that resize being an `ioctl(TIOCSWINSZ)` and a SIGWINCH. Nothing
+            // animates now, so the terminal is laid out once, at its real width,
+            // and the panel covers none of it.
+            TaskPanelView(tasks: model.tasks)
         }
-        .animation(.easeOut(duration: 0.2), value: model.isTaskPanelVisible)
         // Not a sheet. A sheet on macOS is modal and will not dismiss on a
         // click outside it, and picking a theme is a thing you do by trying
         // three and then getting on with your work.
@@ -121,7 +116,6 @@ public struct OcarinaWindowView: View {
         .onAppear {
             model.start()
             model.applyThemeToSessions()
-            model.startWatchingForTasks()
             Self.matchSystemAppearance(to: model.themes.theme)
         }
         .onChange(of: model.themes.selectedID) { _, _ in

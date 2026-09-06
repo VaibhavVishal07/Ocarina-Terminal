@@ -23,6 +23,14 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     private var pty: PTYProcess?
     private let shellPath: String
 
+    /// Called the first time anything is typed into this tab.
+    ///
+    /// The summariser runs the `claude` binary, and a subprocess asks for its
+    /// permissions in the app's name. There is no longer a panel to open by
+    /// hand, so this is the signal that took its place: somebody is using the
+    /// terminal, which is a thing that cannot happen at launch.
+    public var onInput: (() -> Void)?
+
     public init(workingDirectory: URL? = nil) {
         id = UUID()
         self.workingDirectory = workingDirectory
@@ -91,6 +99,7 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
 
     public func send(source: TerminalView, data: ArraySlice<UInt8>) {
         pty?.write(Array(data))
+        onInput?()
     }
 
     public func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
