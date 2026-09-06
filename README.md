@@ -4,24 +4,180 @@
 
 # Ocarina Terminal
 
-**A macOS terminal that names its own tabs after what they are doing.**
+**A macOS terminal for people who were never taught one.**
 
 </div>
 
 <img src="docs/images/window.png" alt="The Ocarina window: tab sidebar, terminal, task panel">
 
-Twenty terminals open and every one of them called `zsh` is not a list, it is a
-guessing game. Ocarina reads what each tab is actually doing — the foreground
-process, the project directory, the prompt you gave an agent — and puts *that*
-on the tab. The sidebar becomes something you can read down.
+A terminal assumes you already know. It opens a blank rectangle, prints a `%`,
+and waits. If you know what to type, it is the fastest tool on the machine. If
+you do not, it is a locked door with no sign on it — and every instruction you
+find for getting through it was written by someone who forgot they ever had to
+ask.
 
-Nothing leaves the machine. Titles are derived locally, from files the tools
-already write.
+Ocarina is the same terminal, built the other way round. It says what it is
+doing, keeps the list of what you asked for, offers the command instead of
+expecting it, explains the error instead of printing it, and never runs anything
+you did not trigger yourself.
 
-- [Your first terminal](docs/first-terminal.md) — for people who have never
-  opened one.
-- [Context-aware tab naming](docs/context-aware-tab-naming.md) — how titles are
-  derived, and how conflicts are settled.
+That turns out to matter twice over. The person who has never opened a terminal
+needs it because nothing else tells them anything. The person running five
+agents at once needs it because five terminals called `zsh` is not a list, it is
+a guessing game.
+
+Nothing leaves the machine. Every title, task and explanation is derived
+locally, from files the tools already write.
+
+New to this entirely? [Start here](docs/first-terminal.md).
+
+---
+
+## The tabs name themselves
+
+The tab is not called `zsh`. It is called what the terminal is *doing*: the
+prompt you gave an agent, the command that is running, the project you are in.
+
+Ocarina reads that from three places, in order of how much they know — the
+transcript an agent is already writing, the foreground process on the pty, and
+the directory the shell is sitting in. A stability layer decides when a new
+answer is good enough to replace the one on screen, so a title does not flicker
+every time a command finishes.
+
+A dot on each row says idle, running, succeeded or failed, so a column of twenty
+can be read down the edge without stopping at any of the names.
+
+[How the naming works](docs/context-aware-tab-naming.md) — the provider chain,
+the priorities and the stability rules.
+
+## It remembers what you asked the agent
+
+You give an agent five things across twenty minutes and cannot remember which of
+them it actually got to. The panel down the right is that list, read from the
+transcript the agent writes anyway — so it costs the session nothing and it
+survives scrollback.
+
+`TaskSummariser` asks Claude to rewrite the local titles, because it is better
+at it: "Toggle option near right-hand" becomes "Move toggle to right side".
+Three rules follow from where that work happens.
+
+- The local condenser runs first, so a title is on screen immediately and a
+  machine with no agent installed loses nothing it had.
+- Every prompt is asked about once, ever, cached on disk by the transcript's own
+  uuid. This spends your Claude allowance.
+- **It waits for a keystroke.** Running the `claude` binary means a subprocess,
+  and a subprocess inherits the app's TCC identity — every protected thing it
+  reads is asked about in Ocarina's name. Doing it at startup put "Ocarina would
+  like to access your Photo Library" in front of someone who had done nothing
+  but open a terminal. The first keystroke cannot happen at launch, and it means
+  the session is genuinely in use.
+
+## It tells you what to type
+
+<img src="docs/images/quick-actions.png" alt="The quick actions drawer: install an agent, and the things agents need">
+
+⌘K opens a drawer of recipes — install an agent, install the things agents
+assume you already have. Each one says what it does before you choose it.
+
+It does not run anything. Choosing a recipe **types** its command at the prompt
+and leaves the cursor after it, so the last act is always yours. That is
+deliberate on two counts: nothing executes that you did not trigger, and you see
+the command each time, which is how you eventually stop needing the drawer at
+all.
+
+Recipes live in `Sources/OcarinaUI/Resources/Recipes/`, extended from
+`~/.ocarina/recipes/`.
+
+## It reads a paste before the shell does
+
+The most dangerous thing a beginner does in a terminal is paste something from
+the internet. ⌘V goes through `PasteInspector` rather than straight to the
+emulator.
+
+Anything unremarkable is pasted with no ceremony, because a terminal that
+interrupts every paste is one people learn to click through. Only multi-command
+or risky text stops for review, with a line on each part saying what it will do.
+
+## It explains what just broke
+
+A command fails and prints something the person who ran it cannot read. For the
+user this app is for, that is not an inconvenience — it is where the session
+ends, because there is nothing they can do next.
+
+Ocarina already knows the command failed and what is on the screen, and an agent
+is usually installed a tab away. A banner offers to hand the exit code and the
+visible screen to whichever of `claude`, `gemini` or `codex` is present.
+Dismissing it means "I have read this one", not "stop telling me when things
+break" — the next failure brings it back.
+
+## It looks like something you chose
+
+<img src="docs/images/themes.png" alt="The theme picker, fourteen themes">
+
+Fourteen bundled themes, applied as you pick. Each is a JSON file carrying the
+chrome colours, the terminal bed, a sixteen-colour ANSI palette and an optional
+background motif. Drop your own in `~/.ocarina/themes/` and they appear beside
+the bundled ones.
+
+The picker is not a sheet. A sheet on macOS is modal and will not dismiss on a
+click outside it, and picking a theme is a thing you do by trying three and then
+getting on with your work.
+
+Choosing a theme also sets `NSApp.appearance`. System controls — the keep-awake
+switch, the menus, the window's own furniture — draw themselves and take their
+cue from `NSAppearance`, not from us; without this a light theme kept a dark
+switch and dark scrollbars, which reads as a half-finished theme rather than a
+choice.
+
+Text is Geist and Geist Mono, bundled under the OFL and registered before the
+first frame draws, so nothing flashes through a fallback face on its way to the
+right one.
+
+## It stays awake while you wait
+
+Ocarina holds a `PreventUserIdleDisplaySleep` assertion — the same one
+`caffeinate -d` takes — for as long as it is open. It is **on by default**: a
+terminal is usually waiting on something long, and a display that sleeps through
+the build is never what was wanted. The point is to stop needing a `caffeinate`
+parked in a spare tab.
+
+The switch in the sidebar says whether the assertion is actually held, and
+toggles it. `isHolding` is tracked separately from `isEnabled` because the
+system can refuse an assertion, and the switch must not claim the Mac is being
+kept awake when it is not.
+
+The assertion is named, so it is never a mystery which app is doing this:
+
+```
+$ pmset -g assertions
+   pid 62530(Ocarina): [0x0001ec3a00058822] PreventUserIdleDisplaySleep named: "Ocarina is open"
+```
+
+The kernel drops a process's assertions when it exits, so quitting Ocarina
+always gives it back, including on a crash.
+
+## And when there is nothing open
+
+<img src="docs/images/empty.png" alt="The departure board with no tabs open, and the empty task panel">
+
+Close every tab and the window is given over to a dot-matrix panel: a wordmark,
+one lit call to action, and the two shortcuts that still mean something with no
+terminal open.
+
+It borrows the look of an airport departures board but not its furniture. A
+clock, gate numbers and an ON TIME column are what such a board carries because
+a flight has a time and a status; a terminal that does not exist yet has
+neither, so drawing them was decoration dressed up as information. What earns
+its place is the matrix itself.
+
+`DotMatrix` carries a 5x7 font and paints **every** cell of the grid, dark when
+it is off. That is the whole character of the thing: the unlit dots stay visible
+behind the words, so the text reads as lamps that happen to be on rather than as
+glyphs floating on black. Characters are five cells wide with one blank column
+between them, so padding two strings to the same length is all it takes to make
+their columns line up.
+
+---
 
 ## Running it
 
@@ -49,99 +205,29 @@ inherits that shell's directory, so tabs opened where you were; an app launched
 from Finder inherits `/`, and every new tab opened at the root of the disk and
 was named for it. A session with no directory of its own starts at home.
 
-## What is in the window
+## Keyboard shortcuts
 
-**The sidebar** carries the tabs, each with a status dot — idle, running,
-succeeded, failed — and a symbol for whatever is running in it. Below them sit the theme
-picker and the keep-awake switch.
+| | |
+|---|---|
+| ⌘T | New tab |
+| ⌘W | Close tab |
+| ⌘K | Quick actions |
+| ⇧⌘P | Command palette |
+| ⌘V | Paste, through the inspector |
 
-**The task panel** on the right lists what you have asked the agent in this tab,
-read from the transcript the agent writes anyway. It costs the session nothing
-and it survives scrollback, which is the point: you gave an agent five things
-across twenty minutes and cannot remember which of them it got to.
+They come from the menu bar in `MainMenu`, not from SwiftUI
+`.keyboardShortcut`. AppKit offers a key equivalent to the main menu before the
+event reaches the window or the responder chain, so a menu item always gets it;
+a hidden SwiftUI button only sees what makes it as far as the view hierarchy,
+which a terminal view holding first responder can swallow. Ocarina had no main
+menu at all for a while, which is why ⌘W did nothing — and why ⌘Q didn't either.
 
-It is always open. It used to be a drawer behind a notch, and the notch was
-the problem — as a column it animated the terminal's *width*, and every frame
-of that resize was an `ioctl(TIOCSWINSZ)` and a SIGWINCH, so the shell repainted
-its prompt through the length of the slide.
+The Edit menu's cut and copy have no target, so they travel the responder chain
+to SwiftTerm, which implements them.
 
-`TaskSummariser` asks Claude to rewrite the heuristic titles, because it is
-better at it: "Toggle option near right-hand" becomes "Move toggle to right
-side". Three rules follow from where that work happens.
+---
 
-- The local condenser runs first, so a title is on screen immediately and a
-  machine with no agent installed loses nothing it had.
-- Every prompt is asked about once, ever, cached on disk by the transcript's own
-  uuid. This spends your Claude allowance.
-- **It waits for a keystroke.** Running the `claude` binary means a subprocess,
-  and a subprocess inherits the app's TCC identity — every protected thing it
-  reads is asked about in Ocarina's name. Doing it at startup put "Ocarina would
-  like to access your Photo Library" in front of someone who had done nothing
-  but open a terminal. The first keystroke cannot happen at launch, and it means
-  the session is genuinely in use.
-
-## Themes
-
-<img src="docs/images/themes.png" alt="The theme picker, fourteen themes">
-
-Fourteen bundled themes, applied as you pick. Each is a JSON file in
-`Sources/OcarinaUI/Resources/Themes/` carrying the chrome colours, the terminal
-bed, a sixteen-colour ANSI palette and an optional background motif. Drop your
-own in `~/.ocarina/themes/` and they appear beside the bundled ones.
-
-The picker is not a sheet. A sheet on macOS is modal and will not dismiss on a
-click outside it, and picking a theme is a thing you do by trying three and then
-getting on with your work.
-
-Choosing a theme also sets `NSApp.appearance`. System controls — the keep-awake
-switch, the menus, the window's own furniture — draw themselves and take their
-cue from `NSAppearance`, not from us; without this a light theme kept a dark
-switch and dark scrollbars, which reads as a half-finished theme rather than a
-choice.
-
-Text is Geist and Geist Mono, bundled under the OFL and registered before the
-first frame draws, so nothing flashes through a fallback face on its way to the
-right one.
-
-## Quick actions, and not running things for you
-
-⌘K opens a drawer of recipes — install an agent, and so on — from
-`Sources/OcarinaUI/Resources/Recipes/`, extended from `~/.ocarina/recipes/`.
-
-It does not run anything. Choosing a recipe **types** its command at the prompt
-and leaves the cursor after it, so the last act is always yours. That is
-deliberate on two counts: nothing executes that you did not trigger, and you see
-the command each time, which is how you eventually stop needing the drawer.
-
-Paste works the same way. ⌘V goes through `PasteInspector` rather than straight
-to the emulator: anything unremarkable is pasted with no ceremony, because a
-terminal that interrupts every paste is one people learn to click through. Only
-multi-command or dangerous text stops for review.
-
-When a command fails, `ErrorHelp` offers to hand the exit code and the visible
-screen to whichever agent is installed. For the person this app is for, an
-unreadable error is not an inconvenience — it is where the session ends.
-
-## The empty states
-
-<img src="docs/images/empty.png" alt="The departure board with no tabs open, and the empty task panel">
-
-Close every tab and the window is given over to a dot-matrix panel: a wordmark,
-one lit call to action, and the two shortcuts that still mean something with no
-terminal open.
-
-It borrows the look of an airport departures board but not its furniture. A
-clock, gate numbers and an ON TIME column are what such a board carries because
-a flight has a time and a status; a terminal that does not exist yet has
-neither, so drawing them was decoration dressed up as information. What earns
-its place is the matrix itself.
-
-`DotMatrix` carries a 5x7 font and paints **every** cell of the grid, dark when
-it is off. That is the whole character of the thing: the unlit dots stay visible
-behind the words, so the text reads as lamps that happen to be on rather than as
-glyphs floating on black. Characters are five cells wide with one blank column
-between them, so padding two strings to the same length is all it takes to make
-their columns line up.
+# How it is built
 
 ## Package layout
 
@@ -219,26 +305,6 @@ itself, via `forkpty`, because `login_tty` is what makes the pty the child's
 controlling terminal — and without that `tcgetpgrp` reports nothing and the
 naming layer is blind.
 
-## Keyboard shortcuts
-
-| | |
-|---|---|
-| ⌘T | New tab |
-| ⌘W | Close tab |
-| ⌘K | Quick actions |
-| ⇧⌘P | Command palette |
-| ⌘V | Paste, through the inspector |
-
-They come from the menu bar in `MainMenu`, not from SwiftUI
-`.keyboardShortcut`. AppKit offers a key equivalent to the main menu before the
-event reaches the window or the responder chain, so a menu item always gets it;
-a hidden SwiftUI button only sees what makes it as far as the view hierarchy,
-which a terminal view holding first responder can swallow. Ocarina had no main
-menu at all for a while, which is why ⌘W did nothing — and why ⌘Q didn't either.
-
-The Edit menu's cut and copy have no target, so they travel the responder chain
-to SwiftTerm, which implements them.
-
 ## The child environment
 
 A terminal inherits the environment of whatever launched it, and passes it to
@@ -251,29 +317,6 @@ token, which has no business reaching an arbitrary shell.
 `PTYProcess` drops those markers before the fork. Only session identity goes:
 credentials and configuration a user exports for their own use are theirs and
 are left alone.
-
-## Keeping the Mac awake
-
-Ocarina holds a `PreventUserIdleDisplaySleep` assertion — the same one
-`caffeinate -d` takes — for as long as it is open. It is **on by default**: a
-terminal is usually waiting on something long, and a display that sleeps through
-the build is never what was wanted. The point is to stop needing a `caffeinate`
-parked in a spare tab.
-
-The switch in the sidebar says whether the assertion is actually held, and
-toggles it. `isHolding` is tracked separately from `isEnabled` because the
-system can refuse an assertion, and the switch must not claim the Mac is being
-kept awake when it is not.
-
-The assertion is named, so it is never a mystery which app is doing this:
-
-```
-$ pmset -g assertions
-   pid 62530(Ocarina): [0x0001ec3a00058822] PreventUserIdleDisplaySleep named: "Ocarina is open"
-```
-
-The kernel drops a process's assertions when it exits, so quitting Ocarina
-always gives it back, including on a crash.
 
 ## Icons and glass
 
