@@ -137,11 +137,20 @@ counting down, which is what the meter is doing, and the app already owns that
 language — so it costs nothing and stops the card looking like every dashboard
 tile ever shipped.
 
-Panels stacked one above another mirror their gradients. Each card used to run
-its own light top to bottom, so a column went bright, dim, bright, dim and the
-pair read as two objects that happened to be near each other. The lower one is
-flipped, so its dim end meets the upper one's dim end and the light falls
-across the stack once.
+Panels stacked one above another share a gradient rather than each running
+their own. A column used to go bright, dim, bright, dim — the light restarted
+at every card, and the pair read as two objects that happened to be near each
+other.
+
+Mirroring the lower card was the first answer and it is wrong in the other
+direction: the junction matches, but the column then gets *brighter* on the way
+down, which is not what a light source does. So it is one gradient cut in two.
+The top card runs from the panel colour to its dark end; the card under it
+carries on from that end towards the window's own ground, and the bottom of the
+stack is the darkest thing in it. The sheen goes on the top card and only the
+top card — a panel halfway down a falling gradient has no reason to catch light
+of its own, and putting one there is what made the lower card glow in the
+middle of the fall.
 
 ## It says what the window has cost
 
@@ -405,7 +414,10 @@ neither, so drawing them was decoration dressed up as information. What earns
 its place is the matrix itself.
 
 The same alphabet carries the wordmark at the top of the sidebar, small and lit,
-so the window wears its mark whether or not there is a terminal open. The
+so the window wears its mark whether or not there is a terminal open. Its lamps
+are brighter than the theme's accent on purpose: the accent's lightness is
+right for a border and wrong for a lamp, and derived from it directly the mark
+came out the dimmest thing on the panel. The
 titlebar's own "Ocarina" is hidden to make room for it — otherwise the window
 wore its name twice, ten points apart.
 
