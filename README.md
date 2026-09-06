@@ -380,6 +380,18 @@ Read at one row it was texture; read down a column of tabs it was litter behind
 the thing you were trying to scan. It is gone from the renderer and from the
 format, because a field left in the format is a promise to keep drawing it.
 
+Body text is white with a *tinge* of the theme, not the theme's colour set as
+words — and that is a ceiling rather than a rule about how much hue to add.
+Thirteen of the fourteen were already written that way, at a chroma between
+0.01 and 0.13; Matrix was the exception at 0.41, and its screen was the one
+where the text *was* the theme rather than wearing it. Anything above 0.14 is
+pulled towards the grey of its own luminance until it sits at the ceiling, so
+Matrix's `#8CF5A3` is drawn as `#BFE2C6` and the other thirteen come through
+untouched. The two whites in the palette answer to the same ceiling, because
+they are the text colour in every bundled theme, and capping one without the
+other would leave a program printing in white louder than the line above it.
+Anyone's own theme gets this too, which a hand-edited palette would not have.
+
 A theme also reaches inside the programs the terminal runs. Setting the sixteen
 ANSI colours used to be the whole of a palette, and it is not how the tools
 people run colour themselves any more: Claude Code names its gold outright,
