@@ -55,6 +55,31 @@ was named for it. A session with no directory of its own starts at home.
 succeeded, failed — and a symbol for whatever is running in it. Below them sit the theme
 picker and the keep-awake switch.
 
+**Pinned tabs** sit at the top of the sidebar and outlive the app.
+
+<img src="docs/images/pinned.png" alt="Two pinned tabs at the top of the sidebar, dormant after a relaunch">
+
+Right-click a tab and pin it, and it is there the next time you open Ocarina —
+in the directory it was in when you left, under the name it had earned. Tapping
+it is what starts it.
+
+Nothing is spawned for a pin until it is asked for. Restoring six of them
+otherwise means six login shells at launch, each running your profile, before
+you have clicked anything. So a restored tab is listed and dimmed, and becomes
+live on the first tap.
+
+A pty cannot be frozen and thawed, and pretending otherwise — replaying
+scrollback, re-running the last command — would be a lie about what came back.
+What survives is the answer to *where was I*. Only three things are written to
+`pinned-tabs.json`: an id, a title, and a directory. A directory that has since
+been deleted falls back to home rather than failing to open.
+
+Closing a pinned tab ends its session and leaves the row, because that is what
+pinning is for. **Unpinning** is what removes it. A pinned row carries no badge
+and the group has no heading — being at the top of the list is the whole signal,
+and the one pin glyph a row can already show means its *name* is pinned, not the
+tab.
+
 **The task panel** on the right lists what you have asked the agent in this tab,
 read from the transcript the agent writes anyway. It costs the session nothing
 and it survives scrollback, which is the point: you gave an agent five things
@@ -195,6 +220,7 @@ Sources/OcarinaUI/       SwiftUI layer
   OcarinaModel           open tabs, selection, renames, title updates
   TerminalSession        one tab: pty + SwiftTerm view + naming monitor
   TabSidebarView         tabs as tasks, with the theme and keep-awake footer
+  PinnedTabs             tabs that outlive the app: id, title, directory
   TaskPanelView          what you have asked the agent in this tab
   TaskSummariser         better names for those tasks, via the `claude` binary
   ThemeStore / Theme     bundled + user themes, and the colour model

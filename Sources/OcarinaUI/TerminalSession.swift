@@ -31,8 +31,10 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// terminal, which is a thing that cannot happen at launch.
     public var onInput: (() -> Void)?
 
-    public init(workingDirectory: URL? = nil) {
-        id = UUID()
+    /// `id` is passed in when a pinned tab is woken, so the session, the tab and
+    /// the naming monitor keep the identity the tab was restored under.
+    public init(id: UUID = UUID(), workingDirectory: URL? = nil) {
+        self.id = id
         self.workingDirectory = workingDirectory
             ?? FileManager.default.homeDirectoryForCurrentUser
         shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
