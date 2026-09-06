@@ -161,10 +161,14 @@ public struct OcarinaWindowView: View {
                             .panel()
                     }
                     if let usage = model.usage {
-                        // Mirrored, so the light running down the task list
-                        // carries on into this rather than starting again.
-                        UsageCardView(usage: usage, now: now, mirrored: model.isTaskPanelVisible)
-                            .panel()
+                        // Under the task list, so it carries that card's light
+                        // on down rather than starting again.
+                        UsageCardView(
+                            usage: usage,
+                            now: now,
+                            place: model.isTaskPanelVisible ? .bottom : .top
+                        )
+                        .panel()
                     }
                 }
                 .frame(width: Self.panelWidth)
@@ -246,35 +250,53 @@ public struct OcarinaWindowView: View {
         }
     }
 
-    /// The fill a stacked panel is drawn in.
-    ///
-    /// Two cards above one another each ran their own gradient top to bottom,
-    /// so the column went bright, dim, bright, dim — the light restarted at
-    /// every card and the pair read as two objects that happened to be near
-    /// each other. Mirroring the lower one puts its dim end against the upper
-    /// one's dim end, and the light falls across the stack once rather than
-    /// twice.
-    static func panelFill(_ theme: Theme, mirrored: Bool) -> LinearGradient {
-        LinearGradient(
-            colors: [theme.chrome.panelTop.color, theme.chrome.panelBottom.color],
-            startPoint: mirrored ? .bottom : .top,
-            endPoint: mirrored ? .top : .bottom
-        )
+    /// Where a panel sits in a stack, which is what decides how it is lit.
+    enum PanelPlace {
+        /// The only card in its column, or the first one down.
+        case top
+        /// Under another card, and carrying the light on down.
+        case bottom
     }
 
-    /// The sheen on that fill: light landing on a surface, at whichever end
-    /// the surface is facing.
+    /// The fill a stacked panel is drawn in.
+    ///
+    /// One gradient across the whole column, cut into pieces. Two cards each
+    /// running their own top-to-bottom gradient made the column go bright,
+    /// dim, bright, dim — the light restarted at every card, and the pair read
+    /// as two objects that happened to be near each other.
+    ///
+    /// Mirroring the lower one was tried and is wrong for the same reason in
+    /// reverse: the junction matched, but the column then got *brighter* on
+    /// the way down, which is not what a light source does. So the top card
+    /// runs from the panel colour to its dark end, and the card below carries
+    /// on from that dark end down towards the window's own ground. The stack
+    /// darkens all the way, once.
+    static func panelFill(_ theme: Theme, at place: PanelPlace) -> LinearGradient {
+        let colours = switch place {
+        case .top: [theme.chrome.panelTop.color, theme.chrome.panelBottom.color]
+        case .bottom: [theme.chrome.panelBottom.color, theme.ground.color]
+        }
+        return LinearGradient(colors: colours, startPoint: .top, endPoint: .bottom)
+    }
+
+    /// The sheen: light landing on the top of the stack, and nowhere else.
     ///
     /// Drawn in the theme's own text colour rather than always in white — on a
-    /// pale panel a white highlight is invisible and a dark one reads.
-    static func panelSheen(_ theme: Theme, mirrored: Bool) -> some View {
-        LinearGradient(
-            colors: [theme.chrome.textPrimary.color.opacity(0.035), .clear],
-            startPoint: mirrored ? .bottom : .top,
-            endPoint: mirrored ? .top : .bottom
-        )
-        .frame(height: 110)
-        .frame(maxHeight: .infinity, alignment: mirrored ? .bottom : .top)
+    /// pale panel a white highlight is invisible and a dark one reads. A card
+    /// halfway down a column has no reason to catch light of its own; putting
+    /// one there is what made the second card glow in the middle of a gradient
+    /// that was supposed to be falling.
+    @ViewBuilder
+    static func panelSheen(_ theme: Theme, at place: PanelPlace) -> some View {
+        if place == .top {
+            LinearGradient(
+                colors: [theme.chrome.textPrimary.color.opacity(0.035), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 110)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
     }
 
     /// Rounds a panel off and draws its edge.

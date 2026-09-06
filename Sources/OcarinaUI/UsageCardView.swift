@@ -20,9 +20,9 @@ struct UsageCardView: View {
     /// Passed in rather than read from the clock, so the countdown ticks with
     /// the view's own timer and the card is trivially previewable.
     let now: Date
-    /// True when this card sits under another, so its light runs the other way
-    /// and the two read as one surface. See `OcarinaWindowView.panelFill`.
-    var mirrored: Bool = false
+    /// Where this card sits in its column, which decides how it is lit. See
+    /// `OcarinaWindowView.panelFill`.
+    var place: OcarinaWindowView.PanelPlace = .top
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -58,8 +58,8 @@ struct UsageCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             ZStack {
-                OcarinaWindowView.panelFill(theme, mirrored: mirrored)
-                OcarinaWindowView.panelSheen(theme, mirrored: mirrored)
+                OcarinaWindowView.panelFill(theme, at: place)
+                OcarinaWindowView.panelSheen(theme, at: place)
             }
         }
         .help("""

@@ -138,7 +138,7 @@ struct TabSidebarView: View {
         // the tabs ran straight into Theme and Share Feedback.
         .frame(maxHeight: .infinity)
         .layoutPriority(0)
-        .background(card())
+        .background(card(at: .top))
     }
 
     /// The surface both cards are drawn on.
@@ -147,8 +147,8 @@ struct TabSidebarView: View {
     /// view and they are meant to hang off its edge, so clipping the sidebar
     /// would cut every one of them in half. That is also why neither card uses
     /// `panel()`, which clips.
-    private func card(mirrored: Bool = false) -> some View {
-        metal(mirrored: mirrored)
+    private func card(at place: OcarinaWindowView.PanelPlace = .top) -> some View {
+        metal(at: place)
             .clipShape(OcarinaWindowView.PanelStyle.shape)
             .overlay {
                 OcarinaWindowView.PanelStyle.shape
@@ -163,10 +163,10 @@ struct TabSidebarView: View {
     /// thing on a screen whose other half is a nearly black terminal. This is
     /// an opaque dark panel with one faint highlight along the top — enough to
     /// read as a brushed surface catching light, not enough to shine.
-    private func metal(mirrored: Bool) -> some View {
+    private func metal(at place: OcarinaWindowView.PanelPlace) -> some View {
         ZStack {
-            OcarinaWindowView.panelFill(theme, mirrored: mirrored)
-            OcarinaWindowView.panelSheen(theme, mirrored: mirrored)
+            OcarinaWindowView.panelFill(theme, at: place)
+            OcarinaWindowView.panelSheen(theme, at: place)
         }
         .allowsHitTesting(false)
     }
@@ -299,7 +299,7 @@ struct TabSidebarView: View {
         .padding(.horizontal, Self.inset)
         .padding(.vertical, Self.inset - 2)
         .layoutPriority(1)
-        .background(card(mirrored: true))
+        .background(card(at: .bottom))
     }
 
     /// The app's mark, in the board's own alphabet.

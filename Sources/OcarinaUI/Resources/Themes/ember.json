@@ -48,8 +48,8 @@
     "failed": "#FF8A6B"
   },
   "board": {
-    "lit": "#C76C38",
-    "litDim": "#6F3D1F",
+    "lit": "#DC8E60",
+    "litDim": "#9F572D",
     "unlit": "#140C09",
     "backdrop": "#0B0604",
     "highlight": "#F0BE63"
