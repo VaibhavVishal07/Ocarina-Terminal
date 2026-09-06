@@ -66,24 +66,7 @@ struct TabSidebarView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 4) {
-                    ForEach(model.pinnedTabs) { tab in
-                        row(for: tab)
-                    }
-
-                    // The only thing marking the pinned group. A heading, or a
-                    // badge on every pinned row, would be a label for something
-                    // being at the top of the list already says — and the row
-                    // has one pin glyph in it already, which means the *name*
-                    // is pinned, not the tab.
-                    if !model.pinnedTabs.isEmpty && !model.unpinnedTabs.isEmpty {
-                        Rectangle()
-                            .fill(theme.chrome.border.color.opacity(0.12))
-                            .frame(height: 1)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                    }
-
-                    ForEach(model.unpinnedTabs) { tab in
+                    ForEach(model.tabs) { tab in
                         row(for: tab)
                     }
                     // Below the last tab, not above the first: the button is
@@ -490,9 +473,7 @@ struct TabSidebarView: View {
                 // close button while the pointer is on it. Hovering a pinned
                 // tab is already the moment you are reaching for the cross.
                 ZStack {
-                    // Nothing to close on a dormant row: it is a pin, not a
-                    // session. Unpinning is what removes it.
-                    if isHovered && !tab.isDormant {
+                    if isHovered {
                         closeButton(for: tab)
                     } else if tab.isManuallyNamed {
                         pinBadge
@@ -503,9 +484,6 @@ struct TabSidebarView: View {
         }
         .padding(.horizontal, 7)
         .frame(minHeight: Self.rowHeight, alignment: .leading)
-        // Restored but not started. Dimmed says "waiting"; it is not a mark for
-        // being pinned, which live pinned rows do not carry.
-        .opacity(tab.isDormant ? 0.55 : 1)
         .background {
             // Milled out of the same metal rather than a pane laid over it:
             // material here caught the light the panel no longer does.
@@ -533,9 +511,7 @@ struct TabSidebarView: View {
         .animation(.easeOut(duration: 0.12), value: isHovered)
         .animation(.easeOut(duration: 0.12), value: isSelected)
         .contentShape(.rect)
-        .help(tab.isDormant
-              ? "Open again in \(tab.subtitle ?? "its folder")"
-              : (tab.subtitle ?? tab.title))
+        .help(tab.subtitle ?? tab.title)
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             draftTitle = tab.title
             renamingTabID = tab.id
@@ -545,10 +521,6 @@ struct TabSidebarView: View {
             hoveredTabID = hovering ? tab.id : (hoveredTabID == tab.id ? nil : hoveredTabID)
         }
         .contextMenu {
-            Button(tab.isPinned ? "Unpin Tab" : "Pin Tab") {
-                model.setPinned(!tab.isPinned, for: tab.id)
-            }
-            Divider()
             Button("Rename…") {
                 draftTitle = tab.title
                 renamingTabID = tab.id

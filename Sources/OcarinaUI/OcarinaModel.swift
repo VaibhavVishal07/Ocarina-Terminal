@@ -17,18 +17,6 @@ public final class TabItem: Identifiable {
     /// Busy, done, or failed — drawn as the status dot.
     public var activity: TabActivity = .idle
 
-    /// Kept across launches. A pinned tab is listed whether or not it is
-    /// running, and closing it ends the session rather than throwing it away.
-    public var isPinned: Bool = false
-
-    /// Listed but not started: restored from a previous launch, or closed while
-    /// pinned. It becomes live the moment it is selected.
-    ///
-    /// Nothing is spawned for a pinned tab until it is asked for. Restoring six
-    /// of them would otherwise mean six login shells at launch, each running the
-    /// user's profile, before anyone had clicked anything.
-    public var isDormant: Bool = false
-
     init(id: UUID, title: String) {
         self.id = id
         self.title = title
@@ -188,98 +176,6 @@ public final class OcarinaModel {
 
     @ObservationIgnored private var lastTaskSignature: String?
 
-    // MARK: - Pinned tabs
-
-    @ObservationIgnored private var pins: [PinnedTab] = []
-    /// Where each tab actually is, as the naming layer last saw it — which is
-    /// not where its shell started once anybody has typed `cd`.
-    @ObservationIgnored private var liveDirectories: [UUID: URL] = [:]
-
-    /// Pinned first, then the rest. Two lists rather than one sorted one,
-    /// because the sidebar draws a rule between them.
-    public var pinnedTabs: [TabItem] { tabs.filter(\.isPinned) }
-    public var unpinnedTabs: [TabItem] { tabs.filter { !$0.isPinned } }
-
-    /// Lists a pinned tab without starting it.
-    private func restorePinnedTabs() {
-        pins = pinStore.load()
-        for pin in pins where !tabs.contains(where: { $0.id == pin.id }) {
-            let tab = TabItem(id: pin.id, title: pin.title)
-            tab.isPinned = true
-            tab.isDormant = true
-            tab.subtitle = Self.abbreviate(pin.directory)
-            tabs.append(tab)
-        }
-    }
-
-    /// `~/Projects/checkout`, which is what the row has room for.
-    static func abbreviate(_ directory: URL) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let path = directory.path
-        guard path == home || path.hasPrefix(home + "/") else { return path }
-        return "~" + path.dropFirst(home.count)
-    }
-
-    /// Starts the shell a dormant tab has been standing in for.
-    private func wake(_ tab: TabItem) {
-        guard sessions[tab.id] == nil else {
-            tab.isDormant = false
-            return
-        }
-        // The directory may have been renamed or deleted since it was pinned.
-        // Home is a worse answer than the one on file but a much better one
-        // than a tab that fails to open at all.
-        var directory = pins.first { $0.id == tab.id }?.directory
-        if let candidate = directory,
-           !FileManager.default.fileExists(atPath: candidate.path) {
-            directory = nil
-        }
-
-        let session = TerminalSession(id: tab.id, workingDirectory: directory)
-        session.onInput = { [weak self] in self?.noteUserInput() }
-        session.apply(themes.theme)
-        sessions[tab.id] = session
-        tab.isDormant = false
-
-        if let monitor = session.monitor {
-            Task { await namingService.attach(monitor) }
-        }
-    }
-
-    public func setPinned(_ pinned: Bool, for id: UUID) {
-        guard let tab = tabs.first(where: { $0.id == id }) else { return }
-        tab.isPinned = pinned
-
-        if pinned {
-            record(tab)
-        } else {
-            pins.removeAll { $0.id == id }
-            pinStore.save(pins)
-            // A dormant row was only ever the pin. Without it there is nothing
-            // left for it to be.
-            if tab.isDormant { tabs.removeAll { $0.id == id } }
-            if selectedTabID == id { selectedTabID = tabs.first?.id }
-        }
-    }
-
-    /// Writes a pinned tab's name and directory down, if either has moved.
-    private func record(_ tab: TabItem) {
-        guard tab.isPinned else { return }
-        let directory = liveDirectories[tab.id]
-            ?? sessions[tab.id]?.workingDirectory
-            ?? pins.first { $0.id == tab.id }?.directory
-            ?? FileManager.default.homeDirectoryForCurrentUser
-
-        let entry = PinnedTab(id: tab.id, title: tab.title, directoryPath: directory.path)
-        if let index = pins.firstIndex(where: { $0.id == tab.id }) {
-            guard pins[index] != entry else { return }
-            pins[index] = entry
-        } else {
-            pins.append(entry)
-        }
-        pinStore.save(pins)
-    }
-
     /// Types text into the selected tab without running it. Every path that
     /// puts a command in front of the user ends here, and none of them press
     /// Return.
@@ -309,18 +205,14 @@ public final class OcarinaModel {
         typeAtPrompt(command)
     }
 
-    @ObservationIgnored private let pinStore: PinnedTabStore
-
     public init(
         namingService: TabNamingService = TabNamingService(),
         sleepGuard: SleepGuard = SleepGuard(),
-        themes: ThemeStore = ThemeStore(),
-        pinStore: PinnedTabStore = PinnedTabStore()
+        themes: ThemeStore = ThemeStore()
     ) {
         self.namingService = namingService
         self.sleepGuard = sleepGuard
         self.themes = themes
-        self.pinStore = pinStore
         observeTitleChanges()
     }
 
@@ -365,31 +257,15 @@ public final class OcarinaModel {
     public func closeTab(_ id: UUID) {
         sessions[id]?.close()
         sessions[id] = nil
+        tabs.removeAll { $0.id == id }
         Task { await namingService.detach(tabID: id) }
 
-        if let tab = tabs.first(where: { $0.id == id }), tab.isPinned {
-            // Pinned means still there tomorrow, so closing ends the session
-            // and leaves the row. Unpinning is what throws the tab away.
-            tab.isDormant = true
-            tab.activity = .idle
-            tab.processName = nil
-            tab.subtitle = pins.first { $0.id == id }.map { Self.abbreviate($0.directory) }
-        } else {
-            tabs.removeAll { $0.id == id }
-        }
-
         if selectedTabID == id {
-            // A live tab is a better landing place than a dormant one, which
-            // would only show the empty state.
-            selectedTabID = tabs.first { !$0.isDormant }?.id ?? tabs.first?.id
+            selectedTabID = tabs.first?.id
         }
     }
 
-    /// Selecting a dormant tab is what starts it. That is the whole gesture the
-    /// feature is for: the tab you left is already in the list, and tapping it
-    /// puts you back in the directory you were in.
     public func selectTab(_ id: UUID) {
-        if let tab = tabs.first(where: { $0.id == id }), tab.isDormant { wake(tab) }
         selectedTabID = id
     }
 
@@ -398,10 +274,6 @@ public final class OcarinaModel {
     public func start() {
         Task { await namingService.start() }
         sleepGuard.start()
-        // Before the empty check: a window that restored yesterday's pins is
-        // not empty, and opening an untitled tab beside them is not what was
-        // asked for.
-        restorePinnedTabs()
         if tabs.isEmpty { newTab() }
         startWatchingTasks()
     }
@@ -443,10 +315,6 @@ public final class OcarinaModel {
         }
         tab.activity = context.activity
         tab.isManuallyNamed = !context.isAutoNamingEnabled
-
-        // Where it is now, not where its shell started.
-        if let directory = context.workingDirectory { liveDirectories[tab.id] = directory }
-        record(tab)
     }
 
     deinit {
