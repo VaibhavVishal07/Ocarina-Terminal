@@ -102,6 +102,19 @@ Three rules follow from where that work happens.
   but open a terminal. The first keystroke cannot happen at launch, and it means
   the session is genuinely in use.
 
+The panel is on by default and turns off from a switch in the left column, with
+⌘J written beside it. It is a column, not a drawer: showing or hiding it resizes
+the terminal once. It was a sliding drawer for a while, and that animated the
+terminal's *width* — a `TIOCSWINSZ` and a SIGWINCH per frame, with the shell
+repainting its prompt through the whole slide.
+
+Starting something new? The header carries an eraser when there is anything to
+erase. It records a line under the list for that project and hides what came
+before it. The agent's transcript is not touched — it belongs to the agent, and
+deleting somebody's prompts out of Claude's history to tidy a panel would be the
+worst kind of helpful. Ask for something new and it appears, being newer than
+the line.
+
 ## It tells you what to type
 
 <img src="docs/images/quick-actions.png" alt="The quick actions drawer: install an agent, and the things agents need">
@@ -140,14 +153,33 @@ visible screen to whichever of `claude`, `gemini` or `codex` is present.
 Dismissing it means "I have read this one", not "stop telling me when things
 break" — the next failure brings it back.
 
+## It asks you what went wrong
+
+A row under Theme opens a sheet. Say what is broken, and it either opens a
+prefilled issue on this repository or copies the same report for whatever
+channel you actually use. Your build and macOS version are appended, which are
+the two facts every report needs and nobody remembers to include.
+
+It composes; it does not send. There is no server behind Ocarina and no key in
+the app, so anything that "just sent" would either be posting to a third party
+you never agreed to or shipping a credential inside a binary anyone can
+download. It also asks for no address: an earlier version opened a `mailto:`,
+which quietly demanded both a configured mail client and the reporter's own
+identity attached to a complaint. Neither is fair to ask of somebody whose whole
+contribution is telling you a button is broken.
+
 ## It looks like something you chose
 
 <img src="docs/images/themes.png" alt="The theme picker, fourteen themes">
 
 Fourteen bundled themes, applied as you pick. Each is a JSON file carrying the
-chrome colours, the terminal bed, a sixteen-colour ANSI palette and an optional
-background motif. Drop your own in `~/.ocarina/themes/` and they appear beside
-the bundled ones.
+chrome colours, the terminal bed and a sixteen-colour ANSI palette. Drop your own
+in `~/.ocarina/themes/` and they appear beside the bundled ones.
+
+Themes used to carry a background motif as well — petals, leaves, embers, rain.
+Read at one row it was texture; read down a column of tabs it was litter behind
+the thing you were trying to scan. It is gone from the renderer and from the
+format, because a field left in the format is a promise to keep drawing it.
 
 The picker is not a sheet. A sheet on macOS is modal and will not dismiss on a
 click outside it, and picking a theme is a thing you do by trying three and then
@@ -200,6 +232,11 @@ a flight has a time and a status; a terminal that does not exist yet has
 neither, so drawing them was decoration dressed up as information. What earns
 its place is the matrix itself.
 
+The same alphabet carries the wordmark at the top of the sidebar, small and lit,
+so the window wears its mark whether or not there is a terminal open. The
+titlebar's own "Ocarina" is hidden to make room for it — otherwise the window
+wore its name twice, ten points apart.
+
 `DotMatrix` carries a 5x7 font and paints **every** cell of the grid, dark when
 it is off. That is the whole character of the thing: the unlit dots stay visible
 behind the words, so the text reads as lamps that happen to be on rather than as
@@ -243,6 +280,7 @@ was named for it. A session with no directory of its own starts at home.
 | ⌘W | Close tab |
 | ⌘K | Quick actions |
 | ⇧⌘P | Command palette |
+| ⌘J | Show or hide the task panel |
 | ⌘V | Paste, through the inspector |
 
 They come from the menu bar in `MainMenu`, not from SwiftUI
@@ -322,6 +360,15 @@ Sources/OcarinaUI/       SwiftUI layer
   EmptyStateView         no tabs open: the departure board
   DotMatrix              5x7 dot-matrix panel, the board is built from it
   OcarinaIcon            the bundled app mark, prepared for the dock
+  FeedbackView           the report sheet, and the issue URL it builds
+  ClearedTasks           the per-project line under the task list
+  PackagedResources      finds the resource bundle inside a built .app
+  Theme / ThemeColor     the colour model a theme file decodes into
+  Recipe                 the quick-actions catalogue
+  ErrorBannerView        what a failed command puts on screen
+  PasteReviewView        the sheet a risky paste stops at
+  TactileClick           the click a switch makes
+  AppIdentity            what this build calls itself
   TabIcon / StatusDot    a symbol and a state for each tab
   SleepGuard             holds the Mac awake while Ocarina is open
   BundledFonts           registers Geist before the first frame
@@ -334,6 +381,24 @@ SwiftTerm is used only as the VT parser and screen grid. Ocarina spawns the pty
 itself, via `forkpty`, because `login_tty` is what makes the pty the child's
 controlling terminal — and without that `tcgetpgrp` reports nothing and the
 naming layer is blind.
+
+### Where the resources have to live
+
+SwiftPM generates a `Bundle.module` accessor for `OcarinaUI` that looks in
+exactly two places: `Bundle.main.bundleURL/Ocarina_OcarinaUI.bundle` — the root
+of the `.app` — and the absolute `.build` path baked in when it compiled.
+
+Neither is usable. The bundle root cannot hold the resources, because `codesign`
+refuses to sign a bundle with anything loose at the top (`unsealed contents
+present in the bundle root`), and a symlink there is refused for the same reason.
+So they are sealed in `Contents/Resources` and `PackagedResources` looks for them
+there, keeping `Bundle.module` as the fallback that `swift run` and the tests use.
+
+This is worth knowing because getting it wrong is invisible on the machine that
+built the app: the second candidate is a real path on that disk, so it loads and
+everything works, while every downloaded copy dies on launch. `make-release.sh`
+fails the build if the bundles are missing from the app, and the only honest way
+to check by hand is with `.build` moved away entirely.
 
 ## The child environment
 
