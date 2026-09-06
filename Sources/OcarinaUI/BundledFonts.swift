@@ -32,7 +32,7 @@ public enum BundledFonts {
         registered = true
 
         for name in ["Geist", "GeistMono"] {
-            guard let url = Bundle.module.url(
+            guard let url = PackagedResources.bundle.url(
                 forResource: name,
                 withExtension: "ttf",
                 subdirectory: "Fonts"

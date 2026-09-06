@@ -53,7 +53,7 @@ public enum RecipeCatalog {
     }
 
     static func bundled() -> [RecipeGroup] {
-        let urls = Bundle.module.urls(
+        let urls = PackagedResources.bundle.urls(
             forResourcesWithExtension: "json",
             subdirectory: "Recipes"
         ) ?? []

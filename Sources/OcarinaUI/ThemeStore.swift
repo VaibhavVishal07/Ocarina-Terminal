@@ -76,7 +76,7 @@ public final class ThemeStore {
     // MARK: - Loading
 
     private static func bundled() -> [Theme] {
-        guard let urls = Bundle.module.urls(
+        guard let urls = PackagedResources.bundle.urls(
             forResourcesWithExtension: "json",
             subdirectory: "Themes"
         ) else { return [] }

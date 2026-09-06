@@ -58,7 +58,7 @@ public enum OcarinaIcon {
     }
 
     private static func load(_ name: String) -> NSImage? {
-        guard let url = Bundle.module.url(forResource: name, withExtension: "png") else {
+        guard let url = PackagedResources.bundle.url(forResource: name, withExtension: "png") else {
             return nil
         }
         return NSImage(contentsOf: url)

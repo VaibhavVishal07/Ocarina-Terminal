@@ -59,7 +59,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 # `pmset -g assertions` name which of the two is running.
 cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
 
-# Bundle.module looks beside the executable and in Contents/Resources.
+# Contents/Resources, where `codesign` can seal them; `PackagedResources` is
+# what finds them there. See its comment for why `Bundle.module` cannot.
 for b in "$PRODUCTS"/*.bundle; do
   [ -e "$b" ] || continue
   cp -R "$b" "$APP/Contents/Resources/"
