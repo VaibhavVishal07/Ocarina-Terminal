@@ -277,6 +277,35 @@ struct TabSidebarView: View {
                 .frame(height: 1)
                 .padding(.bottom, 6)
 
+            // The switch carries its own shortcut, because this is the only
+            // place the panel can be turned off and a key that is not written
+            // down anywhere is a key nobody presses.
+            HStack(spacing: 6) {
+                Text("Tasks")
+                    .font(theme.uiFont(11.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+
+                Text("\u{2318}J")
+                    .font(theme.uiFont(10.5, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+                    .fixedSize()
+
+                Spacer(minLength: 4)
+
+                Toggle("", isOn: Binding(
+                    get: { model.isTaskPanelVisible },
+                    set: { model.setTaskPanel(visible: $0) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+                .tint(theme.chrome.accent.color)
+            }
+            .padding(.horizontal, Self.inset)
+            .padding(.bottom, 8)
+
             HStack(spacing: 6) {
                 // The tip hangs off the label, not the row. Over the switch
                 // it would be explaining a control you are already using, and

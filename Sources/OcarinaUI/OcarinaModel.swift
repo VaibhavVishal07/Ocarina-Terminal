@@ -51,6 +51,14 @@ public final class OcarinaModel {
     /// again, because the next one is a new thing the user does not understand.
     public var isErrorBannerVisible = true
 
+    /// Whether the task panel is showing.
+    ///
+    /// A toggle again, but a plain one. What had to go was the notch and its
+    /// slide: as a drawer it animated the terminal's width, and every frame of
+    /// that was an `ioctl(TIOCSWINSZ)` and a SIGWINCH. Showing and hiding a
+    /// column resizes the terminal exactly once, which is what any window does.
+    public var isTaskPanelVisible = true
+
     /// Whether the summariser may shell out yet.
     ///
     /// `TaskSummariser` runs the `claude` binary, and a subprocess inherits the
@@ -118,9 +126,18 @@ public final class OcarinaModel {
     /// Polling rather than watching: the file is appended to constantly by a
     /// process we do not own, and a two-second read of one file costs less than
     /// keeping a file descriptor and a coalescing timer correct.
-    /// The panel is permanent, so this runs for the life of the window.
+    public func setTaskPanel(visible: Bool) {
+        guard visible != isTaskPanelVisible else { return }
+        isTaskPanelVisible = visible
+        startWatchingTasks()
+    }
+
+    /// Polls while the panel is up, and not at all while it is not: the list is
+    /// read for the panel and nothing else looks at it.
     public func startWatchingTasks() {
         taskRefresh?.cancel()
+        taskRefresh = nil
+        guard isTaskPanelVisible else { return }
         refreshTasks()
         taskRefresh = Task { [weak self] in
             while !Task.isCancelled {

@@ -23,6 +23,21 @@ struct OcarinaModelTests {
         return false
     }
 
+    @Test("The task panel starts open and the switch closes it")
+    func taskPanelToggles() {
+        let model = OcarinaModel()
+        // Open is the resting state: the panel is part of the window, and a
+        // list you have to go and find is a list nobody reads.
+        #expect(model.isTaskPanelVisible)
+
+        model.setTaskPanel(visible: false)
+        #expect(!model.isTaskPanelVisible)
+
+        model.setTaskPanel(visible: true)
+        #expect(model.isTaskPanelVisible)
+        model.setTaskPanel(visible: false)
+    }
+
     @Test("Nothing shells out for names until the terminal is used")
     func summariserWaitsForInput() throws {
         let directory = try makeProjectDirectory()

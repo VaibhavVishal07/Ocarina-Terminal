@@ -53,6 +53,8 @@ public final class MainMenuController: NSObject {
             item("Command Palette…", #selector(toggleCommandPalette), "p",
                  modifiers: [.command, .shift]),
             .separator(),
+            item("Tasks", #selector(toggleTaskPanel), "j"),
+            .separator(),
             item("Theme\u{2026}", #selector(showThemePicker)),
             .separator(),
             item("Keep This Mac Awake", #selector(toggleSleepGuard))
@@ -106,6 +108,10 @@ public final class MainMenuController: NSObject {
 
     @objc private func toggleQuickActions() { model.isQuickActionsVisible.toggle() }
 
+
+    @objc private func toggleTaskPanel() {
+        model.setTaskPanel(visible: !model.isTaskPanelVisible)
+    }
 
     @objc private func showThemePicker() { model.isThemePickerVisible = true }
 

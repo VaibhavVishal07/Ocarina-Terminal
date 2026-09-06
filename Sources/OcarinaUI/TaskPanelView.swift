@@ -43,7 +43,7 @@ struct TaskPanelView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Text("Tasks")
-                .font(theme.uiFont(11.5, weight: .semibold))
+                .font(theme.uiFont(12, weight: .semibold))
                 .foregroundStyle(theme.chrome.textPrimary.color)
             if !tasks.isEmpty {
                 Text("\(tasks.filter { $0.state == .finished }.count)/\(tasks.count)")
@@ -72,11 +72,11 @@ struct TaskPanelView: View {
                 .foregroundStyle(theme.chrome.textTertiary.color.opacity(0.65))
 
             Text("No tasks yet")
-                .font(theme.uiFont(11.5, weight: .semibold))
+                .font(theme.uiFont(12, weight: .semibold))
                 .foregroundStyle(theme.chrome.textSecondary.color)
 
             Text("Ask the agent in this tab for something and it appears here.")
-                .font(theme.uiFont(11))
+                .font(theme.uiFont(11.5))
                 .foregroundStyle(theme.chrome.textTertiary.color)
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
@@ -118,8 +118,10 @@ struct TaskPanelView: View {
             // through the middle of every lowercase letter, and the row stops
             // being readable at exactly the moment it becomes reference
             // material. The tick and the dimmer colour already say "finished".
+            // The same size the sidebar sets a tab name and "New Tab" in.
+            // At 11 the two columns looked like different apps.
             Text(task.title)
-                .font(theme.uiFont(11))
+                .font(theme.uiFont(12))
                 .foregroundStyle(finished
                                  ? theme.chrome.textSecondary.color
                                  : theme.chrome.textPrimary.color)

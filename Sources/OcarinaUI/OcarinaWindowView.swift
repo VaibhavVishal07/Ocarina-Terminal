@@ -91,7 +91,12 @@ public struct OcarinaWindowView: View {
             // that resize being an `ioctl(TIOCSWINSZ)` and a SIGWINCH. Nothing
             // animates now, so the terminal is laid out once, at its real width,
             // and the panel covers none of it.
-            TaskPanelView(tasks: model.tasks)
+            // No animation on this. Showing the column resizes the terminal,
+            // and animating that resize is what made the old drawer judder: a
+            // SIGWINCH per frame, the shell repainting through the whole slide.
+            if model.isTaskPanelVisible {
+                TaskPanelView(tasks: model.tasks)
+            }
         }
         // Not a sheet. A sheet on macOS is modal and will not dismiss on a
         // click outside it, and picking a theme is a thing you do by trying
