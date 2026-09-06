@@ -14,6 +14,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
+# native | universal. Universal is for what other people download; a local
+# build has no reason to spend twice the time.
+ARCHS="${2:-native}"
+VERSION="${OCARINA_VERSION:-0.1.0}"
 
 if [ "$CONFIG" = "debug" ]; then
   APP_NAME="Ocarina Test Build"
@@ -26,10 +30,26 @@ fi
 APP="build/$APP_NAME.app"
 ICON_SRC="Icons/AppIcon.png"
 
-echo "==> Building ($CONFIG)"
-swift build -c "$CONFIG" >/dev/null
-
-BIN=".build/$CONFIG/Ocarina"
+echo "==> Building ($CONFIG, $ARCHS)"
+if [ "$ARCHS" = "universal" ]; then
+  # Not `--arch arm64 --arch x86_64`: that switches SwiftPM to the Xcode build
+  # system, which cannot resolve SwiftTerm's build-tool plugin and fails with
+  # "missing target ... SwiftTermBuildInfoPlugin". Two single-arch builds and a
+  # lipo produce the same file without going near it.
+  swift build -c "$CONFIG" --triple arm64-apple-macosx >/dev/null
+  swift build -c "$CONFIG" --triple x86_64-apple-macosx >/dev/null
+  PRODUCTS=".build/arm64-apple-macosx/$CONFIG"
+  BIN="$(mktemp -d)/Ocarina"
+  lipo -create "$PRODUCTS/Ocarina" ".build/x86_64-apple-macosx/$CONFIG/Ocarina" \
+    -output "$BIN"
+else
+  swift build -c "$CONFIG" >/dev/null
+  # The explicit triple, not `.build/$CONFIG`: that is a symlink to whichever
+  # architecture was built last, so a preceding cross-compile would otherwise
+  # be packaged as if it were this machine's.
+  PRODUCTS=".build/$(uname -m)-apple-macosx/$CONFIG"
+  BIN="$PRODUCTS/Ocarina"
+fi
 [ -x "$BIN" ] || { echo "no binary at $BIN"; exit 1; }
 
 echo "==> Assembling $APP"
@@ -40,7 +60,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
 
 # Bundle.module looks beside the executable and in Contents/Resources.
-for b in .build/"$CONFIG"/*.bundle; do
+for b in "$PRODUCTS"/*.bundle; do
   [ -e "$b" ] || continue
   cp -R "$b" "$APP/Contents/Resources/"
 done
@@ -66,7 +86,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>

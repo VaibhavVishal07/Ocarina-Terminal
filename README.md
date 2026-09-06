@@ -33,6 +33,36 @@ New to this entirely? [Start here](docs/first-terminal.md).
 
 ---
 
+## Download
+
+**[Ocarina for macOS](https://github.com/VaibhavVishal07/Ocarina-Terminal/releases/latest)**
+— one universal build for Apple Silicon and Intel. macOS 14 or later.
+
+Unzip it and drag `Ocarina.app` into Applications.
+
+**The first launch needs one extra step.** The app is signed ad-hoc rather than
+notarised — notarising requires a paid Apple Developer account — so macOS will
+refuse to open it and say it cannot check it for malicious software. That is
+Gatekeeper telling you the truth: nobody has vouched for this binary but the
+person who built it. To open it anyway:
+
+1. Right-click (or Control-click) `Ocarina.app` and choose **Open**.
+2. Click **Open** again in the dialog.
+3. If macOS still refuses, go to **System Settings → Privacy & Security**, scroll
+   to the message about Ocarina, and click **Open Anyway**.
+
+Only the first launch asks. If you would rather do it in one line — in whatever
+terminal you have now, since this is the one you are trying to install:
+
+```
+xattr -dr com.apple.quarantine /Applications/Ocarina.app
+```
+
+Or build it yourself, which needs no permission from anyone:
+[Running it](#running-it).
+
+---
+
 ## The tabs name themselves
 
 The tab is not called `zsh`. It is called what the terminal is *doing*: the
