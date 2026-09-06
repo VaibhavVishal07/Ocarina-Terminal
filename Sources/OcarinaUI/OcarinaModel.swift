@@ -8,8 +8,19 @@ import Observation
 @Observable
 public final class TabItem: Identifiable {
     public let id: UUID
-    /// The contextual task — the primary title.
-    public var title: String
+    /// The title the naming layer settled on: a hand-typed one, or the word
+    /// filter's reading of the prompt. On screen from the first poll.
+    public var generatedTitle: String
+    /// The text the title was made from: a prompt when a conversation named the
+    /// tab, the command line when a running program did. Nil at a bare prompt.
+    public var activeTask: String?
+    /// Whether that text is something a person said to an agent.
+    ///
+    /// Only a prompt is worth rewriting. `npm run dev` is already the clearest
+    /// form of itself, and putting a command line through a model that writes
+    /// to-do items turns "Dev Server" into "Run the development server" — a
+    /// worse name, bought with a subprocess and a slice of the allowance.
+    public var isConversation = false
     /// `Claude Code · ~/Projects/checkout` — secondary everywhere.
     public var subtitle: String?
     /// What is running in the tab, for the icon. Nil at a bare prompt.
@@ -18,9 +29,27 @@ public final class TabItem: Identifiable {
     /// Busy, done, or failed — drawn as the status dot.
     public var activity: TabActivity = .idle
 
+    /// The summariser, so the strip can show the same quality of name the task
+    /// panel does. Weak and ignored: the model owns it, and it is read here,
+    /// never observed as a reference.
+    @ObservationIgnored weak var summariser: TaskSummariser?
+
+    /// The contextual task — the primary title.
+    ///
+    /// Computed, so a better name arriving from the summariser redraws the
+    /// strip on its own. The word filter's title is what stands here until
+    /// then, and it is what stands forever on a machine with no agent
+    /// installed — this only ever replaces a title, it never waits for one.
+    public var title: String {
+        guard !isManuallyNamed, isConversation, let activeTask,
+              let better = summariser?.title(for: activeTask)
+        else { return generatedTitle }
+        return better
+    }
+
     init(id: UUID, title: String) {
         self.id = id
-        self.title = title
+        self.generatedTitle = title
     }
 }
 
@@ -115,7 +144,7 @@ public final class OcarinaModel {
             visible = rawTasks
         }
         return visible.map { task in
-            guard let better = taskSummariser.titles[task.id] else { return task }
+            guard let better = taskSummariser.title(for: task.prompt) else { return task }
             return AgentTask(
                 id: task.id,
                 title: better,
@@ -241,6 +270,25 @@ public final class OcarinaModel {
         // `refreshTasks` skips an unchanged one — so without this the better
         // names would wait on the next agent turn rather than the next poll.
         lastTaskSignature = nil
+        // Every tab already has a prompt by now; none of them were allowed to
+        // be asked about until this moment.
+        summariseTabTitles()
+    }
+
+    /// Puts the prompts naming the open tabs in front of the summariser.
+    ///
+    /// The task panel only ever reads the selected tab's conversation, so
+    /// without this a background tab's name would sit on the word filter's
+    /// reading of it until you clicked into the tab. The summariser holds one
+    /// queue and one cache for both, so a prompt that is also in the panel
+    /// costs nothing to ask about twice.
+    private func summariseTabTitles() {
+        guard summarisingAllowed else { return }
+        let prompts = tabs.compactMap { tab in
+            tab.isManuallyNamed || !tab.isConversation ? nil : tab.activeTask
+        }
+        guard !prompts.isEmpty else { return }
+        taskSummariser.refresh(prompts: prompts)
     }
 
     /// Reads the transcript off the main thread.
@@ -377,7 +425,20 @@ public final class OcarinaModel {
     /// views read the theme from the environment; the emulator does not, so it
     /// is told.
     public func applyThemeToSessions() {
-        for session in sessions.values { session.apply(themes.theme) }
+        for session in sessions.values {
+            session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
+        }
+    }
+
+    /// Turns the retint on or off, and tells every open terminal.
+    ///
+    /// What is already on screen keeps the colours it was drawn in: the
+    /// emulator holds a grid of resolved cells, not the bytes that made them.
+    /// Everything printed after this follows the theme.
+    public func setTinting(_ isOn: Bool) {
+        guard isOn != themes.tintsProgramColours else { return }
+        themes.tintsProgramColours = isOn
+        applyThemeToSessions()
     }
 
     public func session(for id: UUID) -> TerminalSession? { sessions[id] }
@@ -395,7 +456,7 @@ public final class OcarinaModel {
         session.onDragStateChange = { [weak self] isOver in self?.isDropTarget = isOver }
         // Styled before it is ever shown, so a new tab never flashes the
         // default palette on its way to the chosen one.
-        session.apply(themes.theme)
+        session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
         sessions[session.id] = session
 
         // Before any activity, a tab is named for where it is.
@@ -403,6 +464,7 @@ public final class OcarinaModel {
         let fallback = TitleFormatter.humanize(directory.lastPathComponent)
             ?? directory.lastPathComponent
         let tab = TabItem(id: session.id, title: fallback)
+        tab.summariser = taskSummariser
         tabs.append(tab)
         selectedTabID = tab.id
 
@@ -466,7 +528,7 @@ public final class OcarinaModel {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
         guard !trimmed.isEmpty else { return }
-        tab.title = trimmed
+        tab.generatedTitle = trimmed
         tab.isManuallyNamed = true
         Task { await namingService.setManualTitle(trimmed, for: id) }
     }
@@ -486,9 +548,12 @@ public final class OcarinaModel {
 
     private func apply(_ context: TabContext) {
         guard let tab = tabs.first(where: { $0.id == context.tabID }) else { return }
-        tab.title = context.displayTitle
+        tab.generatedTitle = context.displayTitle
+        tab.activeTask = context.activeTask
+        tab.isConversation = context.contextSource == .llmSession
         tab.subtitle = context.subtitle
         tab.processName = context.processName
+        summariseTabTitles()
 
         // A fresh failure brings the banner back even if the last one was
         // dismissed: dismissing means "I have read this one", not "stop telling

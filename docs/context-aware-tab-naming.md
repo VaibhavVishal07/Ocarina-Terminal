@@ -194,13 +194,29 @@ does not own naming state, and naming does not reach into the renderer.
 
 ## Privacy
 
-Context-aware naming happens **locally**.
+Context-aware naming reads **local sources only**, and a title is on screen
+before anything is asked of anyone.
 
-- Terminal content is never sent to an external server purely to generate a tab
-  title.
+- Terminal *output* is never sent anywhere. What the naming layer reads is the
+  session metadata an agent already writes to disk, never the byte stream.
 - Where an LLM tool already exposes local session metadata, use that metadata
   in preference to inspecting output.
-- Do not introduce a cloud LLM dependency just to name tabs.
+- No API key, no service of Ocarina's own, no third party. The one thing that
+  leaves the machine is the prompt the tab is named for, and it goes through
+  the `claude` binary the user already installed — their own words, back to a
+  model they had just sent them to, to be turned into four better ones.
+
+That last rule used to read "do not introduce a cloud LLM dependency just to
+name tabs", and the heuristic title is still what a machine with no agent
+installed gets, and still what everyone sees first. But a filter that keeps
+five words in the order they were said writes "Toggle option near right-hand",
+and the task panel beside it — which has asked Claude since it shipped — writes
+"Move toggle to right side". Holding the tab strip to the older rule did not
+protect anything the panel was not already doing; it just made the two columns
+disagree. So the rule is the one the summariser has always run under: nothing
+is asked until the user has typed into a terminal, every prompt is asked about
+once and cached, and the answer only ever replaces a title that is already
+there.
 
 ---
 
