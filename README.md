@@ -315,6 +315,26 @@ and an overlay scroller only knows to fade out because a scroll view tells it
 to — so it drew a permanent knob down the right-hand edge, over text, in a
 window with no other always-on furniture in it.
 
+## Every agent wears the theme
+
+The tab strip drew each agent in its maker's colour — Claude in Anthropic's
+orange, Gemini in Google's blue — and a brand colour is by definition the one
+colour that does not move when the window changes around it. Pick Matcha and the
+sidebar went green with an orange spark sitting in it.
+
+`TabIcon.Tint` names a slot instead of a colour: `.agent` or `.neutral`, and the
+theme says what those are. An agent is drawn in the theme's accent, so Matcha
+has a green Claude in it and Ember an orange one. Everything else takes the
+tertiary text colour, because a tab running vim is running vim on every theme
+and it is not what you are scanning the strip for.
+
+All four agents share the accent. Which one is running is carried by the mark,
+and the mark is the same geometry the landing screen draws — the burst, the
+spark, the hexagon — so a tool does not change shape between the screen you
+installed it from and the tab it runs in. It was a stock `sparkles` before,
+which is the symbol every app in the world reaches for the moment anything is
+called AI, and which said nothing about *which* agent was in that tab.
+
 ## It looks like something you chose
 
 <img src="docs/images/themes.png" alt="The theme picker, fourteen themes">
@@ -377,8 +397,56 @@ grey, which is where comments land, fell to 4.38 against a floor of 4.5.
 
 Themes used to carry a background motif as well — petals, leaves, embers, rain.
 Read at one row it was texture; read down a column of tabs it was litter behind
-the thing you were trying to scan. It is gone from the renderer and from the
-format, because a field left in the format is a promise to keep drawing it.
+the thing you were trying to scan. That version is gone, and the reason it
+failed is worth holding on to, because it is not "motifs are bad": it was drawn
+behind content.
+
+`Trinket` brings it back to the one surface in the app that has no content to be
+behind. The landing screen is empty by definition — that is its whole name — so
+a handful of petals crossing it is the only thing on screen that is neither the
+app's name nor a button, and there is nothing there for it to get in the way of.
+It appears nowhere else, and there is no field for making it appear anywhere
+else.
+
+Each theme gets its own: Sakura has petals, Matcha leaves, Ember rising sparks,
+Ocean bubbles, Midnight stars that fade where they are, Matrix its rain, Ocarina
+a few musical notes. Mono and High Contrast have none, and `nil` is the honest
+value for both rather than a quieter setting — Mono is a theme about not doing
+this, and High Contrast exists for people for whom moving decoration behind text
+is the problem rather than the charm.
+
+Everything about them is measured to stay a trinket. They cross in twelve to
+forty seconds, which is slow enough that you notice one has moved rather than
+watching it move; rain is the deliberate exception, because rain is supposed to
+read as weather and nothing else is. There are eleven to twenty-six on screen,
+which is short of the number where you would have to count them. And every one
+is drawn under a third opacity — a test enforces it — because the landing screen
+has four icons and a button on it that somebody is choosing between, and the
+moment a petal is as strong as the thing it crosses behind, the petal has won an
+argument it should not have been in.
+
+None of it is stored. Every particle's position is a function of the clock and
+its own index, so there is no simulation running, nothing to reset when the
+screen comes back, and no drift between one appearance and the next. It is one
+`Canvas` under a `TimelineView` rather than a view per particle: twenty-two
+SwiftUI views with animations of their own is twenty-two things for the layout
+system to think about sixty times a second.
+
+### The one Easter egg
+
+The wordmark on the landing screen is the only thing there that does nothing,
+which makes it the one thing that can afford to. Press it and the trinket surges
+— everything quickens and brightens for two and a half seconds and then settles
+— and the tagline gives way to a line the theme gets to say for itself. Matrix
+says WAKE UP. Sakura says NOTHING HERE STAYS. Ember says STILL WARM. Ocarina's
+own says PLAY IT AGAIN.
+
+That is the entire feature, and its shape is the argument for it. The landing
+page was just cut from seven things to five for being a menu with no order to
+it, and the way to put personality back into a page like that is not to add a
+sixth line that everybody has to read forever. `flavour` is never on screen
+until you go looking, and a theme without one keeps the app's tagline and still
+gets the flurry.
 
 Body text is white with a *tinge* of the theme, not the theme's colour set as
 words — and that is a ceiling rather than a rule about how much hue to add.
@@ -448,6 +516,58 @@ Text is Geist and Geist Mono, bundled under the OFL and registered before the
 first frame draws, so nothing flashes through a fallback face on its way to the
 right one.
 
+## The notch tells you when it is done
+
+An agent finishes, and you are in a browser. The window that knows is behind
+three others, and the tab's dot went green where nobody was looking. Everything
+Ocarina had to say about a finished task was said inside a window you were not
+in.
+
+So it drops out of the notch. A small pill hangs from under the notch on a
+notched Mac, and from under the menu bar on every other one — the same gesture
+in the same place, the machine simply has nothing sticking down for the top edge
+to hide behind. `NotchShape` is square across the top and rounded across the
+bottom, because the top edge has to read as continuous with the black bar above
+it: a fully rounded pill floating under the notch is a notification, and this is
+supposed to be the notch itself moving.
+
+It carries the wordmark rather than an app icon, in the same dot matrix as the
+landing screen and the sidebar and out of the same three board colours, so a
+Sakura machine drops a pink one. Then the thing you asked for, then a dot. That
+is all of it, and the size is the argument: a notification centre banner is a
+card with a title, a body, an icon and a dismiss button, and it arrives to tell
+you six words. This is the six words. It is out for three and a half seconds and
+goes back on its own — a thing you have to put away is a thing that costs you
+something every time it appears.
+
+**Only while Ocarina is not the app in front.** With the window on screen the
+news is already there: the row in the task panel changed, the tab's dot went
+green. A drop out of the notch on top of that is the app telling you something
+you just watched happen.
+
+What counts as finished is `AgentTask` going `working` to `finished`, and it is
+the *transition* that is announced rather than the state. `finished` stays true
+of a task forever after, so anything reading the current list would drop the
+notch on every poll for as long as the task stayed in the panel — a two-second
+heartbeat until you cleared it. For the same reason the first poll of a tab
+announces nothing, though everything in it is finished: that is history, and
+nothing happened, you just looked.
+
+The panel is an `NSPanel`, borderless and non-activating, at `.statusBar` level
+— above the menu bar, which is 24, and below the screen saver and anything a
+system alert puts up, because a drop saying a build finished has no business
+over a password prompt. It joins all spaces, so it follows you between desktops,
+which is most of the point of putting it at the notch rather than in the window.
+Pressing it brings Ocarina forward.
+
+One thing had to change behind it. The task poll used to stop dead when the task
+panel was hidden, which was right while the panel was the only thing reading it;
+the notch fires precisely when nobody is looking at the panel, so a poll gated
+on a visible panel is a drop that only works for people who leave theirs open.
+It now polls while the panel is visible *or* while Ocarina is not in front,
+which keeps the saving it was making — in the app, panel hidden, nothing is
+consuming it and it does not run.
+
 ## It stays awake while you wait
 
 Ocarina holds a `PreventUserIdleDisplaySleep` assertion — the same one
@@ -471,13 +591,138 @@ $ pmset -g assertions
 The kernel drops a process's assertions when it exits, so quitting Ocarina
 always gives it back, including on a crash.
 
+## What the terminal is drawn on
+
+The largest surface in the window was one flat colour, and a flat colour behind
+monospaced text is a text field. Every other surface in here is lit from
+somewhere and sits in the theme; that one did neither, so a Sakura window came
+out pink down both sides and plain dark in the middle.
+
+`TerminalBed` is four layers, none of which you are meant to look *at*. The bed
+colour at the theme's own opacity, untouched — it carries the contrast the whole
+app is checked against and is not a place to put a mood. A wash of the accent
+falling from the top-left, gone by the middle of the card, so the bottom of a
+long scrollback is not a different colour from the top of it. The board's dot
+grid, which is the one thing that makes this Ocarina's terminal rather than a
+terminal. And the edges falling away, which is what stops the grid reading as a
+pattern: it is strongest where you are working and gone by the corners.
+
+The first version of all this was measured in hundredths and came out as a
+surface you had to be told was there, which is not a texture doing its job. The
+grid runs at a 6pt pitch with a 1.9pt dot and the vignette reaches 0.62 of the
+window's own ground. What keeps it out of the way is not faintness but where the
+colours come from: the dots are the board's *unlit* colour, which is already
+sitting behind every word on the empty screen, and the vignette darkens towards
+the window's ground rather than towards black. The pitch stays clear of any
+plausible line height, so the rows of dots never come into step with the rows of
+text.
+
+The grid is one rasterised tile repeated by the compositor rather than a `Canvas`
+painting every dot: that is how `DotMatrix` does it and it is right for a panel
+of forty characters, but a bed is tens of thousands of dots and redraws with the
+window.
+
+Across the top of the card is a rail in the colour of whatever the tab is doing,
+in the same four colours the status dots use, so amber means the same thing three
+feet from the screen as it does in the tab list. It earns the space by being the
+one signal you can take in without looking at it — a long build turns the top of
+your terminal amber and back again, and you never had to find the dot. Idle is
+present but quiet: a tab waiting at a prompt is open and ready, which is the
+argument the status dots already settled, but it is also the state a terminal is
+in almost all the time, and a rail at full strength for the ordinary case is a
+rail that says nothing. It fades out at both ends rather than running edge to
+edge, because a full-width line in a saturated colour is a border and the card
+already has one.
+
 ## And when there is nothing open
 
 <img src="docs/images/empty.png" alt="The departure board with no tabs open, and the empty task panel">
 
-Close every tab and the window is given over to a dot-matrix panel: a wordmark,
-one lit call to action, and the two shortcuts that still mean something with no
-terminal open.
+Close every tab — or launch Ocarina for the first time with nothing installed —
+and the window is given over to a landing screen: the wordmark in dot matrix, a
+row of tools under it, and a button for a plain terminal.
+
+"Open new terminal" is a real button again, after a spell as one word in a line
+of small grey text. Cutting it that far was overcorrecting for the lit slab it
+used to be: that slab was the biggest object on the screen, which said opening a
+bare shell was the main event on the day you install this, and it is not. But it
+is still the second thing anybody wants from a terminal app, and the second
+thing should look like something you can press. It sits under the tools rather
+than over them, drawn in the accent at a quarter strength.
+
+The screenshot above is the older version of this screen, with the lit NEW
+TERMINAL slab that the row of tools replaced.
+
+### The tools
+
+This is the screen somebody sees on the day they install Ocarina, and until now
+it handed them a blinking prompt and wished them luck. A terminal with nothing
+in it is not a starting point for the person this app is for — it is the end of
+the road, because the next thing to type is the one thing they do not know.
+
+So under the mark there is a row of four: Claude, Gemini, Codex, and a `+` for
+everything else. Each one is an icon, a word, and what pressing it will do —
+`Open` if it is on this machine, `Install` if it is not — and the ones already
+installed come first, because on every launch after the first the thing somebody
+is reaching for is the one they already have. A tool that is not here yet is
+drawn with a dashed edge: missing has to look like an outline waiting to be
+filled rather than like a tool that is present and switched off, and dimming
+alone reads as the second thing.
+
+The marks are geometry rather than image files. A bundled logo is somebody
+else's trademark travelling inside this app; a PNG cannot take the theme's
+colour, and every other lit thing on this screen does. They are recognisable
+rather than exact — a burst, a spark, a hexagon — and the word underneath is
+what actually names the tool.
+
+The screen reads top to bottom now: the mark, one line for somebody who has
+nothing yet, the row of tools, a button for a plain terminal, and one quiet key.
+It was seven things — a wordmark, a tagline, a heading, a
+row of dot-matrix plates, a caption explaining the plates, a lit slab reading
+NEW TERMINAL, and three rows of shortcuts — and seven things competing on an
+otherwise empty screen is not a landing page, it is a menu with no order to it.
+The wordmark stays in dot matrix because that is the one piece of pure identity
+Ocarina has; everything under it is ordinary type and ordinary icons, because it
+is ordinary interface, and a tool's name drawn in a 5x7 grid looked like part of
+the logo rather than part of the list.
+
+Pressing one runs it. Installed, it opens in a new tab; missing, the install
+runs in a new tab. That is a deliberate exception to the rule the rest of the
+app follows — Quick Actions and the paste inspector type a command and stop, and
+`TerminalSession.type` will not press Return for anybody — and the exception is
+narrow on purpose. The distinction between "install this" and "open this" is one
+the person on this screen cannot make yet: they pressed Claude, and what they
+meant was *give me Claude*. The command is still sent as keystrokes rather than
+run behind the screen, so it is echoed at the prompt with its output underneath.
+
+Which tools are installed is read when the screen appears and again when the app
+comes back to the front, rather than held from launch — this is exactly where
+you land after an install, by closing the tab it ran in, and a value cached at
+launch would tell you the thing you just watched arrive is not here.
+`ErrorHelp.location(of:)` does the looking, the same search the error banner
+uses, so the screen cannot call something missing that the banner is happily
+offering. It includes `~/.local/bin`, which is where the native Claude installer
+puts its launcher and is not on the `PATH` of an app launched from Finder.
+
+On the very first launch, with nothing installed, no tab is opened — the screen
+is the whole answer to "I just installed this, now what", and a tab opened on
+top of it hides the answer behind a prompt. Once, though, and not once per
+launch: somebody who has decided to use Ocarina as a plain terminal and never
+install an agent has made a choice, and meeting them with the same pitch every
+morning is nagging rather than helping. `⌘W` brings the screen back whenever
+they want it.
+
+A new tab's shell is still starting when an icon is pressed — `zsh -l` sources a
+profile before it prints anything — so `runWhenReady` waits for the shell to
+draw something and then go quiet for 250ms before sending. There is no readiness
+signal from a pty, and text sent into that gap is echoed above the prompt or
+read by whatever the profile is doing with stdin. A shell that prints no prompt
+at all still gets the command, at a three-second deadline.
+
+The install commands are the same `Recipe` entries Quick Actions uses, found by
+id, so an icon and the drawer cannot drift into disagreeing about what "Claude"
+installs — and an icon whose id has no recipe behind it is a test failure rather
+than a button that silently does nothing.
 
 It borrows the look of an airport departures board but not its furniture. A
 clock, gate numbers and an ON TIME column are what such a board carries because
@@ -614,6 +859,13 @@ Sources/OcarinaUI/       SwiftUI layer
   PasteInspector         reads a paste before the terminal does
   ErrorHelp              hand a failure to an installed agent
   EmptyStateView         no tabs open: the departure board
+  AgentDock              the row of tools on it, and their state
+  AgentCatalog           what the row offers, and what is installed
+  AgentMarks             the marks each tool wears, drawn as geometry
+  TerminalBed            what the terminal is drawn on, and the activity rail
+  NotchHUD               the panel under the notch, and when it comes out
+  NotchDrop              what it says: the wordmark, the task, a dot
+  Trinket / TrinketField each theme's own small thing on the landing screen
   DotMatrix              5x7 dot-matrix panel, the board is built from it
   OcarinaIcon            the bundled app mark, prepared for the dock
   FeedbackView           the report sheet, and the issue URL it builds

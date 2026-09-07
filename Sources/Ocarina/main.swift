@@ -19,6 +19,16 @@ private func run() {
     let menuController = MainMenuController(model: model)
     application.mainMenu = menuController.menu
 
+    // The drop out of the notch. It lives outside the window on purpose — it
+    // has to appear while you are in another app, which is the only time it is
+    // worth anything — so it is made here rather than by any view.
+    let notch = NotchHUD(theme: model.themes.theme)
+    notch.onPress = { [weak model] in
+        NSApp.activate(ignoringOtherApps: true)
+        model?.selectedSession?.terminalView.window?.makeKeyAndOrderFront(nil)
+    }
+    model.notch = notch
+
     let hosting = NSHostingView(rootView: OcarinaWindowView(model: model))
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 980, height: 620),

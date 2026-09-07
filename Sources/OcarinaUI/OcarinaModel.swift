@@ -74,6 +74,18 @@ public final class OcarinaModel {
     /// The commands the drawer offers, read once at launch.
     public let recipes: [RecipeGroup] = RecipeCatalog.load()
 
+    /// Whether this app has ever been launched on this machine.
+    ///
+    /// One bit, and the only thing Ocarina remembers about you between
+    /// launches that is not a theme or a tab. It decides whether launch opens
+    /// a tab or leaves the landing screen up; see `opensTabAtLaunch`.
+    /// The thing that drops out of the notch. Set by the app once the window
+    /// exists; nil in tests, where there is no screen to hang it from.
+    public var notch: NotchHUD?
+
+    private let defaults = UserDefaults.standard
+    private static let hasLaunchedKey = "ocarina.hasLaunched"
+
     public var isQuickActionsVisible = false
     public var isFeedbackVisible = false
     public var isThemePickerVisible = false
@@ -251,15 +263,29 @@ public final class OcarinaModel {
     public func startWatchingTasks() {
         taskRefresh?.cancel()
         taskRefresh = nil
-        guard isTaskPanelVisible else { return }
         refreshTasks()
         taskRefresh = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
                 guard !Task.isCancelled else { return }
-                self?.refreshTasks()
+                self?.pollTasksIfWatched()
             }
         }
+    }
+
+    /// The poll runs for whoever is listening, and there are two of them now.
+    ///
+    /// It used to stop dead the moment the task panel was hidden, which was
+    /// right while the panel was the only thing reading it. The notch reads it
+    /// too, and the notch fires precisely when nobody is looking at the panel —
+    /// so a poll that stops on a hidden panel is a drop that only ever works
+    /// for people who leave the panel open.
+    ///
+    /// The saving it was making is kept: in Ocarina, with the panel hidden,
+    /// nothing is consuming this and it does not run.
+    private func pollTasksIfWatched() {
+        guard isTaskPanelVisible || !NSApp.isActive else { return }
+        refreshTasks()
     }
 
     /// Somebody typed. Names may now cost a subprocess.
@@ -333,11 +359,42 @@ public final class OcarinaModel {
     }
 
     private func apply(_ read: [AgentTask]) {
+        announce(Self.justFinished(was: rawTasks, now: read))
         // The heuristic title is on screen the moment this lands; Claude's
         // replaces it through `tasks` when the summariser answers.
         rawTasks = read
         guard summarisingAllowed else { return }
         taskSummariser.refresh(read)
+    }
+
+    /// Tasks that were being worked on last time we looked and are not now.
+    ///
+    /// A transition rather than a state: `finished` is true of a task forever
+    /// after, so anything reading the current list would announce the same
+    /// task on every poll for as long as it stayed in the panel. Tasks that
+    /// appear already finished — the whole list on the first poll of a tab, or
+    /// after switching to one with history — are not announcements either.
+    /// Nothing happened; you just looked.
+    nonisolated static func justFinished(was: [AgentTask], now: [AgentTask]) -> [AgentTask] {
+        let working = Set(was.filter { $0.state == .working }.map(\.id))
+        return now.filter { $0.state == .finished && working.contains($0.id) }
+    }
+
+    /// Puts a finished task in the notch, when there is any point.
+    ///
+    /// Only while Ocarina is not the app in front. With the window on screen
+    /// the news is already there — the row in the task panel changed, the tab's
+    /// dot went green — and a drop out of the notch on top of that is the app
+    /// telling you something you just watched happen. What the notch is for is
+    /// the case where the window is behind a browser and nobody would otherwise
+    /// know.
+    ///
+    /// The newest only. Two tasks finishing in the same two-second poll is one
+    /// drop about the later one, not two drops fighting over the same slot.
+    private func announce(_ finished: [AgentTask]) {
+        guard !NSApp.isActive else { return }
+        guard let latest = finished.max(by: { $0.askedAt < $1.askedAt }) else { return }
+        notch?.show(taskSummariser.title(for: latest.prompt) ?? latest.title)
     }
 
     @ObservationIgnored private var lastTaskSignature: String?
@@ -388,6 +445,44 @@ public final class OcarinaModel {
         selectedSession?.type(text)
     }
 
+    /// The bundled recipe with this id, which is where an install command lives.
+    public func recipe(_ id: String) -> Recipe? {
+        recipes.flatMap(\.items).first { $0.id == id }
+    }
+
+    /// Starts an agent from the first-run board.
+    ///
+    /// Installed, it opens. Missing, it installs. One press either way, because
+    /// the difference between those two is a distinction the person on this
+    /// screen has no way to make yet — they pressed "Claude Code" and what they
+    /// meant was "give me Claude Code".
+    ///
+    /// Always a fresh tab. The board only appears with nothing open, but a
+    /// command sent into a tab that is already running something is a command
+    /// typed into that program rather than at a prompt, and that is a bad way
+    /// to find out this method exists.
+    public func start(_ tool: AgentTool) {
+        let command: String
+        if AgentCatalog.isInstalled(tool) {
+            command = tool.executable
+        } else if let recipe = recipe(tool.id) {
+            command = recipe.command
+        } else {
+            // No recipe to install from. The drawer is the only honest answer:
+            // a plate that does nothing is worse than one that hands over.
+            isQuickActionsVisible = true
+            return
+        }
+        let tab = newTab()
+        sessions[tab.id]?.runWhenReady(command)
+    }
+
+    /// What the tab in front of you is doing, for the rail across the top of
+    /// the terminal. Nil with nothing selected.
+    public var selectedActivity: TabActivity? {
+        selectedTabID.flatMap { id in tabs.first { $0.id == id }?.activity }
+    }
+
     /// The exit code of the selected tab's last command, when it failed.
     public var selectedFailure: Int? {
         guard let id = selectedTabID,
@@ -428,6 +523,9 @@ public final class OcarinaModel {
         for session in sessions.values {
             session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
         }
+        // The drop is outside the window, so it is outside the environment the
+        // theme reaches through. Told, like the emulator is.
+        notch?.apply(themes.theme)
     }
 
     /// Turns the retint on or off, and tells every open terminal.
@@ -515,10 +613,31 @@ public final class OcarinaModel {
 
     // MARK: - Naming
 
+    /// Whether launch opens a tab, or leaves the landing screen up.
+    ///
+    /// Only on the very first launch, and only with nothing installed. That
+    /// screen is the whole answer to "I just installed this, now what", and a
+    /// tab opened on top of it hides the answer behind a blinking prompt —
+    /// which is the screen this app exists in order not to be.
+    ///
+    /// Once, though, and not once per launch. Somebody who has decided to use
+    /// Ocarina as a plain terminal and never install an agent has made a
+    /// choice, and meeting them with the same pitch every morning is not
+    /// helping them, it is nagging. The landing screen is still one \u{2318}W away
+    /// whenever they want it.
+    nonisolated static func opensTabAtLaunch(isFirstLaunch: Bool, installed: Set<String>) -> Bool {
+        !(isFirstLaunch && installed.isEmpty)
+    }
+
     public func start() {
         Task { await namingService.start() }
         sleepGuard.start()
-        if tabs.isEmpty { newTab() }
+        let firstLaunch = !defaults.bool(forKey: Self.hasLaunchedKey)
+        defaults.set(true, forKey: Self.hasLaunchedKey)
+        if tabs.isEmpty,
+           Self.opensTabAtLaunch(isFirstLaunch: firstLaunch, installed: AgentCatalog.installedIDs()) {
+            newTab()
+        }
         startWatchingTasks()
         startWatchingUsage()
     }

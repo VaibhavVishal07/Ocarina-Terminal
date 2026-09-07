@@ -37,6 +37,11 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// A drag is over this terminal, or has left it.
     public var onDragStateChange: ((Bool) -> Void)?
 
+    /// A command waiting for the shell to be ready for it. See `runWhenReady`.
+    private var pendingCommand: String?
+    private var settleTask: Task<Void, Never>?
+    private var deadlineTask: Task<Void, Never>?
+
     public init(workingDirectory: URL? = nil) {
         id = UUID()
         self.workingDirectory = workingDirectory
@@ -95,6 +100,7 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// own title is noticed. The monitor keeps only the title, never the bytes.
     private func receive(_ bytes: [UInt8]) {
         terminalView.feed(byteArray: palette.filter(bytes[...])[...])
+        noteDrawn()
         // The monitor gets the bytes as they arrived. It reads titles out of
         // them, and it should be reading what the program actually said.
         if let monitor {
@@ -196,6 +202,67 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// does something you could not describe afterwards.
     public func type(_ text: String) {
         terminalView.send(txt: text)
+    }
+
+    /// Types a command and presses Return.
+    ///
+    /// The counterpart to `type`, which deliberately does not, and the two are
+    /// separate methods rather than a flag so that every caller has to say
+    /// which one it meant. Quick Actions and the paste inspector put a command
+    /// in front of you to read; the first-run board starts the one thing you
+    /// just pressed by name, because somebody on their first day has no way to
+    /// know that a command sitting at a prompt is waiting for them.
+    ///
+    /// The command is sent as keystrokes rather than run behind the screen, so
+    /// it is echoed at the prompt and its output follows underneath. Whatever
+    /// ran is on screen afterwards, which is the part that matters.
+    public func run(_ command: String) {
+        // Carriage return, not newline: this is what the Return key sends, and
+        // the line discipline is what turns it into a newline.
+        terminalView.send(txt: command + "\r")
+    }
+
+    /// Runs a command once the shell has finished starting.
+    ///
+    /// A tab created a moment ago has a login shell still coming up: `zsh -l`
+    /// sources the user's profile before it prints anything, and a command
+    /// sent into that gap is echoed above the prompt, or read by whatever the
+    /// profile is doing with stdin, or lost. There is no readiness signal from
+    /// a pty, so the shell going quiet after it has drawn something is the
+    /// closest thing to one.
+    public func runWhenReady(_ command: String) {
+        pendingCommand = command
+        settleTask?.cancel()
+        deadlineTask?.cancel()
+        // A shell configured to print no prompt at all would never go quiet
+        // *after* drawing, because it never draws. It still gets the command.
+        deadlineTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            self?.flushPendingCommand()
+        }
+    }
+
+    /// The shell has put something on screen. Waits for it to stop.
+    private func noteDrawn() {
+        guard pendingCommand != nil else { return }
+        settleTask?.cancel()
+        settleTask = Task { @MainActor [weak self] in
+            // Long enough for a prompt to finish arriving, short enough that
+            // the command still reads as having come from the click.
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.flushPendingCommand()
+        }
+    }
+
+    private func flushPendingCommand() {
+        guard let command = pendingCommand else { return }
+        pendingCommand = nil
+        settleTask?.cancel()
+        settleTask = nil
+        deadlineTask?.cancel()
+        deadlineTask = nil
+        run(command)
     }
 
     /// The visible screen, for handing a failure to an agent that can read it.

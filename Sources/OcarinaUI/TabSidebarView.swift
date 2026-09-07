@@ -554,10 +554,27 @@ struct TabSidebarView: View {
     @ViewBuilder
     private func tabIcon(for tab: TabItem) -> some View {
         if let look = TabIcon.meaningfulLook(for: tab.processName) {
-            Image(systemName: look.symbol)
-                .font(theme.uiFont(11, weight: .medium))
-                .foregroundStyle(look.tint)
-                .frame(width: 14, height: 14)
+            // The tint is a slot, not a colour: `TabIcon` says *which* of the
+            // theme's colours, and the theme says what that is. See
+            // `TabIcon.Tint`.
+            let colour = look.tint == .agent
+                ? theme.chrome.accent.color
+                : theme.chrome.textTertiary.color
+
+            Group {
+                if let mark = look.mark {
+                    // An agent wears its own mark, the same one it wears on the
+                    // landing screen — drawn a touch smaller than the symbols
+                    // beside it, because a filled shape at 11pt reads heavier
+                    // than an SF Symbol at 11pt.
+                    mark.filled(with: colour).frame(width: 10, height: 10)
+                } else {
+                    Image(systemName: look.symbol)
+                        .font(theme.uiFont(11, weight: .medium))
+                        .foregroundStyle(colour)
+                }
+            }
+            .frame(width: 14, height: 14)
         }
     }
 

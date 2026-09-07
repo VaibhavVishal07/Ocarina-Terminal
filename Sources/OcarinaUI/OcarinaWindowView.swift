@@ -84,10 +84,12 @@ public struct OcarinaWindowView: View {
             }
 
             ZStack {
-                // Not fully opaque: the terminal view itself is clear, so this
-                // is the only thing between the text and the window's glass.
-                theme.chrome.bed.color
-                    .opacity(theme.chrome.bedOpacity)
+                // Not fully opaque: the terminal view itself is clear, so the
+                // bed colour inside this is the only thing between the text
+                // and the window's glass. See `TerminalBed` for what is drawn
+                // over it and why none of it is anything to look at.
+                TerminalBed(activity: model.selectedActivity)
+                    .environment(\.theme, theme)
                 if let session = model.selectedSession {
                     // The terminal had no inset at all: the first column sat on
                     // the window edge (clipping its left half) and the top line
@@ -110,7 +112,11 @@ public struct OcarinaWindowView: View {
                         .padding(.trailing, 8)
                         .padding(.vertical, Self.terminalVerticalInset)
                 } else {
-                    EmptyStateView { model.newTab() }
+                    EmptyStateView(
+                        onNewTab: { model.newTab() },
+                        onPickAgent: { model.start($0) },
+                        onMoreTools: { model.isQuickActionsVisible = true }
+                    )
                 }
             }
             .overlay {

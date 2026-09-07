@@ -122,8 +122,23 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
     public let status: Status
     public let board: Board
     public let typography: Typography?
-    /// The faint motif behind the panels. Optional: High Contrast has none on
-    /// purpose, because texture is the last thing that helps somebody who
+    /// The theme's own small thing, drifting on the landing screen. Optional:
+    /// Mono and High Contrast have none on purpose. See `Trinket`.
+    public let trinket: Trinket?
+    /// A line the theme gets to say for itself, in the board's alphabet.
+    ///
+    /// It is not on the screen. Press the wordmark and the tagline gives way to
+    /// it for a moment, along with a flurry of whatever the trinket is — which
+    /// is the whole of it, and the reason it is allowed to exist. A landing
+    /// page was just cut from seven things to five for being a menu with no
+    /// order to it, and the way to put personality back into a page like that
+    /// is not to add a sixth line everyone has to read forever.
+    ///
+    /// Uppercase, and out of `DotMatrix`'s 5x7 alphabet — A to Z, the digits,
+    /// and a handful of marks. A character outside it draws as a blank cell
+    /// rather than failing anywhere anyone would notice, which is what the
+    /// tests are for.
+    public let flavour: String?
 
     /// The terminal surface. SwiftTerm owns the drawing; these are the knobs
     /// it exposes.

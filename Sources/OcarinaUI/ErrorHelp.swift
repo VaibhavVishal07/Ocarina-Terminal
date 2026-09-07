@@ -45,13 +45,31 @@ public enum ErrorHelp {
         path: String? = ProcessInfo.processInfo.environment["PATH"],
         extraDirectories: [String] = defaultExtraDirectories()
     ) -> (name: String, url: URL)? {
-        let search = (path ?? "").split(separator: ":").map(String.init) + extraDirectories
         for agent in agents {
-            for directory in search {
-                let candidate = "\(directory)/\(agent)"
-                if FileManager.default.isExecutableFile(atPath: candidate) {
-                    return (agent, URL(fileURLWithPath: candidate))
-                }
+            if let url = location(of: agent, path: path, extraDirectories: extraDirectories) {
+                return (agent, url)
+            }
+        }
+        return nil
+    }
+
+    /// Where one named executable is, searching the same places `located` does.
+    ///
+    /// Split out because the first-run board asks a different question: not
+    /// "is there an agent" but "is *this* one here", once per plate. Both
+    /// questions have to be answered by the same search, or the board would
+    /// show Claude Code as missing on a machine where the error banner is
+    /// happily offering it.
+    public static func location(
+        of executable: String,
+        path: String? = ProcessInfo.processInfo.environment["PATH"],
+        extraDirectories: [String] = defaultExtraDirectories()
+    ) -> URL? {
+        let search = (path ?? "").split(separator: ":").map(String.init) + extraDirectories
+        for directory in search {
+            let candidate = "\(directory)/\(executable)"
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                return URL(fileURLWithPath: candidate)
             }
         }
         return nil

@@ -29,6 +29,37 @@ struct TabIconTests {
         #expect(Set(symbols).count == symbols.count)
     }
 
+    @Test("An agent wears the theme, and everything else stays out of the way")
+    func agentsTakeTheTheme() {
+        // A brand colour is by definition the one colour that does not move
+        // when the window changes around it: Claude in Anthropic's orange sat
+        // in a green sidebar the moment somebody picked Matcha. `TabIcon` names
+        // a slot and the theme says what colour that is.
+        for agent in ["claude", "Claude Code", "codex", "gemini", "opencode"] {
+            #expect(TabIcon.look(for: agent).tint == .agent, "\(agent) should wear the theme")
+        }
+        for other in ["zsh", "vim", "git", "some-custom-tool"] {
+            #expect(TabIcon.look(for: other).tint == .neutral)
+        }
+    }
+
+    @Test("Each agent is told apart by its mark, not by its colour")
+    func agentMarksAreDistinct() {
+        // They all share the accent now, so the shape is the whole of the
+        // distinction — two agents wearing the same mark would be two tabs
+        // that look identical in the strip.
+        let marks = ["claude", "codex", "gemini"].compactMap { TabIcon.look(for: $0).mark }
+        #expect(marks.count == 3)
+        #expect(Set(marks).count == 3)
+
+        // And it is the same mark the landing screen draws, so a tool does not
+        // change shape between the screen you installed it from and the tab it
+        // runs in.
+        #expect(TabIcon.look(for: "claude").mark == AgentCatalog.all.first { $0.id == "claude-code" }?.mark)
+        #expect(TabIcon.look(for: "gemini").mark == AgentCatalog.all.first { $0.id == "gemini-cli" }?.mark)
+        #expect(TabIcon.look(for: "codex").mark == AgentCatalog.all.first { $0.id == "codex-cli" }?.mark)
+    }
+
     @Test("A shell's terminal symbol is not worth drawing, a program's is")
     func plainTerminalIsDropped() {
         // Every tab in a terminal app is a terminal, so the sidebar leaves the

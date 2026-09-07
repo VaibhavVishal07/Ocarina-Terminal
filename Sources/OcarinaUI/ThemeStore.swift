@@ -169,7 +169,9 @@ public extension Theme {
             backdrop: ThemeColor(hex: "#060709"),
             highlight: ThemeColor(hex: "#FFB838")
         ),
-        typography: nil
+        typography: nil,
+        trinket: .notes,
+        flavour: "PLAY IT AGAIN"
     )
 }
 
