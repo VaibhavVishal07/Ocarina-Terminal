@@ -55,5 +55,18 @@
     "highlight": "#FF7A7A"
   },
   "trinket": "stars",
-  "flavour": "UP AND AWAY"
+  "flavour": "UP AND AWAY",
+  "voice": {
+    "working": "Up and away",
+    "done": "Saved the day",
+    "stopped": "Hit kryptonite",
+    "clear": "All quiet in the city",
+    "blurb": "Red, blue and gold, and loud about all three."
+  },
+  "texture": {
+    "caret": "block",
+    "sheen": 1.6,
+    "bloom": 1.5,
+    "weight": "heavy"
+  }
 }

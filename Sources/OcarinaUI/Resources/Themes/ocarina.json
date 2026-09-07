@@ -55,5 +55,12 @@
     "highlight": "#FFB838"
   },
   "trinket": "notes",
-  "flavour": "PLAY IT AGAIN"
+  "flavour": "PLAY IT AGAIN",
+  "voice": {
+    "working": "Something is building",
+    "done": "A build has completed",
+    "stopped": "A build stopped short",
+    "clear": "All the items are closed",
+    "blurb": "The house look. Blue lamps on a slate board."
+  }
 }

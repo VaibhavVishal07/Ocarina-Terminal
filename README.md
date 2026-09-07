@@ -8,7 +8,7 @@
 
 </div>
 
-<img src="docs/images/window.png" alt="The Ocarina window: tab list and settings on the left, the terminal, and the task list and status card on the right">
+<img src="docs/images/window.png" alt="The Ocarina window: tab list and settings on the left, the terminal, and the task list and token meter on the right">
 
 A terminal assumes you already know. It opens a blank rectangle, prints a `%`,
 and waits. If you know what to type, it is the fastest tool on the machine. If
@@ -141,15 +141,6 @@ deleting somebody's prompts out of Claude's history to tidy a panel would be the
 worst kind of helpful. Ask for something new and it appears, being newer than
 the line.
 
-The status card's loader is the app's own mark, lighting round. The icon is a
-five-by-five matrix with an O punched through it, so the ring of twelve is
-already the shape you have been looking at in the dock all day — turning it is
-the only spinner this app can have that is not borrowed from somewhere else.
-It is drawn in a `Canvas` inside a `TimelineView` rather than as twelve views
-each carrying a `repeatForever`: that is the pattern that failed silently in
-`StatusDot`, where the value the animation watched was set once on appear and
-never changed again, so nothing ever ran.
-
 Panels stacked one above another share a gradient rather than each running
 their own. A column used to go bright, dim, bright, dim — the light restarted
 at every card, and the pair read as two objects that happened to be near each
@@ -165,39 +156,59 @@ top card — a panel halfway down a falling gradient has no reason to catch ligh
 of its own, and putting one there is what made the lower card glow in the
 middle of the fall.
 
-## It says whether the thing you asked for is still going
+## It says whether the thing you asked for is still going, where you can see it
 
-Neither the task list nor this appears until there is an agent in front of you.
+In the menu bar, beside the Wi-Fi. A braille spinner and a line while an agent
+is working, a tick and a line when it stopped cleanly, a warning triangle and
+the exit code when it did not, and the all-clear when nothing is running.
+
+It was a card under the task list for one release, and that was the wrong
+surface for it. The state of the run is the one reading you want *while you are
+looking at something else* — a browser, a design tool, somebody else's screen —
+and a card inside Ocarina's own window can only be read when Ocarina's window is
+the thing in front of you, by which point the tab's dot, the rail over the
+terminal and the row in the task list have all already told you. Three copies of
+a fact in one window and none of it anywhere else.
+
+Before the card it was a drop out of the notch, which had the right idea about
+where you were looking and paid for it by taking over the most valuable strip of
+screen on the Mac for three and a half seconds. A status item says the same
+thing for as long as it is true and costs nobody a frame of what they were
+doing.
+
+The menu it drops is built on the way open rather than held: the reading behind
+it is refreshed every fifteen seconds, and assigning a freshly built `NSMenu` on
+each refresh would swap the menu out from under anybody who had it open. It
+carries the state in full, the task it is about, and the token window underneath.
+
+The wording is the theme's — see [themes](#it-looks-like-something-you-chose).
+The exit code is not: it is appended after whatever the theme wrote, so a theme
+is free to be as arch as it likes about a build stopping and cannot produce a
+failure that reads as anything else.
+
+The item goes away when there is no tab open. A menu bar item saying the
+all-clear about an app with nothing in it is furniture in the most expensive
+strip of screen on the Mac.
+
+## It still says what the window has cost
+
+Under the task list, a small card: what this agent has spent, and how long the
+window it is spending from has left to run. Two rows and a meter, 49pt against
+the 101 it started as — it began as a dashboard tile, an icon and a caption and
+a 21pt number and a rule and a sentence, which is a great deal of card for one
+figure you glance at on your way past.
+
+Neither this nor the task list appears until there is an agent in front of you.
 Both are about a conversation, so a shell at a prompt has nothing to put in
 either; the column used to open on launch regardless and say "No tasks yet" to
 somebody who had not started an agent and had no way to know that was the point.
 
-Under the task list, a small card saying what is happening right now. A loader
-while the agent is working, a green check when it stopped cleanly, a red mark
-and the exit code when it did not. Three states and no fourth: idle draws
-nothing at all, because a card in the one column that is short of room saying
-"nothing is happening" is furniture, and the panel directly above it is already
-the list of things that have.
-
-The word for a clean exit is **Done**, not **Succeeded**. What the card reads is
-`TabActivity`, which is a real exit code, so it is entitled to say the command
-worked; it is not entitled to say the work is right, and "Succeeded" claims
-that. The failing state says **Stopped** for the same reason.
-
-This card replaced a token meter that used to sit here. The question that meter
-answered — how much have I spent — is one you ask about once an hour, and it was
-holding a slot you look at every few seconds. The reading that belongs in a
-glance is whether the thing you asked for is still going, which the tab's dot
-was carrying alone at nine points across the window.
-
-## It still says what the window has cost
-
-The token figure did not go anywhere: it is in the menu bar beside the Wi-Fi,
-which is where a once-an-hour question belongs, and which has the further
-advantage of being visible when Ocarina is not the window you are looking at.
-It appears and disappears with the conversation — a permanent menu bar item that
-says nothing most of the day is furniture in the most expensive strip of screen
-on the Mac.
+The meter is drawn as lamps on a departure board rather than as a bar, and the
+reason is not decoration. A solid bar reads as a proportion of something
+continuous, which invites exactly the reading this card must not invite — that
+the fill is an allowance running down. Counted lamps read as counted units, and
+these are: the five-hour window in fifteen-minute pieces, of which some have
+gone. The app already has that alphabet in the wordmark and the landing screen.
 
 It says **used**, not **left**, and that is not a hedge. Nothing on the machine
 records the size of the allowance or when the account's quota renews: not
@@ -317,7 +328,7 @@ nothing written in it — Apple Notes and Chrome hold their panes the same way.
 
 The sidebar was one card with the settings drawn as an inset box inside it — a
 card in a card, a shape used nowhere else in the window. The right-hand column
-had already answered this, with the task list and the status card as two
+had already answered this, with the task list and the token meter as two
 panels and the ground between them, so the left-hand side now answers it the
 same way. Four panels of one kind beats three and a nested one.
 
@@ -531,9 +542,14 @@ cue from `NSAppearance`, not from us; without this a light theme kept a dark
 switch and dark scrollbars, which reads as a half-finished theme rather than a
 choice.
 
-Text is Geist and Geist Mono, bundled under the OFL and registered before the
-first frame draws, so nothing flashes through a fallback face on its way to the
-right one.
+The interface is set in Satoshi and the terminal in Geist Mono — the terminal
+needs a fixed cell, and a proportional face there does not look wrong, it tears.
+Both are bundled and registered before the first frame draws, so nothing flashes
+through a fallback face on its way to the right one. Geist Mono is under the SIL
+Open Font License; Satoshi is under the ITF Free Font License, which permits
+embedding in a desktop application and forbids altering the file, so it ships
+unsubsetted, unconverted and under the name the foundry gave it. Both licences
+are in `Sources/OcarinaUI/Resources/Fonts/`.
 
 ## It stays awake while you wait
 
@@ -727,13 +743,21 @@ Finder integration. For the real thing:
 
 ```
 Scripts/make-app.sh          # release -> build/Ocarina.app
-Scripts/make-app.sh debug    # a separate "Ocarina Dev.app"
+Scripts/make-app.sh debug    # a separate app -> build/Kazoo.app
 open build/Ocarina.app
 ```
 
 The debug build is a *separate app*, not the same one rebuilt: its own name,
 bundle identifier and executable name. Sharing any of the three meant Launch
 Services, the Dock and ⌘-Tab could not tell a test build from the installed one.
+
+It is called Kazoo rather than "Ocarina Dev". The identifier was already
+separate; the name was not. Every list that sorts by name — Privacy & Security
+above all, where Screen Recording, Accessibility and Full Disk Access are each
+granted per app — showed "Ocarina" and "Ocarina Dev" as two near-identical rows
+under the same icon, and a grant toggled on one is indistinguishable from a
+grant on the other. A test build has to be unmistakable in that list, which
+means a name sharing no prefix with the real one.
 
 Both are signed against a designated requirement naming the bundle identifier,
 rather than the one macOS derives on its own. Left to itself an ad-hoc
@@ -854,7 +878,7 @@ Sources/OcarinaUI/       SwiftUI layer
   AppIdentity            what this build calls itself
   TabIcon / StatusDot    a symbol and a state for each tab
   SleepGuard             holds the Mac awake while Ocarina is open
-  BundledFonts           registers Geist before the first frame
+  BundledFonts           registers Satoshi and Geist Mono before frame one
   MainMenu               the menu bar; where ⌘T / ⌘W / ⌘K / ⇧⌘P actually live
   ToolTip                AppKit tool tips, because .help draws none here
 Sources/Ocarina/         executable entry point

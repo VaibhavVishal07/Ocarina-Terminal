@@ -186,9 +186,11 @@ public final class OcarinaModel {
 
     @ObservationIgnored private let usageMeter = TokenUsageMeter()
     @ObservationIgnored private var usageRefresh: Task<Void, Never>?
-    /// The same reading in the menu bar, for when Ocarina is not the window
-    /// in front.
-    @ObservationIgnored private let usageStatusItem = UsageStatusItem()
+    /// What the tab in front is doing, in the menu bar — for when Ocarina is
+    /// not the window in front, which is the only time it is worth anything.
+    /// The token figure it used to carry is back on its card; see
+    /// `ActivityStatusItem`.
+    @ObservationIgnored private let activityStatusItem = ActivityStatusItem()
 
     /// Whether the tab in front is running a coding agent.
     ///
@@ -224,13 +226,31 @@ public final class OcarinaModel {
     }
 
     private func refreshUsage() async {
-        guard isAgentSelected else {
-            usage = nil
-            usageStatusItem.update(with: nil)
-            return
-        }
-        usage = await usageMeter.read()
-        usageStatusItem.update(with: usage)
+        // A shell at a prompt is not having a conversation, so there is no
+        // window to report. The menu bar still has something to say about it —
+        // a build in a plain shell is exactly the case the item is for — so
+        // this no longer takes the item down with it.
+        usage = isAgentSelected ? await usageMeter.read() : nil
+        refreshStatusItem()
+    }
+
+    /// The menu bar reading, rebuilt from whatever is true now.
+    ///
+    /// Called from four places because four different things move it: the
+    /// activity arrives on the naming service's stream, the token figure on a
+    /// fifteen-second timer, the selection when you change tabs, and the
+    /// wording when somebody picks a theme. Cheap enough to call on any of
+    /// them — it sets a title and rebuilds a menu nobody has open.
+    ///
+    /// No tabs is nil, which takes the item out of the menu bar rather than
+    /// leaving it there saying the all-clear about an app with nothing in it.
+    private func refreshStatusItem() {
+        activityStatusItem.update(ActivityStatusItem.Reading(
+            activity: tabs.isEmpty ? nil : selectedActivity,
+            task: selectedTaskTitle,
+            usage: usage,
+            speech: themes.theme.speech
+        ))
     }
 
     @ObservationIgnored private let taskSource = AgentTaskSource()
@@ -495,6 +515,9 @@ public final class OcarinaModel {
         for session in sessions.values {
             session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
         }
+        // The menu bar is outside the environment the theme reaches through,
+        // and the words up there are the theme's. Told, like the emulator is.
+        refreshStatusItem()
     }
 
     /// Turns the retint on or off, and tells every open terminal.
@@ -567,6 +590,7 @@ public final class OcarinaModel {
             rawTasks = []
             lastTaskSignature = nil
         }
+        refreshStatusItem()
     }
 
     public func selectTab(_ id: UUID) {
@@ -660,6 +684,9 @@ public final class OcarinaModel {
         }
         tab.activity = context.activity
         tab.isManuallyNamed = !context.isAutoNamingEnabled
+        // The menu bar's whole subject. This is the only place the activity
+        // changes, so it is the only place that has to say so.
+        refreshStatusItem()
     }
 
     deinit {

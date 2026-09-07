@@ -183,15 +183,16 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
         terminalView.selectedTextBackgroundColor = terminal.selection.nsColor
         terminalView.installColors(terminal.palette.map(\.swiftTermColor))
 
-        // A bar, not a block. SwiftTerm defaults to a filled cell, which is
-        // what a terminal has always done — but it sits *over* the character
-        // under it, so the thing you are about to edit is the one thing you
-        // cannot see. Every text field this user has ever typed into blinks a
-        // thin line, and that is the expectation worth matching.
+        // The theme's caret, defaulting to a bar. SwiftTerm defaults to a
+        // filled cell, which is what a terminal has always done — but it sits
+        // *over* the character under it, so the thing you are about to edit is
+        // the one thing you cannot see. Every text field this user has ever
+        // typed into blinks a thin line, and that is the expectation worth
+        // matching, so it is the shape a theme gets by saying nothing.
         //
-        // A program can still ask for another shape through the usual escape
-        // sequence; this only sets what a fresh shell starts with.
-        terminalView.getTerminal().setCursorStyle(.blinkBar)
+        // A theme that is about terminals rather than about a colour may want
+        // the block back, and Matrix does. See `Theme.Shape.Caret`.
+        terminalView.getTerminal().setCursorStyle(theme.shape.caret.swiftTermStyle)
     }
 
     /// Types text at the prompt without running it.

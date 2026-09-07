@@ -4,6 +4,12 @@ import SwiftUI
 /// in the grid is painted, dark when it is off, so the matrix stays visible
 /// behind the words instead of the text floating on black.
 struct DotMatrixText: View {
+    /// How far a lit cell blooms is the theme's — a board can be a hard-edged
+    /// panel of lamps or a haze of them. Read from the environment rather
+    /// than passed: every place this is drawn is already inside the themed
+    /// tree, and four call sites forwarding the same value is four places to
+    /// forget it.
+    @Environment(\.theme) private var theme
     let text: String
     var cell: CGFloat = 3.4
     var gap: CGFloat = 1.2
@@ -32,9 +38,10 @@ struct DotMatrixText: View {
                 }
             }
             context.fill(off, with: .color(unlit))
-            if glow {
+            let bloom = theme.shape.bloom
+            if glow, bloom > 0 {
                 context.drawLayer { layer in
-                    layer.addFilter(.blur(radius: cell * 0.8))
+                    layer.addFilter(.blur(radius: cell * 0.8 * bloom))
                     layer.fill(on, with: .color(lit))
                 }
             }

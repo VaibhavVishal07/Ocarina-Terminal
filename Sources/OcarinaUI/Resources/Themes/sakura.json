@@ -55,5 +55,18 @@
     "highlight": "#EFC27A"
   },
   "trinket": "petals",
-  "flavour": "NOTHING HERE STAYS"
+  "flavour": "NOTHING HERE STAYS",
+  "voice": {
+    "working": "Opening",
+    "done": "In full bloom",
+    "stopped": "It fell early",
+    "clear": "The branches are bare",
+    "blurb": "Pink on dark, lit soft and set light. Nothing here stays."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 1.5,
+    "bloom": 1.6,
+    "weight": "light"
+  }
 }

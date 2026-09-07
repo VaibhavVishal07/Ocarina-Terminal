@@ -169,9 +169,19 @@ public extension Theme {
             backdrop: ThemeColor(hex: "#060709"),
             highlight: ThemeColor(hex: "#FFB838")
         ),
-        typography: nil,
         trinket: .notes,
-        flavour: "PLAY IT AGAIN"
+        flavour: "PLAY IT AGAIN",
+        // The house register, which is also the default every other theme
+        // falls back to line by line. Written out rather than left nil so the
+        // compiled-in theme is a worked example of the field.
+        voice: Voice(
+            working: "Something is building",
+            done: "A build has completed",
+            stopped: "A build stopped short",
+            clear: "All the items are closed",
+            blurb: "The house look. Blue lamps on a slate board."
+        ),
+        texture: nil
     )
 }
 

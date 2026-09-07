@@ -55,5 +55,18 @@
     "highlight": "#DBC46A"
   },
   "trinket": "leaves",
-  "flavour": "STEEPED. NOT STIRRED"
+  "flavour": "STEEPED. NOT STIRRED",
+  "voice": {
+    "working": "Steeping",
+    "done": "Steeped through",
+    "stopped": "It went bitter",
+    "clear": "The cup is empty",
+    "blurb": "Green, and in no hurry about it."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 0.9,
+    "bloom": 1.0,
+    "weight": "regular"
+  }
 }

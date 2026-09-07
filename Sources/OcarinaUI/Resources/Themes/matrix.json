@@ -55,5 +55,18 @@
     "highlight": "#C8FFD6"
   },
   "trinket": "rain",
-  "flavour": "WAKE UP"
+  "flavour": "WAKE UP",
+  "voice": {
+    "working": "It is running",
+    "done": "Returned clean",
+    "stopped": "Connection lost",
+    "clear": "The line is quiet",
+    "blurb": "Green on black, behind a block cursor, lamps bleeding."
+  },
+  "texture": {
+    "caret": "block",
+    "sheen": 0,
+    "bloom": 1.8,
+    "weight": "regular"
+  }
 }

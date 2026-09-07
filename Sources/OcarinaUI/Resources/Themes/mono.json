@@ -53,5 +53,18 @@
     "unlit": "#11100F",
     "backdrop": "#090806",
     "highlight": "#EFEFF1"
+  },
+  "voice": {
+    "working": "Working",
+    "done": "Done",
+    "stopped": "Stopped",
+    "clear": "Idle",
+    "blurb": "Grey. Nothing is trying to get your attention."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 0.5,
+    "bloom": 0,
+    "weight": "regular"
   }
 }

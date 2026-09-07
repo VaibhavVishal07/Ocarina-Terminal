@@ -71,11 +71,28 @@ struct ActivityTests {
         defer { pty.terminate() }
         let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
 
+        // Either spelling. `/usr/bin/python3` is a shim that re-execs the
+        // framework binary, and that binary is called `Python` — so the name
+        // in the foreground is "python3" before the exec and "Python" after
+        // it, and which one a poll sees is a race with the interpreter
+        // starting up. Pinning "python3" made this the flakiest test in the
+        // package: on a quiet runner the first poll caught the shim and it
+        // passed, and under the load of the full suite the exec had already
+        // happened, so the loop spent its whole ceiling waiting for a name
+        // that was never coming back. It read as a timeout — and was fixed
+        // twice as one, by raising the ceiling — but no ceiling can help,
+        // because after the exec the name it wanted no longer exists.
+        //
+        // Neither name is the point. What is being tested is that a REPL
+        // holding the foreground is not by itself work.
+        func isPython(_ name: String?) -> Bool {
+            name?.lowercased().hasPrefix("python") ?? false
+        }
         for _ in 0..<liveProcessPollAttempts {
-            if await monitor.snapshot().foregroundProcessName == "python3" { break }
+            if isPython(await monitor.snapshot().foregroundProcessName) { break }
             try? await Task.sleep(for: .milliseconds(50))
         }
-        #expect(await monitor.snapshot().foregroundProcessName == "python3")
+        #expect(isPython(await monitor.snapshot().foregroundProcessName))
 
         // Sitting there having drawn nothing is not work.
         #expect(await monitor.snapshot().activity == .idle)

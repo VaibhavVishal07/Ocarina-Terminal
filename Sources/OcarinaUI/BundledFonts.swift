@@ -3,14 +3,22 @@ import CoreText
 
 /// Makes the app's own typeface available to the app.
 ///
-/// Geist ships with Ocarina rather than being looked up on the machine. It is
-/// not a system face, so relying on the user having installed it means the app
-/// looks different depending on who opens it — and the fallback, whatever it
-/// happened to be, would never be the design. Two variable fonts, 330KB, under
-/// the SIL Open Font License, whose text sits beside them in the bundle.
+/// Both faces ship with Ocarina rather than being looked up on the machine.
+/// Neither is a system face, so relying on the user having installed one means
+/// the app looks different depending on who opens it — and the fallback,
+/// whatever it happened to be, would never be the design. Two variable fonts,
+/// 291KB, and both licences sit beside them in the bundle: Geist Mono under
+/// the SIL Open Font License, Satoshi under the ITF Free Font License, which
+/// permits embedding in a desktop application and forbids altering the file —
+/// so it ships unsubsetted, unconverted and under its own name.
 public enum BundledFonts {
-    /// Geist. Everything the app draws itself is set in this.
-    public static let sans = "Geist"
+    /// Satoshi. Everything the app draws itself is set in this.
+    ///
+    /// The family name, not the file name, and not "Satoshi": the file that
+    /// ships is the variable one, and it registers its family as *Satoshi
+    /// Variable*. The static OTFs are the ones that answer to "Satoshi", and
+    /// they are five files to this one's coverage of the same five weights.
+    public static let sans = "Satoshi Variable"
 
     /// Geist Mono, and only for the terminal.
     ///
@@ -31,7 +39,10 @@ public enum BundledFonts {
         guard !registered else { return }
         registered = true
 
-        for name in ["Geist", "GeistMono"] {
+        // File names, which are not the family names above — Satoshi's file
+        // keeps the name the foundry shipped it under, because the licence
+        // does not allow renaming it.
+        for name in ["Satoshi-Variable", "GeistMono"] {
             guard let url = PackagedResources.bundle.url(
                 forResource: name,
                 withExtension: "ttf",

@@ -62,10 +62,32 @@ struct ThemePickerView: View {
                 Text("Theme")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(theme.chrome.textPrimary.color)
+                // The theme in front of you, saying what it is. It changes as
+                // you pick, which is the point: the grid shows you fourteen
+                // palettes and cannot tell you what any of them is *for*, and
+                // this line is one sentence in the theme's own register — the
+                // same register the menu bar is about to report your builds in.
+                //
+                // Not in the swatch. A card 104pt wide takes a name and a row
+                // of colours; a sentence in it wraps to three lines and turns
+                // a grid you read at a glance into fourteen paragraphs.
+                if let blurb = theme.speech.blurb {
+                    Text(blurb)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.chrome.textSecondary.color)
+                        .lineLimit(1)
+                        // Swapped in place rather than resized around: the
+                        // header holds one line whatever the theme says, so
+                        // picking down the grid does not walk the swatches up
+                        // and down under the pointer.
+                        .transition(.opacity)
+                        .id(theme.id)
+                }
                 Text("Applies as you pick. Click anywhere outside to close.")
                     .font(.system(size: 11))
                     .foregroundStyle(theme.chrome.textTertiary.color)
             }
+            .animation(.easeOut(duration: 0.12), value: theme.id)
             Spacer()
             Button {
                 close()

@@ -55,5 +55,18 @@
     "highlight": "#F0BE63"
   },
   "trinket": "embers",
-  "flavour": "STILL WARM"
+  "flavour": "STILL WARM",
+  "voice": {
+    "working": "Fanning the coals",
+    "done": "Burned clean",
+    "stopped": "The fire went out",
+    "clear": "Banked for the night",
+    "blurb": "Coals at the end of a long session."
+  },
+  "texture": {
+    "caret": "block",
+    "sheen": 1.4,
+    "bloom": 1.5,
+    "weight": "regular"
+  }
 }

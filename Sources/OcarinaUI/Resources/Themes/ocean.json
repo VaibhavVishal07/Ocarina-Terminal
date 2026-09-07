@@ -55,5 +55,18 @@
     "highlight": "#DFBE72"
   },
   "trinket": "bubbles",
-  "flavour": "DEEPER THAN IT LOOKS"
+  "flavour": "DEEPER THAN IT LOOKS",
+  "voice": {
+    "working": "Down there working",
+    "done": "Surfaced",
+    "stopped": "Lost the line",
+    "clear": "Still water",
+    "blurb": "Deep water, and cold light coming down through it."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 1.3,
+    "bloom": 1.4,
+    "weight": "light"
+  }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import OcarinaUI
 
@@ -102,21 +103,48 @@ struct ThemeTests {
     }
 
     @Test("The bundled typeface is there and the mono half is monospaced")
-    func geistIsBundled() {
+    func facesAreBundled() {
         BundledFonts.register()
-        #expect(BundledFonts.areAvailable, "Geist did not register from the bundle")
+        #expect(BundledFonts.areAvailable, "the bundled faces did not register")
         // The half that matters most: a proportional face in a terminal does
         // not look wrong, it tears — every column after the first drifts.
         #expect(NSFont(name: BundledFonts.mono, size: 13)?.isFixedPitch == true)
         #expect(NSFont(name: BundledFonts.sans, size: 13)?.isFixedPitch == false)
     }
 
+    @Test("The interface face is Satoshi, and its weights are distinct")
+    func satoshiCarriesItsWeights() {
+        BundledFonts.register()
+        #expect(BundledFonts.sans == "Satoshi Variable")
+
+        // The one that is worth a test. The chrome leans on weight to
+        // separate a label from its value — "This window" against "1.4M" —
+        // and a family that answers to its name while resolving every weight
+        // to the same face passes every other check in this file while
+        // flattening the whole app. It happens: the variable file's own
+        // PostScript names all read as Bold, and a descriptor built the
+        // wrong way returns one instance for all six.
+        let sample = "Something is building" as NSString
+        var widths: [Double] = []
+        for weight: NSFont.Weight in [.light, .regular, .medium, .bold, .black] {
+            let descriptor = NSFontDescriptor(fontAttributes: [
+                .family: BundledFonts.sans,
+                .traits: [NSFontDescriptor.TraitKey.weight: weight],
+            ])
+            let font = try! #require(NSFont(descriptor: descriptor, size: 13))
+            widths.append(sample.size(withAttributes: [.font: font]).width)
+        }
+        // Strictly increasing: heavier is wider, in this face at this size.
+        #expect(widths == widths.sorted())
+        #expect(Set(widths).count == widths.count, "the weights collapse to one face")
+    }
+
     @Test("Every theme sets its terminal in the bundled mono")
-    func themesUseGeist() {
+    func themesUseTheBundledMono() {
         // Every theme used to name "SF Mono", which does not resolve under that
         // name on macOS — so all of them silently fell back and the files
-        // described a font nobody ever saw. Geist ships with the app, so the
-        // name in the file is the face on the screen.
+        // described a font nobody ever saw. Geist Mono ships with the app, so
+        // the name in the file is the face on the screen.
         BundledFonts.register()
         for theme in bundled {
             #expect(theme.terminal.fontName == BundledFonts.mono, "\(theme.id)")
@@ -124,13 +152,99 @@ struct ThemeTests {
         }
     }
 
-    @Test("Chrome falls through to the bundled sans")
-    func chromeUsesGeist() {
+    @Test("Every theme sets the chrome in the one bundled face")
+    func chromeFaces() {
+        // A theme could name its own typeface for a while, and the result was
+        // fourteen apps rather than one app in fourteen colours — Georgia and
+        // Futura are different objects before you have read a word of either.
+        // The face is Satoshi for everyone now, and the point of this test
+        // is that no theme can quietly get that option back.
         BundledFonts.register()
-        for theme in bundled {
-            // No bundled theme overrides it; a user theme still may.
-            #expect(theme.typography?.uiFontName == nil, "\(theme.id) overrides the app face")
+        let house = Font.custom(BundledFonts.ui, fixedSize: 12).weight(.regular)
+        for theme in bundled where theme.shape.weight == .regular {
+            #expect(theme.uiFont(12) == house, "\(theme.id) is not in the app face")
         }
+    }
+
+    @Test("Every bundled theme has something to say for itself")
+    func everyThemeSpeaks() {
+        for theme in bundled {
+            let speech = theme.speech
+            for (what, line) in [
+                ("working", speech.working), ("done", speech.done),
+                ("stopped", speech.stopped), ("clear", speech.clear),
+            ] {
+                #expect(!line.isEmpty, "\(theme.id) has no \(what) line")
+                // It goes in the menu bar, which is the most expensive strip of
+                // screen on the Mac. A theme is welcome to a voice; it is not
+                // welcome to a sentence up there.
+                #expect(line.count <= 24, "\(theme.id)'s \(what) line is \(line.count) characters")
+            }
+            #expect(theme.speech.blurb?.isEmpty == false, "\(theme.id) has no blurb for the picker")
+        }
+    }
+
+    @Test("No two themes say the same thing in the same words")
+    func voicesDiffer() {
+        // The point of the field. Fourteen themes reading as one app with the
+        // hue turned is exactly what this exists to stop, so two of them
+        // sharing a whole vocabulary is a copy-paste, not a decision.
+        let voices = bundled.map { theme in
+            [theme.speech.working, theme.speech.done, theme.speech.stopped, theme.speech.clear]
+        }
+        #expect(Set(voices.map { $0.joined(separator: "|") }).count == voices.count)
+    }
+
+    @Test("A theme that says nothing about its feel looks exactly as it did")
+    func textureDefaults() {
+        // The same rule the colour layer follows: a field nobody filled in
+        // gets the number that was compiled in before the field existed, so
+        // adding the field changed no theme that did not ask to change.
+        let house = Theme.fallback.shape
+        #expect(house.sheen == Theme.Shape.houseSheen)
+        #expect(house.bloom == Theme.Shape.houseBloom)
+        #expect(house.caret == .bar)
+        #expect(house.weight == .regular)
+    }
+
+    @Test("A texture nobody can read costs that one field, not the app")
+    func textureFallsBack() {
+        let nonsense = Theme.Shape.Caret(named: "sideways")
+        #expect(nonsense == .bar)
+        #expect(Theme.Shape.Caret(named: nil) == .bar)
+        #expect(Theme.Shape.Caret(named: "BLOCK") == .block, "a name is matched case-insensitively")
+        #expect(Theme.Shape.Weight(named: "enormous") == .regular)
+    }
+
+    @Test("A theme's weight shift moves one step and stops at the ends")
+    func weightShiftClamps() {
+        func shape(_ weight: String) -> Theme.Shape {
+            Theme.Shape(
+                caret: .bar, sheen: 0.035, bloom: 1,
+                weight: Theme.Shape.Weight(named: weight)
+            )
+        }
+        #expect(shape("heavy").shift(.medium) == .semibold)
+        #expect(shape("light").shift(.medium) == .regular)
+        #expect(shape("regular").shift(.medium) == .medium)
+        // The ends clamp rather than wrapping round to the other extreme.
+        #expect(shape("light").shift(.ultraLight) == .ultraLight)
+        #expect(shape("heavy").shift(.black) == .black)
+    }
+
+    @Test("Themes differ in feel and not only in hue")
+    func texturesDiffer() {
+        // Steel is lit flat; Sakura blooms. If every theme resolved to the
+        // same numbers the field would be decoration on a JSON file. The cut
+        // is not among them any more — every panel takes the house radius.
+        let steel = bundled.first { $0.id == "steel" }?.shape
+        let sakura = bundled.first { $0.id == "sakura" }?.shape
+        #expect((steel?.bloom ?? 1) < (sakura?.bloom ?? 0))
+        #expect(steel?.weight == .heavy)
+        #expect(sakura?.weight == .light)
+        // Matrix is the one that wants the block back: it is a theme about
+        // terminals rather than about a colour.
+        #expect(bundled.first { $0.id == "matrix" }?.shape.caret == .block)
     }
 
     @Test("A terminal needs all sixteen colours to index into")
@@ -173,6 +287,18 @@ struct ThemeTests {
     func defaultTheme() {
         UserDefaults.standard.removeObject(forKey: "ocarina.theme")
         #expect(ThemeStore().theme.id == "ocarina")
+    }
+
+    @Test("The compiled-in theme still says what its file says")
+    func fallbackMatchesItsFile() throws {
+        // `Theme.fallback` duplicates ocarina.json on purpose — it is what
+        // applies when resource loading has already failed, so it cannot
+        // itself depend on a resource loading. Duplication that nothing
+        // checks is duplication that drifts, and the voice drifted the day it
+        // was added: the file said one thing and the compiled copy another.
+        let file = try #require(bundled.first { $0.id == "ocarina" })
+        #expect(file.speech == Theme.fallback.speech)
+        #expect(file.shape == Theme.fallback.shape)
     }
 
     @Test("There is always a theme, even with nothing on disk")

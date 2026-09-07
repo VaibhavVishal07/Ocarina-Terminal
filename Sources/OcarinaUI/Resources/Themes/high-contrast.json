@@ -53,5 +53,18 @@
     "unlit": "#1A1A1A",
     "backdrop": "#000000",
     "highlight": "#FFE14D"
+  },
+  "voice": {
+    "working": "Building",
+    "done": "Build complete",
+    "stopped": "Build failed",
+    "clear": "Nothing is running",
+    "blurb": "Maximum contrast. No glow, no softening, no jokes."
+  },
+  "texture": {
+    "caret": "block",
+    "sheen": 0,
+    "bloom": 0,
+    "weight": "heavy"
   }
 }

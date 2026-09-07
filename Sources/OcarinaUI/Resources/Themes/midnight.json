@@ -55,5 +55,18 @@
     "highlight": "#DFC37C"
   },
   "trinket": "stars",
-  "flavour": "EVERYONE ELSE IS ASLEEP"
+  "flavour": "EVERYONE ELSE IS ASLEEP",
+  "voice": {
+    "working": "Still building",
+    "done": "Finished before dawn",
+    "stopped": "It gave out",
+    "clear": "Everything is quiet",
+    "blurb": "For the hours when nobody is going to reply."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 0.7,
+    "bloom": 1.6,
+    "weight": "light"
+  }
 }

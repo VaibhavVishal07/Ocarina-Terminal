@@ -26,10 +26,11 @@ public struct OcarinaWindowView: View {
     /// cut. Equal, and the sidebar gains half its width again.
     static let panelWidth: CGFloat = 230
 
-    /// The panels' corner. Continuous rather than circular, like the rows
-    /// inside them: at this size the difference between the two is the whole
-    /// difference between drawn and stamped out.
-    static let panelCorner: CGFloat = 12
+    /// The panels' corner is the theme's now — see `Theme.Shape` — and this
+    /// is what a theme that says nothing gets. Continuous rather than
+    /// circular, like the rows inside them: at this size the difference
+    /// between the two is the whole difference between drawn and stamped out.
+    static let panelCorner: CGFloat = CGFloat(Theme.Shape.houseCorner)
 
     /// The terminal's gap from the left edge of its card.
     ///
@@ -68,14 +69,6 @@ public struct OcarinaWindowView: View {
     /// every view below it drew the chosen theme, so a light theme came up with
     /// a pale sidebar against a near-black terminal.
     private var theme: Theme { model.themes.theme }
-
-    /// The activity the status card is for, or nil when there is nothing to
-    /// say. Idle is nothing to say: the tab is at a prompt, and a card
-    /// reporting that is furniture in the one column that is short of room.
-    private var status: TabActivity? {
-        guard let activity = model.selectedActivity, activity != .idle else { return nil }
-        return activity
-    }
 
     public var body: some View {
         @Bindable var model = model
@@ -156,9 +149,17 @@ public struct OcarinaWindowView: View {
             // No animation on this. Showing the column resizes the terminal,
             // and animating that resize is what made the old drawer judder: a
             // SIGWINCH per frame, the shell repainting through the whole slide.
-            // The right-hand column: the task list, and under it the status
-            // card — the shorter list is what pays for the card, which is the
-            // trade the card is worth.
+            // The right-hand column: the task list, and under it what this
+            // agent has spent — the shorter list is what pays for the card,
+            // which is the trade the card is worth.
+            //
+            // The card that briefly sat here instead said what the agent was
+            // doing right now, and that reading was already on the screen in
+            // three places: the tab's dot, the rail over the terminal, and the
+            // row in the list above it. It is in the menu bar now, which is
+            // where it is worth anything — the question "is it still going" is
+            // one you have while you are looking at something else. See
+            // `ActivityStatusItem`.
             //
             // Gone entirely unless there is an agent in front of you.
             //
@@ -168,23 +169,24 @@ public struct OcarinaWindowView: View {
             // and sit there saying "No tasks yet" at somebody who had not yet
             // started an agent and had no way to know that was the point.
             if !model.tabs.isEmpty, model.isAgentSelected,
-               model.isTaskPanelVisible || status != nil {
+               model.isTaskPanelVisible || model.usage != nil {
                 VStack(spacing: Self.panelGap) {
                     if model.isTaskPanelVisible {
                         TaskPanelView(tasks: model.tasks) { model.clearTasks() }
                             .frame(maxHeight: .infinity)
                             .panel()
                     }
-                    if let status {
-                        // Under the task list, so it carries that card's light
-                        // on down rather than starting again.
-                        StatusCardView(
-                            activity: status,
-                            task: model.selectedTaskTitle,
-                            place: model.isTaskPanelVisible ? .bottom : .top
-                        )
-                        .panel()
-                    }
+                    // Under the task list, so it carries that card's light
+                    // on down rather than starting again. Drawn with no
+                    // window too — the card has an empty state, and the
+                    // column used to end in a blank while the first request
+                    // of a session was still in flight.
+                    UsageCardView(
+                        usage: model.usage,
+                        now: now,
+                        place: model.isTaskPanelVisible ? .bottom : .top
+                    )
+                    .panel()
                 }
                 .frame(width: Self.panelWidth)
             }
@@ -301,11 +303,14 @@ public struct OcarinaWindowView: View {
     /// halfway down a column has no reason to catch light of its own; putting
     /// one there is what made the second card glow in the middle of a gradient
     /// that was supposed to be falling.
+    /// How hard the light lands is the theme's to say: `Theme.Shape.sheen`
+    /// scales the house 0.035, and a theme that wants its panels lit flat sets
+    /// it to zero.
     @ViewBuilder
     static func panelSheen(_ theme: Theme, at place: PanelPlace) -> some View {
-        if place == .top {
+        if place == .top, theme.shape.sheen > 0 {
             LinearGradient(
-                colors: [theme.chrome.textPrimary.color.opacity(0.035), .clear],
+                colors: [theme.chrome.textPrimary.color.opacity(theme.shape.sheen), .clear],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -323,15 +328,18 @@ public struct OcarinaWindowView: View {
     struct PanelStyle: ViewModifier {
         @Environment(\.theme) private var theme
 
+        /// The house cut. Every panel takes the same one — a radius that
+        /// moved with the theme made each theme look like its own app.
         static var shape: RoundedRectangle {
-            RoundedRectangle(cornerRadius: OcarinaWindowView.panelCorner, style: .continuous)
+            RoundedRectangle(cornerRadius: panelCorner, style: .continuous)
         }
 
         func body(content: Content) -> some View {
             content
                 .clipShape(Self.shape)
                 .overlay {
-                    Self.shape.stroke(theme.chrome.border.color.opacity(0.16), lineWidth: 1)
+                    Self.shape
+                        .stroke(theme.chrome.border.color.opacity(0.16), lineWidth: 1)
                 }
         }
     }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds Ocarina.app (release) or "Ocarina Dev.app" (debug).
+# Builds Ocarina.app (release) or Kazoo.app (debug).
 #
 # A bare SwiftPM executable has no bundle, so macOS has nowhere to read an icon
 # from and the Dock falls back to the generic Unix-executable picture.
@@ -10,6 +10,16 @@
 # its own bundle identifier, its own executable name. Sharing any of the three
 # meant Launch Services, the Dock and ⌘-Tab could not tell a test build from
 # the installed one — and `open -a Ocarina` could hand back either.
+#
+# And it is called Kazoo, not "Ocarina Dev". The identifier was already
+# separate, but the *name* was not: every list that sorts by name — Privacy &
+# Security above all, where Screen Recording, Accessibility and Full Disk
+# Access are each granted per app — put "Ocarina" and "Ocarina Dev" next to
+# each other as near-identical rows with the same icon, and a grant toggled
+# on one of them is impossible to tell from a grant on the other. A test build
+# has to be unmistakable in that list at a glance, which means a name that
+# shares no prefix with the real one. It is the cheap instrument you keep on
+# the desk to check a tune with.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,8 +30,12 @@ ARCHS="${2:-native}"
 VERSION="${OCARINA_VERSION:-0.1.0}"
 
 if [ "$CONFIG" = "debug" ]; then
-  APP_NAME="Ocarina Dev"
-  BUNDLE_ID="com.vaibhavvishal.ocarina.dev"
+  APP_NAME="Kazoo"
+  # Not under `com.vaibhavvishal.ocarina.*` either: the designated requirement
+  # is now `identifier "<this>"`, and keeping the test build out of the real
+  # one's namespace keeps the two requirements from ever being confused for
+  # one another by anything matching on a prefix.
+  BUNDLE_ID="com.vaibhavvishal.kazoo"
 else
   APP_NAME="Ocarina"
   BUNDLE_ID="com.vaibhavvishal.ocarina"

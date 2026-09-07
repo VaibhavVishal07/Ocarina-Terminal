@@ -121,7 +121,6 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
     public let chrome: Chrome
     public let status: Status
     public let board: Board
-    public let typography: Typography?
     /// The theme's own small thing, drifting on the landing screen. Optional:
     /// Mono and High Contrast have none on purpose. See `Trinket`.
     public let trinket: Trinket?
@@ -140,6 +139,71 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
     /// tests are for.
     public let flavour: String?
 
+    /// What this theme calls the three things the app has to say out loud.
+    ///
+    /// Colour is the only thing a theme changed until now, which is why
+    /// fourteen of them read as one app with the hue turned: the words were
+    /// the same words in every one. A theme with a voice says the same fact
+    /// in its own register — Matrix reports a build the way Matrix would.
+    ///
+    /// Only the wording moves. What the sentence *means* is fixed by the
+    /// state it came from, so a theme cannot make a failure sound like a
+    /// success however it phrases it, and every line has a default underneath
+    /// it for the themes and the user files that say nothing.
+    public let voice: Voice?
+
+    /// The theme's feel, as distinct from its colour: the shape of the caret,
+    /// how hard the light lands on the panels, how far the board's lamps
+    /// bloom, and how heavily the chrome is set.
+    ///
+    /// These were constants at the point of use — one sheen opacity, one blur
+    /// — so every theme was the same object painted over. Steel is lit flat;
+    /// Sakura blooms. The numbers a theme leaves out fall back to what those
+    /// constants were, so a theme that says nothing here looks exactly as it
+    /// did.
+    ///
+    /// The corner radius and the chrome typeface used to sit here too. They
+    /// went further than a theme should: a different cut and a different face
+    /// stop reading as one app in another colour and start reading as another
+    /// app. Both are house constants now.
+    public let texture: Texture?
+
+    /// The words. Every field optional, and every one with a default in
+    /// `resolvedVoice` — a theme opts into as much of its own register as it
+    /// has something to say in.
+    public struct Voice: Codable, Sendable, Equatable {
+        /// An agent is working. "Currently something is building."
+        public let working: String?
+        /// It stopped, and cleanly.
+        public let done: String?
+        /// It stopped, and did not. The exit code is appended by the caller,
+        /// so this line does not carry a number.
+        public let stopped: String?
+        /// Nothing is running and nothing is open. "All the items are closed."
+        public let clear: String?
+        /// One line about the theme itself, under its name in the picker.
+        public let blurb: String?
+    }
+
+    /// The feel. Same rule: absent means the house number.
+    public struct Texture: Codable, Sendable, Equatable {
+        /// `block`, `underline` or `bar`, each blinking. Anything else — a
+        /// typo in somebody's file — reads as the house bar rather than
+        /// failing, which is the rule every other field in a theme follows.
+        public let caret: String?
+        /// How much of the sheen lands on the top card, as a multiple of the
+        /// house 0.035. 0 puts a theme's panels in flat light.
+        public let sheen: Double?
+        /// How far a lit lamp blooms, as a multiple of the diffuser the
+        /// surface already had — the board and the meter were drawn at
+        /// slightly different radii and both are worth keeping. 1 is as
+        /// drawn; 0 is an LED with no glass over it at all.
+        public let bloom: Double?
+        /// `light`, `regular` or `heavy`: which way the chrome's weights are
+        /// shifted from what each call site asks for.
+        public let weight: String?
+    }
+
     /// The terminal surface. SwiftTerm owns the drawing; these are the knobs
     /// it exposes.
     public struct Terminal: Codable, Sendable, Equatable {
@@ -152,20 +216,6 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
         public let ansi: [ThemeColor]
         public let fontName: String
         public let fontSize: Double
-    }
-
-    /// The face the app's own chrome is set in.
-    ///
-    /// Colour and texture only get a theme so far. A terminal in Futura and a
-    /// terminal in Georgia are different objects before you have read a word of
-    /// either, and typeface is the cheapest personality there is — it ships
-    /// with the system and costs nothing to draw.
-    public struct Typography: Codable, Sendable, Equatable {
-        /// Nil means the system face, which is the right answer for the
-        /// neutral themes and for High Contrast.
-        public let uiFontName: String?
-        /// Some faces run small or large at the same point size.
-        public let uiSizeAdjust: Double?
     }
 
     /// The app around the terminal.
@@ -262,20 +312,114 @@ public extension Theme.Terminal {
 }
 
 public extension Theme {
-    /// A chrome font in this theme's face, falling back to the system.
+    /// A chrome font, in the one face the app is set in.
+    ///
+    /// A theme used to be able to name its own typeface. It made every theme
+    /// a different-looking app rather than the same app in another colour,
+    /// which is further than a theme is meant to go — so the face is Satoshi
+    /// everywhere now, and only a broken bundle falls past it to the system.
     ///
     /// `Font.custom` carries no weight of its own, so the weight is applied
     /// after and SwiftUI synthesises it where the family has no such cut.
     func uiFont(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        // A theme may still name its own face — a user theme in
-        // `~/.ocarina/themes` can — but the bundled ones all use Geist, and
-        // Geist is what anything unspecified gets.
-        let name = typography?.uiFontName ?? BundledFonts.ui
-        guard NSFont(name: name, size: size) != nil else {
-            return .system(size: size, weight: weight)
+        let shifted = shape.shift(weight)
+        guard NSFont(name: BundledFonts.ui, size: size) != nil else {
+            return .system(size: size, weight: shifted)
         }
-        let adjusted = size + (typography?.uiSizeAdjust ?? 0)
-        return .custom(name, fixedSize: adjusted).weight(weight)
+        return .custom(BundledFonts.ui, fixedSize: size).weight(shifted)
+    }
+
+    /// The theme's words, with the house line standing in wherever it has
+    /// none. Nothing downstream reads `voice` directly — a caller that did
+    /// would have to carry its own default, which is how fourteen themes came
+    /// to share one vocabulary in the first place.
+    var speech: Speech {
+        Speech(
+            working: voice?.working ?? "Something is building",
+            done: voice?.done ?? "A build has completed",
+            stopped: voice?.stopped ?? "A build stopped short",
+            clear: voice?.clear ?? "All the items are closed",
+            blurb: voice?.blurb
+        )
+    }
+
+    /// The theme's feel, with the house numbers standing in. Same rule as
+    /// `speech`, for the same reason.
+    var shape: Shape {
+        Shape(
+            caret: Shape.Caret(named: texture?.caret),
+            sheen: (texture?.sheen ?? 1) * Shape.houseSheen,
+            bloom: texture?.bloom ?? Shape.houseBloom,
+            weight: Shape.Weight(named: texture?.weight)
+        )
+    }
+
+    /// A theme's voice with every line filled in. Resolved once, at the top of
+    /// `speech`, so no view has to know which lines a theme bothered to write.
+    struct Speech: Sendable, Equatable {
+        public let working: String
+        public let done: String
+        public let stopped: String
+        public let clear: String
+        public let blurb: String?
+    }
+
+    /// A theme's feel with every number filled in.
+    struct Shape: Sendable, Equatable {
+        /// The cut every panel in the app is drawn at. It was briefly a
+        /// per-theme number; fourteen different radii read as fourteen
+        /// different apps, so it is one constant again.
+        public static let houseCorner: Double = 12
+        /// The house sheen: the opacity the top card's highlight was drawn at.
+        public static let houseSheen: Double = 0.035
+        /// The diffuser as each surface already drew it.
+        public static let houseBloom: Double = 1
+
+        public let caret: Caret
+        public let sheen: Double
+        public let bloom: Double
+        public let weight: Weight
+
+        /// The shape of the thing you type in front of.
+        public enum Caret: String, Sendable {
+            case bar, block, underline
+
+            /// A name out of a theme file. Unknown — a typo, or a field from a
+            /// newer Ocarina — is the house bar, which is the rule the rest of
+            /// the theme layer follows: a bad value costs you that one thing,
+            /// never the app.
+            init(named: String?) {
+                self = Caret(rawValue: (named ?? "").lowercased()) ?? .bar
+            }
+        }
+
+        /// Which way the chrome's weights are pushed from what a view asks
+        /// for. A whole theme set one step down reads as a lighter object,
+        /// which is most of what separates a serif theme from a steel one.
+        public enum Weight: String, Sendable {
+            case light, regular, heavy
+
+            init(named: String?) {
+                self = Weight(rawValue: (named ?? "").lowercased()) ?? .regular
+            }
+        }
+
+        /// The weight a view asked for, moved by the theme's own step.
+        ///
+        /// Along the ordered scale rather than by arithmetic on a raw value:
+        /// `Font.Weight` has no addition, and the ends have to clamp — a theme
+        /// asking for lighter than `.ultraLight` gets `.ultraLight`, not a
+        /// wrapped-round black.
+        func shift(_ weight: Font.Weight) -> Font.Weight {
+            guard self.weight != .regular else { return weight }
+            let scale: [Font.Weight] = [
+                .ultraLight, .thin, .light, .regular,
+                .medium, .semibold, .bold, .heavy, .black,
+            ]
+            guard let index = scale.firstIndex(of: weight) else { return weight }
+            let step = self.weight == .light ? -1 : 1
+            return scale[min(max(index + step, 0), scale.count - 1)]
+        }
     }
 }
 
@@ -351,6 +495,22 @@ public extension ThemeColor {
             green8: UInt16(green * 255),
             blue8: UInt16(blue * 255)
         )
+    }
+}
+
+public extension Theme.Shape.Caret {
+    /// SwiftTerm's own name for the same shape. Blinking in all three cases:
+    /// the caret is the one thing on the screen that has to be findable
+    /// without looking for it, and a steady one in a wall of output is not.
+    ///
+    /// A program can still ask for another shape through the usual escape
+    /// sequence; the theme only decides what a fresh shell starts with.
+    var swiftTermStyle: SwiftTerm.CursorStyle {
+        switch self {
+        case .bar: .blinkBar
+        case .block: .blinkBlock
+        case .underline: .blinkUnderline
+        }
     }
 }
 

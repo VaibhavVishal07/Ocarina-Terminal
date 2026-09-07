@@ -55,5 +55,18 @@
     "highlight": "#E4C077"
   },
   "trinket": "petals",
-  "flavour": "TAKE YOUR TIME"
+  "flavour": "TAKE YOUR TIME",
+  "voice": {
+    "working": "Taking its time",
+    "done": "All settled",
+    "stopped": "Lost the thread",
+    "clear": "Nothing is pending",
+    "blurb": "Slow evening colours. Nothing here is urgent."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 1.2,
+    "bloom": 1.3,
+    "weight": "light"
+  }
 }

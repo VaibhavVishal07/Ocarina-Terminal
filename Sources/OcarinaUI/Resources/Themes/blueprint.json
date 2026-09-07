@@ -55,5 +55,18 @@
     "highlight": "#E2C176"
   },
   "trinket": "dust",
-  "flavour": "MEASURE TWICE"
+  "flavour": "MEASURE TWICE",
+  "voice": {
+    "working": "Drawing it up",
+    "done": "Drawn to spec",
+    "stopped": "Off the drawing",
+    "clear": "The board is clear",
+    "blurb": "Drafting paper, and a pencil kept sharp."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 0.4,
+    "bloom": 0.2,
+    "weight": "light"
+  }
 }

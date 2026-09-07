@@ -55,5 +55,18 @@
     "highlight": "#DFC583"
   },
   "trinket": "dust",
-  "flavour": "BUILT TO BE USED"
+  "flavour": "BUILT TO BE USED",
+  "voice": {
+    "working": "At work",
+    "done": "Passed",
+    "stopped": "Threw a fault",
+    "clear": "The line is stopped",
+    "blurb": "Lit flat, set heavy, no glow on the lamps. Built to be used."
+  },
+  "texture": {
+    "caret": "block",
+    "sheen": 0.2,
+    "bloom": 0,
+    "weight": "heavy"
+  }
 }

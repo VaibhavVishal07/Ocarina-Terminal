@@ -55,5 +55,18 @@
     "highlight": "#E0BE79"
   },
   "trinket": "dust",
-  "flavour": "ONE MORE CUP"
+  "flavour": "ONE MORE CUP",
+  "voice": {
+    "working": "Brewing",
+    "done": "Poured",
+    "stopped": "It went cold",
+    "clear": "The cup is down",
+    "blurb": "Brown paper, warm light, one more cup."
+  },
+  "texture": {
+    "caret": "bar",
+    "sheen": 1.1,
+    "bloom": 0.9,
+    "weight": "regular"
+  }
 }
