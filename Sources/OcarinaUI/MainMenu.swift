@@ -99,6 +99,7 @@ public final class MainMenuController: NSObject {
 
     @objc private func newTab() { model.newTab() }
 
+
     @objc private func closeTab() {
         guard let id = model.selectedTabID else { return }
         model.closeTab(id)

@@ -79,10 +79,6 @@ public final class OcarinaModel {
     /// One bit, and the only thing Ocarina remembers about you between
     /// launches that is not a theme or a tab. It decides whether launch opens
     /// a tab or leaves the landing screen up; see `opensTabAtLaunch`.
-    /// The thing that drops out of the notch. Set by the app once the window
-    /// exists; nil in tests, where there is no screen to hang it from.
-    public var notch: NotchHUD?
-
     private let defaults = UserDefaults.standard
     private static let hasLaunchedKey = "ocarina.hasLaunched"
 
@@ -273,15 +269,13 @@ public final class OcarinaModel {
         }
     }
 
-    /// The poll runs for whoever is listening, and there are two of them now.
+    /// The poll runs for whoever is listening.
     ///
-    /// It used to stop dead the moment the task panel was hidden, which was
-    /// right while the panel was the only thing reading it. The notch reads it
-    /// too, and the notch fires precisely when nobody is looking at the panel —
-    /// so a poll that stops on a hidden panel is a drop that only ever works
-    /// for people who leave the panel open.
+    /// The status card reads it as well as the task panel, and the card is
+    /// shown whenever an agent is selected — so this cannot stop dead on a
+    /// hidden panel the way it once did.
     ///
-    /// The saving it was making is kept: in Ocarina, with the panel hidden,
+    /// The saving it was making is kept: with no agent tab in front of you,
     /// nothing is consuming this and it does not run.
     private func pollTasksIfWatched() {
         guard isTaskPanelVisible || !NSApp.isActive else { return }
@@ -359,42 +353,11 @@ public final class OcarinaModel {
     }
 
     private func apply(_ read: [AgentTask]) {
-        announce(Self.justFinished(was: rawTasks, now: read))
         // The heuristic title is on screen the moment this lands; Claude's
         // replaces it through `tasks` when the summariser answers.
         rawTasks = read
         guard summarisingAllowed else { return }
         taskSummariser.refresh(read)
-    }
-
-    /// Tasks that were being worked on last time we looked and are not now.
-    ///
-    /// A transition rather than a state: `finished` is true of a task forever
-    /// after, so anything reading the current list would announce the same
-    /// task on every poll for as long as it stayed in the panel. Tasks that
-    /// appear already finished — the whole list on the first poll of a tab, or
-    /// after switching to one with history — are not announcements either.
-    /// Nothing happened; you just looked.
-    nonisolated static func justFinished(was: [AgentTask], now: [AgentTask]) -> [AgentTask] {
-        let working = Set(was.filter { $0.state == .working }.map(\.id))
-        return now.filter { $0.state == .finished && working.contains($0.id) }
-    }
-
-    /// Puts a finished task in the notch, when there is any point.
-    ///
-    /// Only while Ocarina is not the app in front. With the window on screen
-    /// the news is already there — the row in the task panel changed, the tab's
-    /// dot went green — and a drop out of the notch on top of that is the app
-    /// telling you something you just watched happen. What the notch is for is
-    /// the case where the window is behind a browser and nobody would otherwise
-    /// know.
-    ///
-    /// The newest only. Two tasks finishing in the same two-second poll is one
-    /// drop about the later one, not two drops fighting over the same slot.
-    private func announce(_ finished: [AgentTask]) {
-        guard !NSApp.isActive else { return }
-        guard let latest = finished.max(by: { $0.askedAt < $1.askedAt }) else { return }
-        notch?.show(taskSummariser.title(for: latest.prompt) ?? latest.title)
     }
 
     @ObservationIgnored private var lastTaskSignature: String?
@@ -479,6 +442,15 @@ public final class OcarinaModel {
 
     /// What the tab in front of you is doing, for the rail across the top of
     /// the terminal. Nil with nothing selected.
+    /// What the status card names under its headline.
+    ///
+    /// The task being worked on, or the last one the agent stopped on — so
+    /// the card still says what the tick refers to once the work is over,
+    /// rather than going blank at the moment it becomes worth reading.
+    public var selectedTaskTitle: String? {
+        tasks.last(where: { $0.state == .working })?.title ?? tasks.last?.title
+    }
+
     public var selectedActivity: TabActivity? {
         selectedTabID.flatMap { id in tabs.first { $0.id == id }?.activity }
     }
@@ -523,9 +495,6 @@ public final class OcarinaModel {
         for session in sessions.values {
             session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
         }
-        // The drop is outside the window, so it is outside the environment the
-        // theme reaches through. Told, like the emulator is.
-        notch?.apply(themes.theme)
     }
 
     /// Turns the retint on or off, and tells every open terminal.
@@ -573,13 +542,22 @@ public final class OcarinaModel {
     }
 
     public func closeTab(_ id: UUID) {
+        // Where it sat, so the selection can land on what took its place.
+        // Read before the removal, and nil for an id that is no longer in the
+        // list — closing the same tab twice must not move the selection off
+        // the tab that inherited it.
+        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         sessions[id]?.close()
         sessions[id] = nil
         tabs.removeAll { $0.id == id }
         Task { await namingService.detach(tabID: id) }
 
+        // The neighbour, not the top of the list. Closing the tab you are in
+        // should leave you beside where you were — `tabs.first` sent you to
+        // the first tab in the column instead, so closing the fourth of five
+        // jumped the selection three rows away from the work you were doing.
         if selectedTabID == id {
-            selectedTabID = tabs.first?.id
+            selectedTabID = tabs.isEmpty ? nil : tabs[min(index, tabs.count - 1)].id
         }
         // The last tab going takes the right-hand column with it, and the
         // column is drawn from this — left set, it would have been a usage

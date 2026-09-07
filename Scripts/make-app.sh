@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds Ocarina.app (release) or "Ocarina Test Build.app" (debug).
+# Builds Ocarina.app (release) or "Ocarina Dev.app" (debug).
 #
 # A bare SwiftPM executable has no bundle, so macOS has nowhere to read an icon
 # from and the Dock falls back to the generic Unix-executable picture.
@@ -20,8 +20,8 @@ ARCHS="${2:-native}"
 VERSION="${OCARINA_VERSION:-0.1.0}"
 
 if [ "$CONFIG" = "debug" ]; then
-  APP_NAME="Ocarina Test Build"
-  BUNDLE_ID="com.vaibhavvishal.ocarina.test"
+  APP_NAME="Ocarina Dev"
+  BUNDLE_ID="com.vaibhavvishal.ocarina.dev"
 else
   APP_NAME="Ocarina"
   BUNDLE_ID="com.vaibhavvishal.ocarina"
@@ -96,7 +96,23 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # Ad-hoc sign so macOS treats it as a real app rather than a quarantined blob.
+#
+# The second pass is what stops Screen Recording being asked for on every
+# build. A plain ad-hoc signature has no certificate to name, so the
+# designated requirement macOS derives is a bare `cdhash H"..."` — the hash of
+# this exact binary. TCC stores that requirement when permission is granted,
+# the next build hashes differently, the stored requirement no longer matches,
+# and macOS decides it is looking at an app it has never seen. Hence the
+# prompt, every time, however the app is named.
+#
+# Naming the requirement explicitly pins it to the bundle identifier instead,
+# which does not change between builds, so one grant holds. It is a weaker
+# claim than a certificate would make — anything ad-hoc signed under this
+# identifier satisfies it — but there is no certificate here to make the
+# stronger one, and the alternative is a permission dialog per build.
 codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+codesign --force --sign - --identifier "$BUNDLE_ID" \
+  -r="designated => identifier \"$BUNDLE_ID\"" "$APP" >/dev/null 2>&1 || true
 touch "$APP"
 
 echo "==> Built $APP"

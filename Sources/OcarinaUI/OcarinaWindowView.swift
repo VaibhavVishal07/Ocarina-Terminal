@@ -1,4 +1,5 @@
 import AppKit
+import OcarinaTerminalContext
 import SwiftUI
 
 public struct OcarinaWindowView: View {
@@ -67,6 +68,14 @@ public struct OcarinaWindowView: View {
     /// every view below it drew the chosen theme, so a light theme came up with
     /// a pale sidebar against a near-black terminal.
     private var theme: Theme { model.themes.theme }
+
+    /// The activity the status card is for, or nil when there is nothing to
+    /// say. Idle is nothing to say: the tab is at a prompt, and a card
+    /// reporting that is furniture in the one column that is short of room.
+    private var status: TabActivity? {
+        guard let activity = model.selectedActivity, activity != .idle else { return nil }
+        return activity
+    }
 
     public var body: some View {
         @Bindable var model = model
@@ -147,7 +156,7 @@ public struct OcarinaWindowView: View {
             // No animation on this. Showing the column resizes the terminal,
             // and animating that resize is what made the old drawer judder: a
             // SIGWINCH per frame, the shell repainting through the whole slide.
-            // The right-hand column: the task list, and under it the usage
+            // The right-hand column: the task list, and under it the status
             // card — the shorter list is what pays for the card, which is the
             // trade the card is worth.
             //
@@ -159,19 +168,19 @@ public struct OcarinaWindowView: View {
             // and sit there saying "No tasks yet" at somebody who had not yet
             // started an agent and had no way to know that was the point.
             if !model.tabs.isEmpty, model.isAgentSelected,
-               model.isTaskPanelVisible || model.usage != nil {
+               model.isTaskPanelVisible || status != nil {
                 VStack(spacing: Self.panelGap) {
                     if model.isTaskPanelVisible {
                         TaskPanelView(tasks: model.tasks) { model.clearTasks() }
                             .frame(maxHeight: .infinity)
                             .panel()
                     }
-                    if let usage = model.usage {
+                    if let status {
                         // Under the task list, so it carries that card's light
                         // on down rather than starting again.
-                        UsageCardView(
-                            usage: usage,
-                            now: now,
+                        StatusCardView(
+                            activity: status,
+                            task: model.selectedTaskTitle,
                             place: model.isTaskPanelVisible ? .bottom : .top
                         )
                         .panel()

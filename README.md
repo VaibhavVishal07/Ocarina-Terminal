@@ -8,7 +8,7 @@
 
 </div>
 
-<img src="docs/images/window.png" alt="The Ocarina window: tab list and settings on the left, the terminal, and the task list and token card on the right">
+<img src="docs/images/window.png" alt="The Ocarina window: tab list and settings on the left, the terminal, and the task list and status card on the right">
 
 A terminal assumes you already know. It opens a blank rectangle, prints a `%`,
 and waits. If you know what to type, it is the fastest tool on the machine. If
@@ -141,11 +141,14 @@ deleting somebody's prompts out of Claude's history to tidy a panel would be the
 worst kind of helpful. Ask for something new and it appears, being newer than
 the line.
 
-The token card's meter is drawn as lamps on a dot-matrix board, in the same
-alphabet as the wordmark and the empty state. A departure board is a thing for
-counting down, which is what the meter is doing, and the app already owns that
-language — so it costs nothing and stops the card looking like every dashboard
-tile ever shipped.
+The status card's loader is the app's own mark, lighting round. The icon is a
+five-by-five matrix with an O punched through it, so the ring of twelve is
+already the shape you have been looking at in the dock all day — turning it is
+the only spinner this app can have that is not borrowed from somewhere else.
+It is drawn in a `Canvas` inside a `TimelineView` rather than as twelve views
+each carrying a `repeatForever`: that is the pattern that failed silently in
+`StatusDot`, where the value the animation watched was set once on appear and
+never changed again, so nothing ever ran.
 
 Panels stacked one above another share a gradient rather than each running
 their own. A column used to go bright, dim, bright, dim — the light restarted
@@ -162,23 +165,39 @@ top card — a panel halfway down a falling gradient has no reason to catch ligh
 of its own, and putting one there is what made the lower card glow in the
 middle of the fall.
 
-## It says what the window has cost
+## It says whether the thing you asked for is still going
 
 Neither the task list nor this appears until there is an agent in front of you.
 Both are about a conversation, so a shell at a prompt has nothing to put in
 either; the column used to open on launch regardless and say "No tasks yet" to
 somebody who had not started an agent and had no way to know that was the point.
 
-Under the task list, a small card: tokens spent in the five-hour window this
-agent is inside, and how long that window has left to run. A label with its
-value on the same line and a meter under it — the meter drawn as ticks rather
-than one filled capsule, because a solid bar reads as a proportion of something
-continuous and invites exactly the reading this card must not invite. The ticks
-are counted units and they really are counted: the window in quarter-hours, of
-which some have gone. It is there only
-while the tab in front is running an agent — a shell at a prompt is not having
-a conversation — and the same reading sits in the menu bar beside the Wi-Fi,
-for when Ocarina is not the window you are looking at.
+Under the task list, a small card saying what is happening right now. A loader
+while the agent is working, a green check when it stopped cleanly, a red mark
+and the exit code when it did not. Three states and no fourth: idle draws
+nothing at all, because a card in the one column that is short of room saying
+"nothing is happening" is furniture, and the panel directly above it is already
+the list of things that have.
+
+The word for a clean exit is **Done**, not **Succeeded**. What the card reads is
+`TabActivity`, which is a real exit code, so it is entitled to say the command
+worked; it is not entitled to say the work is right, and "Succeeded" claims
+that. The failing state says **Stopped** for the same reason.
+
+This card replaced a token meter that used to sit here. The question that meter
+answered — how much have I spent — is one you ask about once an hour, and it was
+holding a slot you look at every few seconds. The reading that belongs in a
+glance is whether the thing you asked for is still going, which the tab's dot
+was carrying alone at nine points across the window.
+
+## It still says what the window has cost
+
+The token figure did not go anywhere: it is in the menu bar beside the Wi-Fi,
+which is where a once-an-hour question belongs, and which has the further
+advantage of being visible when Ocarina is not the window you are looking at.
+It appears and disappears with the conversation — a permanent menu bar item that
+says nothing most of the day is furniture in the most expensive strip of screen
+on the Mac.
 
 It says **used**, not **left**, and that is not a hedge. Nothing on the machine
 records the size of the allowance or when the account's quota renews: not
@@ -298,7 +317,7 @@ nothing written in it — Apple Notes and Chrome hold their panes the same way.
 
 The sidebar was one card with the settings drawn as an inset box inside it — a
 card in a card, a shape used nowhere else in the window. The right-hand column
-had already answered this, with the task list and the token widget as two
+had already answered this, with the task list and the status card as two
 panels and the ground between them, so the left-hand side now answers it the
 same way. Four panels of one kind beats three and a nested one.
 
@@ -516,58 +535,6 @@ Text is Geist and Geist Mono, bundled under the OFL and registered before the
 first frame draws, so nothing flashes through a fallback face on its way to the
 right one.
 
-## The notch tells you when it is done
-
-An agent finishes, and you are in a browser. The window that knows is behind
-three others, and the tab's dot went green where nobody was looking. Everything
-Ocarina had to say about a finished task was said inside a window you were not
-in.
-
-So it drops out of the notch. A small pill hangs from under the notch on a
-notched Mac, and from under the menu bar on every other one — the same gesture
-in the same place, the machine simply has nothing sticking down for the top edge
-to hide behind. `NotchShape` is square across the top and rounded across the
-bottom, because the top edge has to read as continuous with the black bar above
-it: a fully rounded pill floating under the notch is a notification, and this is
-supposed to be the notch itself moving.
-
-It carries the wordmark rather than an app icon, in the same dot matrix as the
-landing screen and the sidebar and out of the same three board colours, so a
-Sakura machine drops a pink one. Then the thing you asked for, then a dot. That
-is all of it, and the size is the argument: a notification centre banner is a
-card with a title, a body, an icon and a dismiss button, and it arrives to tell
-you six words. This is the six words. It is out for three and a half seconds and
-goes back on its own — a thing you have to put away is a thing that costs you
-something every time it appears.
-
-**Only while Ocarina is not the app in front.** With the window on screen the
-news is already there: the row in the task panel changed, the tab's dot went
-green. A drop out of the notch on top of that is the app telling you something
-you just watched happen.
-
-What counts as finished is `AgentTask` going `working` to `finished`, and it is
-the *transition* that is announced rather than the state. `finished` stays true
-of a task forever after, so anything reading the current list would drop the
-notch on every poll for as long as the task stayed in the panel — a two-second
-heartbeat until you cleared it. For the same reason the first poll of a tab
-announces nothing, though everything in it is finished: that is history, and
-nothing happened, you just looked.
-
-The panel is an `NSPanel`, borderless and non-activating, at `.statusBar` level
-— above the menu bar, which is 24, and below the screen saver and anything a
-system alert puts up, because a drop saying a build finished has no business
-over a password prompt. It joins all spaces, so it follows you between desktops,
-which is most of the point of putting it at the notch rather than in the window.
-Pressing it brings Ocarina forward.
-
-One thing had to change behind it. The task poll used to stop dead when the task
-panel was hidden, which was right while the panel was the only thing reading it;
-the notch fires precisely when nobody is looking at the panel, so a poll gated
-on a visible panel is a drop that only works for people who leave theirs open.
-It now polls while the panel is visible *or* while Ocarina is not in front,
-which keeps the saving it was making — in the app, panel hidden, nothing is
-consuming it and it does not run.
-
 ## It stays awake while you wait
 
 Ocarina holds a `PreventUserIdleDisplaySleep` assertion — the same one
@@ -760,13 +727,21 @@ Finder integration. For the real thing:
 
 ```
 Scripts/make-app.sh          # release -> build/Ocarina.app
-Scripts/make-app.sh debug    # a separate "Ocarina Test Build.app"
+Scripts/make-app.sh debug    # a separate "Ocarina Dev.app"
 open build/Ocarina.app
 ```
 
 The debug build is a *separate app*, not the same one rebuilt: its own name,
 bundle identifier and executable name. Sharing any of the three meant Launch
 Services, the Dock and ⌘-Tab could not tell a test build from the installed one.
+
+Both are signed against a designated requirement naming the bundle identifier,
+rather than the one macOS derives on its own. Left to itself an ad-hoc
+signature has no certificate to point at, so the requirement it derives is the
+hash of that exact binary — which the next build changes. Anything granted
+under Privacy & Security, Screen Recording most of all, is granted against the
+requirement stored at the time, so every build read as an app the Mac had
+never seen and asked again. Pinned to the identifier, one grant holds.
 
 One behaviour differs between bundled and not. A binary run from a shell
 inherits that shell's directory, so tabs opened where you were; an app launched
@@ -852,6 +827,8 @@ Sources/OcarinaUI/       SwiftUI layer
   TabSidebarView         tabs as tasks, with the theme and keep-awake footer
   TaskPanelView          what you have asked the agent in this tab
   TaskSummariser         better names for those tasks, via the `claude` binary
+  StatusCardView         working, done or stopped, under the task list
+  DotRingLoader          the app's mark lighting round while work is running
   ThemeStore / Theme     bundled + user themes, and the colour model
   ThemePickerView        pick by looking, not by remembering names
   CommandPaletteView     jump by what a terminal is doing (⇧⌘P)
@@ -863,8 +840,6 @@ Sources/OcarinaUI/       SwiftUI layer
   AgentCatalog           what the row offers, and what is installed
   AgentMarks             the marks each tool wears, drawn as geometry
   TerminalBed            what the terminal is drawn on, and the activity rail
-  NotchHUD               the panel under the notch, and when it comes out
-  NotchDrop              what it says: the wordmark, the task, a dot
   Trinket / TrinketField each theme's own small thing on the landing screen
   DotMatrix              5x7 dot-matrix panel, the board is built from it
   OcarinaIcon            the bundled app mark, prepared for the dock

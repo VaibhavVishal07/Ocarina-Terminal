@@ -166,4 +166,35 @@ struct OcarinaModelTests {
         #expect(model.tabs.isEmpty)
         #expect(model.selectedTabID == nil)
     }
+
+    @Test("Closing the tab you are in lands on its neighbour, not the first tab")
+    func closingSelectsNeighbour() throws {
+        let model = OcarinaModel()
+        let first = model.newTab()
+        _ = model.newTab()
+        let third = model.newTab()
+        let fourth = model.newTab()
+
+        model.selectTab(third.id)
+        model.closeTab(third.id)
+        // The tab that took its place in the column, not the top of the list.
+        #expect(model.selectedTabID == fourth.id)
+
+        // Closing the last one in the column has no tab after it, so the
+        // selection falls back a row rather than off the end.
+        model.closeTab(fourth.id)
+        #expect(model.selectedTabID == model.tabs.last?.id)
+        #expect(model.tabs.count == 2)
+
+        // A tab that is already gone must not move the selection.
+        let selected = model.selectedTabID
+        model.closeTab(third.id)
+        #expect(model.selectedTabID == selected)
+        #expect(model.tabs.count == 2)
+
+        // And a tab that is still open always has a session behind it, which
+        // is what decides whether the landing screen is drawn.
+        #expect(model.selectedSession != nil)
+        _ = first
+    }
 }

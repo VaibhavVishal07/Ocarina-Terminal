@@ -9,6 +9,14 @@ public enum OcarinaIcon {
     /// For `NSApplication.applicationIconImage`.
     public static let app: NSImage? = load("AppIcon").map(dockIcon)
 
+    /// The tile alone, for anything drawing the mark *inside* the app.
+    ///
+    /// Not `app`: that one is padded onto a transparent canvas at the ~80% the
+    /// dock grid expects, so drawn at 26pt in a row it arrives as a 21pt tile
+    /// floating in space. This is the tile itself, and the caller rounds it to
+    /// whatever corner its context wants.
+    public static let tile: NSImage? = load("AppIcon").map(trimmedToContent)
+
     /// The dock wants art on a transparent canvas. The export is a black plate
     /// with the tile inside it, which macOS draws verbatim — so the icon reads
     /// as a small tile sitting in a dark square rather than as the icon.

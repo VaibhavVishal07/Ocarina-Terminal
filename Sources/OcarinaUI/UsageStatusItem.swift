@@ -21,6 +21,26 @@ public final class UsageStatusItem {
 
     public init() {}
 
+    /// 1_432_000 -> "1.4M". The menu bar cannot hold a grouped integer, and
+    /// the exact figure is not what anybody reads it for.
+    ///
+    /// It lived on the usage card until the card was replaced by the status
+    /// one. This is the only surface left that shows the figure, so it is the
+    /// only surface that needs to format it.
+    static func compact(_ tokens: Int) -> String {
+        switch tokens {
+        case ..<1_000:
+            return "\(tokens)"
+        case ..<1_000_000:
+            let thousands = Double(tokens) / 1_000
+            return thousands < 10
+                ? String(format: "%.1fK", thousands)
+                : "\(Int(thousands.rounded()))K"
+        default:
+            return String(format: "%.1fM", Double(tokens) / 1_000_000)
+        }
+    }
+
     /// Nil takes the item out of the menu bar entirely rather than blanking it.
     public func update(with usage: UsageWindow?, now: Date = Date()) {
         guard let usage else {
@@ -31,7 +51,7 @@ public final class UsageStatusItem {
 
         let item = self.item ?? make()
         self.item = item
-        item.button?.title = " \(UsageCardView.compact(usage.tokens)) · \(Self.countdown(to: usage.resetsAt, from: now))"
+        item.button?.title = " \(Self.compact(usage.tokens)) · \(Self.countdown(to: usage.resetsAt, from: now))"
         item.button?.toolTip = """
         Ocarina — tokens used in the window that opened at \
         \(Self.clock.string(from: usage.startedAt)).
