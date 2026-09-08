@@ -1104,26 +1104,47 @@ public final class OcarinaModel {
     }
 
     public func closeTab(_ id: UUID) {
-        // Where it sat, so the selection can land on what took its place.
-        // Read before the removal, and nil for an id that is no longer in the
-        // list — closing the same tab twice must not move the selection off
-        // the tab that inherited it.
+        // Where it sat, so the selection has a neighbour to fall back to. Read
+        // before the removal, and nil for an id that is no longer in the list —
+        // closing the same tab twice must not move the selection off the tab
+        // that inherited it.
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        let surviving = tabs.filter { $0.id != id }
+
+        // **The selection moves first.** Everything below tears the session
+        // down, and `selectedSession` is `selectedTabID` looked up in
+        // `sessions` — so between dropping the session and choosing the next
+        // tab there was a moment with tabs still on screen and no session
+        // selected. The window draws its landing board in exactly that case,
+        // so closing one of several tabs flashed the empty state on the way to
+        // the neighbour. Nothing was wrong with where it landed; it was what
+        // you saw getting there.
+        if selectedTabID == id {
+            // Back to the tab you came from, not the one next to it in the
+            // column. The column is ordered by when a session was made and the
+            // two you are moving between are rarely neighbours in it — closing
+            // the one you just opened should put you back where you were, which
+            // is the whole reason `visitOrder` is kept.
+            let previous = visitOrder.first { candidate in
+                candidate != id && surviving.contains { $0.id == candidate }
+            }
+            // A tab never visited leaves nothing to go back to: take its
+            // neighbour, so a fresh window with three untouched tabs still
+            // behaves.
+            let neighbour = surviving.isEmpty
+                ? nil
+                : surviving[min(index, surviving.count - 1)].id
+            selectedTabID = previous ?? neighbour
+            if let landed = selectedTabID { noteVisit(landed) }
+        }
+
+        tabs = surviving
         sessions[id]?.close()
         sessions[id] = nil
-        tabs.removeAll { $0.id == id }
         renumberProjects()
         visitOrder.removeAll { $0 == id }
         Task { await namingService.detach(tabID: id) }
 
-        // The neighbour, not the top of the list. Closing the tab you are in
-        // should leave you beside where you were — `tabs.first` sent you to
-        // the first tab in the column instead, so closing the fourth of five
-        // jumped the selection three rows away from the work you were doing.
-        if selectedTabID == id {
-            selectedTabID = tabs.isEmpty ? nil : tabs[min(index, tabs.count - 1)].id
-            if let landed = selectedTabID { noteVisit(landed) }
-        }
         // The last tab going takes the right-hand column with it, and the
         // column is drawn from this — left set, it would have been a usage
         // card for a conversation that is no longer on screen.
