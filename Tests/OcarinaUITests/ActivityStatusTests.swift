@@ -366,4 +366,33 @@ struct ActivityStatusTests {
             #expect(other.plate != plate)
         }
     }
+
+    @Test("Every state has a word short enough for a menu bar")
+    func theWordsFitTheBar() {
+        // The reason the grid came off this item was width: eleven characters
+        // of the app's own 5x7 alphabet came to 136 points, wider than the
+        // clock, the Wi-Fi and the battery together. The system font is a third
+        // of that — but only while the lines stay short, so this is the test
+        // that keeps them short.
+        for activity: TabActivity in [.idle, .running, .succeeded, .needsYou,
+                                      .failed(exitCode: 127)] {
+            let word = ActivityStatusItem.title(for: activity)
+            #expect(word.count <= 13, "\(word) is long for a menu bar")
+            #expect(!word.isEmpty)
+        }
+    }
+
+    @Test("Nothing in the bar claims the work was done")
+    func theBarStillGradesNothing() {
+        // Words beside the card do not change what the card was allowed to
+        // claim. An agent stopping means it stopped talking.
+        for activity: TabActivity in [.idle, .running, .succeeded, .needsYou] {
+            let word = ActivityStatusItem.title(for: activity).lowercased()
+            #expect(!word.contains("done"))
+            #expect(!word.contains("complete"))
+            #expect(!word.contains("finish"))
+            #expect(!word.contains("success"))
+        }
+        #expect(ActivityStatusItem.title(for: .needsYou) == "Needs you")
+    }
 }

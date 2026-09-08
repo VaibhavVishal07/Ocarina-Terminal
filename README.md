@@ -183,19 +183,36 @@ middle of the fall.
 
 ## It says whether the thing you asked for is still going, where you can see it
 
-In the menu bar, beside the Wi-Fi, as **one cell of a departure board**: blank
-while nothing has been asked, turning while an agent works, landed on a ring
-when it comes back to you, and showing a cross when it exited badly. Sixteen and
-a half points square, in the app's own lamps.
+In the menu bar, beside the Wi-Fi: **one cell of a departure board, and the state
+beside it in words** — `Ready`, `Still going`, `Needs you`, `Back to you`,
+`Stopped (127)`. The card is blank while nothing has been asked, turns while an
+agent works, lands on a ring when it comes back to you, wears an exclamation when
+a tab is asking for you, and shows a cross when something exited badly. Sixteen
+and a half points square, in the app's own lamps.
 
-It was the whole line, set in the 5x7 grid the wordmark and the landing screen
-are built from — `STILL GOING`, `BACK TO YOU`, `STOPPED 127`. That was right
+It was the whole line set in the 5x7 grid the wordmark and the landing screen are
+built from — `STILL GOING`, `BACK TO YOU`, `STOPPED 127` — and that was right
 about the alphabet and wrong about everything it cost. Eleven characters at six
 columns each is **136 points** of menu bar: wider than the clock, the Wi-Fi and
 the battery together, for a reading you take in a fifth of a second. And a
 letterform built from 1.4pt lamps is under the size the grid can set — the S and
 the G came out as smudges. It was a word you could not read taking the room of a
 sentence.
+
+So the grid came off, and for a release the card went up on its own. That was one
+correction too many. The width was a fact about the *grid*, not about the words:
+the same line set in the system font is about a third of the space, and it is the
+font every other item up there is already set in. A picture alone asks somebody to
+have learned four plates before it says anything; a picture with its name beside
+it teaches them, and then goes on working once they have. The item is
+variable-width again as a result, so things to its left shift a few points when
+the state changes — which is what every variable-width item in a menu bar already
+does.
+
+**Nothing up there says Completed.** The words gained a state and did not gain a
+claim: `Back to you` is what a turn ending can support, and *completed*,
+*finished* and *done* are not. See the note on `end_turn` below, and the test that
+holds the line.
 
 A pictogram survives that size where a letterform does not, and every other item
 in a menu bar is one glyph wide for the same reason. It was a little face on a
@@ -261,12 +278,13 @@ too, faintly: they are what make it a panel of lamps rather than a face floating
 in the menu bar, and at this size they are the only thing that says the lit ones
 are lit.
 
-**The words did not go anywhere.** A face has nothing to say whose it is, and
-nothing to say about an exit code — so the tooltip and the accessibility label
-carry the house line with the app's name in front of it, and the theme's own
-wording is one click down in the menu. They are sentence case now: they were
-uppercase for as long as they were painted on a grid with no descenders, which
-is a constraint the board imposed and not one the words ever had.
+**The tooltip still carries more than the bar can.** The line beside the card is
+the state and only the state; a card has nothing to say about an exit code or
+about whose app it is, so the tooltip and the accessibility label carry the house
+line with Ocarina's name in front of it and the task named after it. The theme's
+own wording is one click down in the menu. Everything is sentence case: it was
+uppercase for as long as it was painted on a grid with no descenders, which is a
+constraint the board imposed and not one the words ever had.
 
 The words answer the question somebody has up there rather than naming a state.
 They were Working, Idle and Done for a release, and each was a label for a value

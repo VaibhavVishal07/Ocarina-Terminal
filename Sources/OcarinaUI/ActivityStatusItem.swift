@@ -125,6 +125,23 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         item.button?.toolTip = words
         item.button?.setAccessibilityLabel(words)
 
+        // And the state, in words, beside the card.
+        //
+        // The card went up alone for a release, on the argument that eleven
+        // characters of the app's own 5x7 alphabet is 136 points of menu bar —
+        // wider than the clock, the Wi-Fi and the battery together — for a
+        // reading you take in a fifth of a second. That was true of the *grid*
+        // and not of the words: the same line set in the system font is a third
+        // of that, and it is the font every other item up there is already set
+        // in. A picture alone asks you to have learned four plates; a picture
+        // with its name beside it teaches them and then keeps working when you
+        // have.
+        //
+        // Set before the guard below, for the same reason the tooltip is: the
+        // plate for `.failed(1)` and `.failed(127)` is one picture and the
+        // words are not.
+        item.button?.title = " " + Self.title(for: activity)
+
         let card = ActivityCard(activity)
         guard card != wasShowing else { return }
 
@@ -464,13 +481,16 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     }
 
     private func make() -> NSStatusItem {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        // Nothing but the face. There is no title to sit beside it any more,
-        // and `.squareLength` is what keeps the item the same width through all
-        // four states — every face is the same plate, so the item no longer
-        // resizes when a run ends and nothing to its left in the menu bar
-        // shifts under it.
-        item.button?.imagePosition = .imageOnly
+        // Variable, because the words are not all the same length. It was
+        // `.squareLength` while the item was a picture on its own, which kept
+        // it from resizing when a run ended — the cost of the words is that
+        // things to its left in the menu bar now shift a few points when the
+        // state changes, which is what every variable-width item up there
+        // already does.
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // The card first, the word after it. The reading is the picture; the
+        // word is what tells you which picture you are looking at.
+        item.button?.imagePosition = .imageLeading
         // Empty, and filled by `menuNeedsUpdate` on the way open.
         let menu = NSMenu()
         menu.delegate = self
