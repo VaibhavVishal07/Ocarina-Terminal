@@ -213,6 +213,10 @@ public final class OcarinaModel {
     /// `ActivityStatusItem`.
     @ObservationIgnored private let activityStatusItem = ActivityStatusItem()
 
+    /// The few things worth interrupting you for, and only while you are
+    /// somewhere else. See `Notifier`.
+    public let notifier = Notifier()
+
     /// What has been installed, what is going in, and what is waiting for an
     /// agent. See `SkillShelf` for why a queue exists at all.
     public let skills = SkillShelf()
@@ -743,6 +747,7 @@ public final class OcarinaModel {
         guard id != selectedTabID, let tab = tabs.first(where: { $0.id == id }) else { return }
         tab.needsAttention = true
         refreshStatusItem()
+        notifier.say(.needsYou, about: tab.title, id: tab.id)
     }
 
     /// Clears the mark on a tab you have now looked at.
@@ -1049,7 +1054,15 @@ public final class OcarinaModel {
         if case .failed = context.activity, tab.activity != context.activity {
             isErrorBannerVisible = true
         }
+        // On the edge, not on every poll. This handler runs whenever the pty
+        // moves, and a notification that fired for as long as a state was true
+        // rather than at the moment it became true would be the noise the
+        // feature exists to remove.
+        let changed = tab.activity != context.activity
         tab.activity = context.activity
+        if changed, let moment = Notifier.Moment.worthSaying(context.activity) {
+            notifier.say(moment, about: tab.title, id: tab.id)
+        }
         tab.isManuallyNamed = !context.isAutoNamingEnabled
         // The menu bar's whole subject. This is the only place the activity
         // changes, so it is the only place that has to say so.

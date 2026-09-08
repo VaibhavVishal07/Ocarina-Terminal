@@ -417,6 +417,54 @@ theme say what colour that is. The words work the same way: `needsYou` is
 optional on a theme's `voice`, so all fourteen bundled themes and anybody's own
 file still load, saying the house line until they say otherwise.
 
+## It tells you, and only while you are elsewhere
+
+Three moments reach macOS notifications: a tab **asking for you**, a tab that
+**came back**, and a command that **stopped badly**. Not every command, not
+output, not a shell reaching a prompt — a terminal reaches a prompt a hundred
+times an hour and none of them are news.
+
+**Nothing is posted while Ocarina is the app in front.** A notification about a
+window you are looking at is not information, it is a second copy of the screen:
+the tab's dot, the rail over the terminal and the card in the menu bar have all
+already said it. This is only for when none of those are in view, which is the
+only time the feature is worth anything.
+
+They fire on the *edge*, not for as long as a state is true. The handler behind
+this runs every time the pty moves, and a notification that repeated while
+something stayed finished would be exactly the noise this exists to remove.
+
+The state leads and the ask names the session — **Needs you** over *Fix the
+checkout page* — because the state is the actionable half and the tab's name is
+already the thing you were waiting on. The words are the house's, not the
+theme's, for the reason the menu bar settled once already: a notification is
+read on a lock screen beside mail and calendar alerts, further outside Ocarina
+than even the menu bar is, and a theme being arch there costs somebody the one
+reading they came for. Nothing says *done*, on a lock screen least of all.
+
+A second notification about the same session replaces the first rather than
+stacking under it. Four asks coming back while you are at lunch should be four
+lines, not forty.
+
+**No sound.** What prompts most of these already rang the terminal bell, and a
+notification that beeps a second time for the same event is the thing it is
+meant to save you from.
+
+Permission is asked on the first post, not at launch — the first moment the
+answer means anything. A permission sheet in front of a window you have only
+just opened is a question about something you have not seen yet. A "no" is taken
+for an answer: asking twice is asking somebody to say no twice.
+
+The switch is third on the shelf beside Tasks and Keep Awake, because it is the
+same kind of thing — on or off for this window, and something you check rather
+than press. It is on by default: a feature nobody finds is worth nothing, and
+the system's own prompt is the real opt-in.
+
+`UNUserNotificationCenter.current()` does not fail politely without a bundle
+identifier, it aborts the process — so the check is `Bundle.main.bundleIdentifier
+!= nil` before the call rather than a `try` around it. A SwiftPM binary run
+straight out of `.build`, and the test binary, are both in exactly that state.
+
 ## It still says what the window has cost
 
 Under the task list, a small card: what this agent has spent, and how long the

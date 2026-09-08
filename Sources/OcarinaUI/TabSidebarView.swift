@@ -277,6 +277,21 @@ struct TabSidebarView: View {
                 // stayed up until something else replaced it.
                 tip: sleepHelp
             )
+
+            // Third on the shelf rather than anywhere else, because it is the
+            // same kind of thing as the two above it: something that is on or
+            // off for this window, and that you check rather than press.
+            switchRow(
+                symbol: "bell",
+                title: "Notify",
+                shortcut: nil,
+                isOn: Binding(
+                    get: { model.notifier.isEnabled },
+                    set: { model.notifier.isEnabled = $0 }
+                ),
+                tip: "Tells you when a tab asks for you, comes back, or stops "
+                    + "badly — and only while Ocarina is not the app in front."
+            )
         }
         .padding(.horizontal, Self.inset)
         .padding(.vertical, Self.inset - 2)
