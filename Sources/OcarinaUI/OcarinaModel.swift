@@ -382,18 +382,24 @@ public final class OcarinaModel {
     /// Stands in for the poll, which needs a live pty. Tests only.
     func noteForegroundForTesting(_ process: String?) { selectedForeground = process }
 
-    /// Re-reads usage on a slow timer.
+    /// Re-reads usage once a minute.
     ///
-    /// Slower than the task panel's two seconds by a lot: a window is five
-    /// hours long, the number moves once per agent turn, and the read touches
-    /// every project rather than one. Fifteen seconds is finer than anything
-    /// the card can show.
+    /// Slower than the task panel's two seconds by a long way, and for a
+    /// reason: a window is five hours long, the figure moves once per agent
+    /// turn, and this read touches every project rather than one — it is the
+    /// most expensive poll in the app.
+    ///
+    /// A minute is the finest reading the card can actually show. The
+    /// countdown beside the meter is in minutes, and the meter itself is
+    /// twenty lamps across five hours — one lamp is fifteen minutes, so
+    /// polling faster than a minute redraws the same picture. It was fifteen
+    /// seconds, which was four times the work for no visible difference.
     public func startWatchingUsage() {
         usageRefresh?.cancel()
         usageRefresh = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refreshUsage()
-                try? await Task.sleep(for: .seconds(15))
+                try? await Task.sleep(for: .seconds(60))
             }
         }
     }
@@ -1042,8 +1048,28 @@ public final class OcarinaModel {
     // MARK: - Tabs
 
     @discardableResult
+    /// A new tab opens where the last one was.
+    ///
+    /// It used to open in the home directory, which is what a shell does with
+    /// no instruction — and it is the wrong thing twice. Every other terminal
+    /// on this machine opens a new tab beside the one you are in, because the
+    /// reason you pressed ⌘T is almost always the thing you are already doing.
+    ///
+    /// And it broke the tab's name. A tab is called after the project it is
+    /// working in; the home directory is not a project, so a tab opened there
+    /// had nothing to be called and fell back to naming itself after whatever
+    /// command happened to be running — the behaviour the project name was
+    /// brought in to replace. Every tab opened with ⌘T looked like the change
+    /// had not landed.
+    ///
+    /// `reportedDirectory` before `workingDirectory`: the first is where the
+    /// shell says it is *now*, which is where you have `cd`-ed to, and the
+    /// second is only where it started.
     public func newTab(workingDirectory: URL? = nil) -> TabItem {
-        let session = TerminalSession(workingDirectory: workingDirectory)
+        let inherited = workingDirectory
+            ?? selectedSession?.reportedDirectory
+            ?? selectedSession?.workingDirectory
+        let session = TerminalSession(workingDirectory: inherited)
         session.onInput = { [weak self] in self?.noteUserInput() }
         session.onDragStateChange = { [weak self] isOver in self?.isDropTarget = isOver }
         session.onBell = { [weak self] in self?.noteBell(from: session.id) }
@@ -1053,7 +1079,7 @@ public final class OcarinaModel {
         sessions[session.id] = session
 
         // Before any activity, a tab is named for where it is.
-        let directory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser
+        let directory = inherited ?? FileManager.default.homeDirectoryForCurrentUser
         let fallback = TitleFormatter.humanize(directory.lastPathComponent)
             ?? directory.lastPathComponent
         let tab = TabItem(id: session.id, title: fallback)

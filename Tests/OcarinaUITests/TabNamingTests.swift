@@ -83,3 +83,54 @@ struct TabNamingTests {
         #expect(shell.title == "Dev Server")
     }
 }
+
+/// Where a new tab opens, which is what decides whether it has a name at all.
+@MainActor
+@Suite("New tab placement")
+struct NewTabPlacementTests {
+
+    private func projectDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-newtab-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// The bug this fixes: ⌘T opened in the home directory, home is not a
+    /// project, so the tab had no project name and fell back to naming itself
+    /// after whatever was running — which looked exactly like project naming
+    /// had never shipped.
+    @Test("A new tab opens where the current one is, and takes its name")
+    func inheritsTheDirectory() throws {
+        let directory = try projectDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = OcarinaModel()
+        let first = model.newTab(workingDirectory: directory)
+        defer { model.closeTab(first.id) }
+
+        // No directory given — the way ⌘T and the sidebar's button call it.
+        let second = model.newTab()
+        defer { model.closeTab(second.id) }
+
+        #expect(model.session(for: second.id)?.workingDirectory == directory)
+        #expect(second.project == first.project)
+        #expect(second.project != nil, "a tab in a project must have a project name")
+        // And the two are told apart rather than printed twice.
+        #expect(first.title != second.title)
+    }
+
+    @Test("An explicit directory still wins")
+    func explicitDirectoryWins() throws {
+        let a = try projectDirectory(), b = try projectDirectory()
+        defer { try? FileManager.default.removeItem(at: a); try? FileManager.default.removeItem(at: b) }
+
+        let model = OcarinaModel()
+        let first = model.newTab(workingDirectory: a)
+        defer { model.closeTab(first.id) }
+        let second = model.newTab(workingDirectory: b)
+        defer { model.closeTab(second.id) }
+
+        #expect(model.session(for: second.id)?.workingDirectory == b)
+    }
+}
