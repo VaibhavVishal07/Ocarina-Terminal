@@ -11,7 +11,12 @@ struct CommandPaletteView: View {
 
     private var matches: [TabItem] {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return model.tabs }
+        // Nothing typed yet: most recently looked at first, not the column's
+        // own order. The palette is what you open when the session you want is
+        // not the one beside you — and with ten open, the two you are moving
+        // between are almost never neighbours in the sidebar. Typing hands the
+        // order back to the match.
+        guard !trimmed.isEmpty else { return model.tabsByRecency }
         return model.tabs.filter {
             $0.title.localizedCaseInsensitiveContains(trimmed)
                 || ($0.subtitle?.localizedCaseInsensitiveContains(trimmed) ?? false)

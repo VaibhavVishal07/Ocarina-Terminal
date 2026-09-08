@@ -654,7 +654,7 @@ into.
 
 <img src="docs/images/quick-actions.png" alt="The quick actions drawer: install an agent, and the things agents need">
 
-⌘K opens a drawer of recipes — install an agent, install the things agents
+⇧⌘K opens a drawer of recipes — install an agent, install the things agents
 assume you already have. Each one says what it does before you choose it.
 
 It does not run anything. Choosing a recipe **types** its command at the prompt
@@ -1331,10 +1331,41 @@ was named for it. A session with no directory of its own starts at home.
 |---|---|
 | ⌘T | New tab |
 | ⌘W | Close tab |
-| ⌘K | Quick actions |
+| ⇧⌘] / ⇧⌘[ | Next / previous session |
+| ⌘1 … ⌘9 | Go to the nth session |
 | ⇧⌘P | Command palette |
 | ⌘J | Show or hide the task panel |
+| ⌘K | Clear the terminal |
+| ⇧⌘K | Quick actions |
 | ⌘V | Paste, through the inspector |
+
+**⌘K clears, and Quick Actions moved to ⇧⌘K.** Every Mac terminal since
+Terminal.app has cleared on ⌘K, and somebody arriving here presses it expecting
+an empty window — it opened a drawer of agent installers instead. Clear wipes
+the screen and the scrollback, then sends Ctrl-L so whatever is in front redraws
+itself: readline puts the prompt back and keeps a half-typed line, an agent's
+own drawing repaints. Without that last step the window is left blank until the
+next keystroke, which reads as a terminal that has died rather than one that has
+been cleared.
+
+**Next and previous walk the column, not the order you last used.** ⇧⌘] and ⇧⌘[
+are what Terminal.app, Safari and Chrome all use to step along a row of tabs,
+and they step through the order the sidebar draws — a pair of shortcuts moving
+you through an order with no representation on screen is a pair you cannot
+predict. They wrap, because the column is a ring you cycle rather than a list
+you run off the end of.
+
+Recency belongs to the palette instead, where the order is drawn: ⇧⌘P with
+nothing typed lists sessions **most recently looked at first**. With ten open,
+the two you are moving between are almost never neighbours in the sidebar, so
+the column's order is the right one to read a list in and the wrong one to
+search it in. Typing hands the order back to the match.
+
+⌘9 is the ninth session, not the last one. Browsers make ⌘9 mean "the last one";
+terminals do not, and somebody who has learned that ⌘3 is the third tab should
+not find the rule stops holding at nine. Out of range does nothing rather than
+clamping — ⌘7 with four tabs open is a slip, and landing on the fourth is a
+silent answer to a question nobody asked.
 
 They come from the menu bar in `MainMenu`, not from SwiftUI
 `.keyboardShortcut`. AppKit offers a key equivalent to the main menu before the
@@ -1408,7 +1439,7 @@ Sources/OcarinaUI/       SwiftUI layer
   ThemeStore / Theme     bundled + user themes, and the colour model
   ThemePickerView        pick by looking, not by remembering names
   CommandPaletteView     jump by what a terminal is doing (⇧⌘P)
-  QuickActionsView       recipe drawer (⌘K); types, never runs
+  QuickActionsView       recipe drawer (⇧⌘K); types, never runs
   PasteInspector         reads a paste before the terminal does
   ErrorHelp              hand a failure to an installed agent
   EmptyStateView         no tabs open: the departure board
@@ -1438,7 +1469,7 @@ Sources/OcarinaUI/       SwiftUI layer
   TabIcon / StatusDot    a symbol, when one is owed, and a state for each tab
   SleepGuard             holds the Mac awake while Ocarina is open
   BundledFonts           registers Geist and JetBrains Mono before frame one
-  MainMenu               the menu bar; ⌘T / ⌘W / ⌘K / ⇧⌘P, and Share Feedback
+  MainMenu               the menu bar; every shortcut, and Share Feedback
   ToolTip                AppKit tool tips, because .help draws none here
 Sources/Ocarina/         executable entry point
 ```

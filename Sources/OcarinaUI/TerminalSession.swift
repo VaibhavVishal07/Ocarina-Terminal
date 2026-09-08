@@ -113,6 +113,26 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
         pty?.write(Array(text.utf8))
     }
 
+    /// Wipes the screen and the scrollback, and asks the shell to redraw.
+    ///
+    /// Three steps because a terminal's "clear" is three different things. The
+    /// escape wipes the grid you can see; `clearScrollback` drops what has
+    /// gone off the top, which is the half people actually mean when they say
+    /// the window is full of noise; and Ctrl-L asks whatever is in front —
+    /// readline at a prompt, or an agent's own drawing — to put itself back on
+    /// the empty screen. Without the third the window is left blank until the
+    /// next keystroke, which reads as a terminal that has died rather than one
+    /// that has been cleared.
+    ///
+    /// Ctrl-L is the right nudge for both cases: readline redraws the prompt
+    /// and keeps a half-typed line, and a full-screen program treats it as the
+    /// repaint request it has always been.
+    public func clearScreen() {
+        terminalView.feed(text: "\u{1b}[H\u{1b}[2J")
+        terminalView.getTerminal().clearScrollback()
+        send(text: "\u{0C}")
+    }
+
     public func close() {
         pty?.terminate()
         pty = nil

@@ -48,7 +48,16 @@ public final class MainMenuController: NSObject {
             item("New Tab", #selector(newTab), "t"),
             item("Close Tab", #selector(closeTab), "w"),
             .separator(),
-            item("Quick Actions…", #selector(toggleQuickActions), "k")
+            // ⇧⌘K, because ⌘K belongs to Clear.
+            //
+            // Every Mac terminal since Terminal.app has cleared on ⌘K, and a
+            // person arriving here presses it expecting an empty window. It
+            // opened a drawer of agent installers instead — which is the exact
+            // failure of inventing a shortcut where a convention already
+            // exists. Quick Actions loses nothing by moving: it is a thing you
+            // reach for once a machine, and it is still on the landing screen.
+            item("Quick Actions…", #selector(toggleQuickActions), "k",
+                 modifiers: [.command, .shift])
         ]))
 
         // A terminal without ⌘C / ⌘V is not a terminal. These go to whatever
@@ -62,16 +71,56 @@ public final class MainMenuController: NSObject {
             chainItem("Select All", #selector(NSText.selectAll(_:)), "a")
         ]))
 
+        // Moving between sessions lives here rather than in a Window menu of
+        // its own. Terminal.app and Safari keep tab navigation under Window —
+        // but they also keep Minimize and Zoom there, and a Window menu
+        // holding nothing but "Next Session" is more surprising than no Window
+        // menu at all. This is beside ⌘J, which is the other thing in the app
+        // that changes what you are looking at.
         menu.addItem(submenu(named: "View", items: [
             item("Command Palette…", #selector(toggleCommandPalette), "p",
                  modifiers: [.command, .shift]),
             .separator(),
+            // ⇧⌘] and ⇧⌘[ — what Terminal.app, Safari and Chrome all use to
+            // walk a row of tabs. They step through the column's own order,
+            // not the order sessions were last used: a shortcut that moved you
+            // through an order with no representation on screen is one you
+            // cannot predict. See `OcarinaModel.selectNextTab`.
+            item("Next Session", #selector(nextSession), "]",
+                 modifiers: [.command, .shift]),
+            item("Previous Session", #selector(previousSession), "[",
+                 modifiers: [.command, .shift]),
+            // Nine of them, in a submenu rather than nine rows in View. The
+            // key equivalents work the same either way, and this is a list
+            // nobody opens — it is here so ⌘4 has somewhere to be registered.
+            goToSubmenu(),
+            .separator(),
             item("Tasks", #selector(toggleTaskPanel), "j"),
+            .separator(),
+            item("Clear Terminal", #selector(clearTerminal), "k"),
             .separator(),
             item("Theme\u{2026}", #selector(showThemePicker)),
             .separator(),
             item("Keep This Mac Awake", #selector(toggleSleepGuard))
         ]))
+    }
+
+    /// ⌘1 through ⌘9, by position in the column.
+    ///
+    /// Counting from one, and ⌘9 is the ninth rather than the last. Browsers
+    /// make ⌘9 mean "the last one"; terminals do not, and this is a terminal —
+    /// somebody who has learned that ⌘3 is the third tab should not find that
+    /// the rule stops holding at nine.
+    private func goToSubmenu() -> NSMenuItem {
+        let holder = NSMenuItem(title: "Go to Session", action: nil, keyEquivalent: "")
+        let sub = NSMenu(title: "Go to Session")
+        for position in 1...9 {
+            let row = item("Session \(position)", #selector(goToSession(_:)), "\(position)")
+            row.tag = position
+            sub.addItem(row)
+        }
+        holder.submenu = sub
+        return holder
     }
 
     private func submenu(named title: String, items: [NSMenuItem]) -> NSMenuItem {
@@ -127,6 +176,16 @@ public final class MainMenuController: NSObject {
         model.setTaskPanel(visible: !model.isTaskPanelVisible)
     }
 
+    @objc private func nextSession() { model.selectNextTab() }
+
+    @objc private func previousSession() { model.selectPreviousTab() }
+
+    @objc private func goToSession(_ sender: NSMenuItem) {
+        model.selectTab(at: sender.tag)
+    }
+
+    @objc private func clearTerminal() { model.clearSelectedTerminal() }
+
     @objc private func showThemePicker() { model.isThemePickerVisible = true }
 
     @objc private func pasteWithReview() {
@@ -152,8 +211,15 @@ public final class MainMenuController: NSObject {
 extension MainMenuController: NSMenuItemValidation {
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
-        case #selector(closeTab):
+        case #selector(closeTab), #selector(clearTerminal):
             return model.selectedTabID != nil
+        // Greyed rather than absent. The pair only means anything with
+        // somewhere to go, and a live "Next Session" in a window holding one
+        // session is a shortcut that answers by doing nothing.
+        case #selector(nextSession), #selector(previousSession):
+            return model.tabs.count > 1
+        case #selector(goToSession(_:)):
+            return menuItem.tag <= model.tabs.count
         case #selector(toggleSleepGuard):
             menuItem.state = model.sleepGuard.isHolding ? .on : .off
             return true

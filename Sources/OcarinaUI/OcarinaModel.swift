@@ -726,6 +726,7 @@ public final class OcarinaModel {
         tab.summariser = taskSummariser
         tabs.append(tab)
         selectedTabID = tab.id
+        noteVisit(tab.id)
 
         if let monitor = session.monitor {
             Task { await namingService.attach(monitor) }
@@ -747,6 +748,7 @@ public final class OcarinaModel {
         sessions[id]?.close()
         sessions[id] = nil
         tabs.removeAll { $0.id == id }
+        visitOrder.removeAll { $0 == id }
         Task { await namingService.detach(tabID: id) }
 
         // The neighbour, not the top of the list. Closing the tab you are in
@@ -755,6 +757,7 @@ public final class OcarinaModel {
         // jumped the selection three rows away from the work you were doing.
         if selectedTabID == id {
             selectedTabID = tabs.isEmpty ? nil : tabs[min(index, tabs.count - 1)].id
+            if let landed = selectedTabID { noteVisit(landed) }
         }
         // The last tab going takes the right-hand column with it, and the
         // column is drawn from this — left set, it would have been a usage
@@ -767,9 +770,81 @@ public final class OcarinaModel {
         refreshStatusItem()
     }
 
+    // MARK: - Moving between sessions
+
+    /// The order sessions were last looked at, most recent first.
+    ///
+    /// Not the sidebar's order, and that is the point of keeping it. The
+    /// column is ordered by when a session was *made*, which is the right
+    /// order to read a list in and the wrong one to search it in: with ten
+    /// open, the two you are actually moving between are almost never
+    /// neighbours in the column. The palette opens on this instead, so an
+    /// empty query already has the tab you want at the top.
+    ///
+    /// Ids rather than tabs, so a closed session leaves nothing behind to keep
+    /// alive; `byRecency` reconciles against the live list on the way out.
+    @ObservationIgnored private var visitOrder: [UUID] = []
+
+    /// Every open session, most recently looked at first.
+    ///
+    /// Anything the visit order has not heard of goes on the end in the
+    /// column's own order — a session made and never left is still a session,
+    /// and dropping it would make the palette's list shorter than the sidebar.
+    public var tabsByRecency: [TabItem] {
+        var seen = Set<UUID>()
+        var out: [TabItem] = []
+        for id in visitOrder {
+            guard let tab = tabs.first(where: { $0.id == id }), seen.insert(id).inserted
+            else { continue }
+            out.append(tab)
+        }
+        out.append(contentsOf: tabs.filter { !seen.contains($0.id) })
+        return out
+    }
+
+    private func noteVisit(_ id: UUID) {
+        visitOrder.removeAll { $0 == id }
+        visitOrder.insert(id, at: 0)
+    }
+
+    /// The next session down the column, wrapping at the end.
+    ///
+    /// The column's order, not the visit order. Next and previous are a way of
+    /// walking a list you can see, and a pair of shortcuts that moved you
+    /// through an order with no representation on screen would be a pair you
+    /// could not predict. Recency belongs to the palette, where the order is
+    /// drawn.
+    public func selectNextTab() { step(by: 1) }
+
+    public func selectPreviousTab() { step(by: -1) }
+
+    private func step(by offset: Int) {
+        guard tabs.count > 1 else { return }
+        let here = selectedTabID.flatMap { id in tabs.firstIndex { $0.id == id } } ?? 0
+        // Wrapping, because the column is a ring you cycle rather than a list
+        // you run off the end of — and stopping at the last tab makes the
+        // shortcut feel broken exactly when you are moving fastest.
+        let next = (here + offset + tabs.count) % tabs.count
+        selectTab(tabs[next].id)
+    }
+
+    /// The nth session in the column, counting from one.
+    ///
+    /// Out of range does nothing rather than clamping to the last: ⌘7 with
+    /// four tabs open is a slip, and landing on the fourth would be a silent
+    /// answer to a question that was not asked.
+    public func selectTab(at position: Int) {
+        guard position >= 1, position <= tabs.count else { return }
+        selectTab(tabs[position - 1].id)
+    }
+
+    /// Wipes the selected terminal, screen and scrollback both.
+    public func clearSelectedTerminal() { selectedSession?.clearScreen() }
+
     public func selectTab(_ id: UUID) {
         guard id != selectedTabID else { return }
         selectedTabID = id
+        noteVisit(id)
 
         // The list belongs to the tab, so it goes with the tab — at once, not
         // on the next poll. Leaving it up meant switching tabs showed the tab

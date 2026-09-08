@@ -197,4 +197,84 @@ struct OcarinaModelTests {
         #expect(model.selectedSession != nil)
         _ = first
     }
+
+    // MARK: - Moving between sessions
+
+    private func windowWithTabs(_ count: Int) -> (OcarinaModel, [TabItem]) {
+        let model = OcarinaModel()
+        let made = (0..<count).map { _ in model.newTab() }
+        return (model, made)
+    }
+
+    @Test("Next and previous walk the column and wrap")
+    func steppingWrapsRoundTheColumn() {
+        let (model, tabs) = windowWithTabs(3)
+        defer { tabs.forEach { model.closeTab($0.id) } }
+
+        // A new tab selects itself, so we start on the last one.
+        #expect(model.selectedTabID == tabs[2].id)
+        model.selectNextTab()
+        #expect(model.selectedTabID == tabs[0].id)
+        model.selectPreviousTab()
+        #expect(model.selectedTabID == tabs[2].id)
+        model.selectPreviousTab()
+        #expect(model.selectedTabID == tabs[1].id)
+    }
+
+    @Test("One session has nowhere to step to")
+    func steppingNeedsSomewhereToGo() {
+        let (model, tabs) = windowWithTabs(1)
+        defer { tabs.forEach { model.closeTab($0.id) } }
+        model.selectNextTab()
+        #expect(model.selectedTabID == tabs[0].id)
+    }
+
+    @Test("Going to a position counts from one, and ignores what is not there")
+    func goingToAPosition() {
+        let (model, tabs) = windowWithTabs(3)
+        defer { tabs.forEach { model.closeTab($0.id) } }
+
+        model.selectTab(at: 1)
+        #expect(model.selectedTabID == tabs[0].id)
+        model.selectTab(at: 3)
+        #expect(model.selectedTabID == tabs[2].id)
+
+        // Out of range does nothing rather than clamping: ⌘7 with three tabs
+        // open is a slip, and landing on the third answers a question that was
+        // not asked.
+        model.selectTab(at: 7)
+        #expect(model.selectedTabID == tabs[2].id)
+        model.selectTab(at: 0)
+        #expect(model.selectedTabID == tabs[2].id)
+    }
+
+    @Test("The palette's order is what you looked at last, not what you made last")
+    func recencyLeadsThePalette() {
+        let (model, tabs) = windowWithTabs(4)
+        defer { tabs.forEach { model.closeTab($0.id) } }
+
+        model.selectTab(tabs[0].id)
+        model.selectTab(tabs[2].id)
+        // Most recent first, then the rest in the order they were visited,
+        // and the column's own order behind that.
+        #expect(model.tabsByRecency.map(\.id).prefix(3)
+                == [tabs[2].id, tabs[0].id, tabs[3].id])
+        // Every open session is in it — the palette's list is never shorter
+        // than the sidebar's.
+        #expect(Set(model.tabsByRecency.map(\.id)) == Set(tabs.map(\.id)))
+    }
+
+    @Test("A closed session leaves the order with it")
+    func closingLeavesNoGhost() {
+        let (model, tabs) = windowWithTabs(3)
+        model.selectTab(tabs[0].id)
+        model.closeTab(tabs[0].id)
+        defer { tabs.dropFirst().forEach { model.closeTab($0.id) } }
+
+        #expect(!model.tabsByRecency.contains { $0.id == tabs[0].id })
+        #expect(model.tabsByRecency.count == 2)
+        // And whatever the close landed on is now the most recent, so the
+        // palette does not open on the tab you just left.
+        #expect(model.tabsByRecency.first?.id == model.selectedTabID)
+    }
 }
