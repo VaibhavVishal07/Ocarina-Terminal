@@ -168,6 +168,19 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
     /// app. Both are house constants now.
     public let texture: Texture?
 
+    /// The faint motif behind the panels — petals for Sakura, rain for Matrix,
+    /// brushed grain for Steel.
+    ///
+    /// `texture` above is how hard the light lands; this is what the surface
+    /// is made of. Two names for two different things, and the second one is
+    /// the one you can point at.
+    ///
+    /// Optional, and High Contrast has none on purpose: texture is the last
+    /// thing that helps somebody who needed to turn contrast up. Everything
+    /// else carries one, because a theme without a surface of its own is a
+    /// palette rather than a theme.
+    public let pattern: Motif?
+
     /// The words. Every field optional, and every one with a default in
     /// `resolvedVoice` — a theme opts into as much of its own register as it
     /// has something to say in.
@@ -316,7 +329,7 @@ public extension Theme {
     ///
     /// A theme used to be able to name its own typeface. It made every theme
     /// a different-looking app rather than the same app in another colour,
-    /// which is further than a theme is meant to go — so the face is Satoshi
+    /// which is further than a theme is meant to go — so the face is Geist
     /// everywhere now, and only a broken bundle falls past it to the system.
     ///
     /// `Font.custom` carries no weight of its own, so the weight is applied

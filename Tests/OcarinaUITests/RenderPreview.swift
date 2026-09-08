@@ -75,6 +75,117 @@ struct RenderPreview {
         print("wrote \(out.path)")
     }
 
+    /// Every theme's surface, side by side.
+    ///
+    /// The one thing about a motif that cannot be checked by assertion: at
+    /// 0.05 opacity the question is whether you can tell the panels apart at
+    /// all, and whether any of them has tipped over from texture into
+    /// wallpaper.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func textures() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let themes = urls
+            .compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+            .sorted { $0.name < $1.name }
+
+        let sheet = LazyVGrid(
+            columns: Array(repeating: GridItem(.fixed(200), spacing: 12), count: 5),
+            spacing: 12
+        ) {
+            ForEach(themes) { theme in
+                VStack(alignment: .leading, spacing: 0) {
+                    ZStack {
+                        OcarinaWindowView.panelSurface(theme, at: .top)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(theme.name)
+                                .font(theme.uiFont(12, weight: .semibold))
+                                .foregroundStyle(theme.chrome.textPrimary.color)
+                            Text(theme.pattern.map { "\($0.shape)" } ?? "no motif")
+                                .font(theme.uiFont(10.5, weight: .medium))
+                                .foregroundStyle(theme.chrome.textTertiary.color)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 150)
+                    .panel()
+                    .environment(\.theme, theme)
+                }
+            }
+        }
+        .frame(width: 200 * 5 + 12 * 4)
+        .padding(16)
+        .background(Color.black)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 2
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/textures.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
+    /// The mark's chase, as a filmstrip.
+    ///
+    /// Eight frames a fifth of a second apart, so the head is visibly further
+    /// along the word in each — which is the one thing about the chase that a
+    /// still cannot show and a compiler cannot check.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func chaseFilmstrip() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let theme = try #require(all.first { $0.id == "ocarina" })
+
+        var frames: [NSImage] = []
+        for _ in 0..<8 {
+            let mark = DotMatrixText(
+                text: "OCARINA", cell: 4, gap: 2,
+                lit: theme.board.lit.color, unlit: theme.board.unlit.color,
+                chase: true
+            )
+            .padding(10)
+            .background(theme.ground.color)
+            .environment(\.theme, theme)
+
+            let renderer = ImageRenderer(content: mark)
+            renderer.scale = 2
+            frames.append(try #require(renderer.nsImage))
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+
+        let sheet = VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(frames.enumerated()), id: \.offset) { _, image in
+                Image(nsImage: image)
+            }
+        }
+        .padding(8)
+        .background(Color.black)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 1
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/chase.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
     /// The token card in both states, across a few themes: nothing spent yet,
     /// and a window part-way through.
     @Test(.enabled(

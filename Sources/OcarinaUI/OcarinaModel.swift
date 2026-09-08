@@ -354,10 +354,17 @@ public final class OcarinaModel {
 
         Task { [weak self] in
             // When the agent in *this* tab started, which is what picks its
-            // conversation out of the several a project can have open.
-            let startedAt = await monitor?.snapshot().foregroundProcessStartTime
+            // conversation out of the several a project can have open — and
+            // whether there is an agent in front of this tab at all. A shell
+            // opened while another tab works has no conversation of its own,
+            // and used to be handed that tab's.
+            let snapshot = await monitor?.snapshot()
+            let startedAt = snapshot?.foregroundProcessStartTime
+            let agentInForeground = AgentTaskSource.isAgent(snapshot?.foregroundProcessName)
             let signature = await Task.detached {
-                source.signature(for: directory, startedAt: startedAt)
+                source.signature(
+                    for: directory, startedAt: startedAt, agentInForeground: agentInForeground
+                )
             }.value
 
             guard let self, self.selectedTabID == asking else { return }
@@ -365,7 +372,9 @@ public final class OcarinaModel {
             self.lastTaskSignature = signature
 
             let read = await Task.detached {
-                source.tasks(for: directory, startedAt: startedAt)
+                source.tasks(
+                    for: directory, startedAt: startedAt, agentInForeground: agentInForeground
+                )
             }.value
             guard self.selectedTabID == asking else { return }
             self.apply(read)
@@ -473,6 +482,17 @@ public final class OcarinaModel {
 
     public var selectedActivity: TabActivity? {
         selectedTabID.flatMap { id in tabs.first { $0.id == id }?.activity }
+    }
+
+    /// Whether anything is running anywhere in the window.
+    ///
+    /// Any tab, not the selected one, and that is the point of it. The mark
+    /// sits above a column listing every tab, so it answers the question you
+    /// have while you are looking at some *other* tab: is the thing I started
+    /// still going. Bound to the selected tab it would say nothing you could
+    /// not already see in the tab you were in.
+    public var isAnythingRunning: Bool {
+        tabs.contains { $0.activity.isRunning }
     }
 
     /// The exit code of the selected tab's last command, when it failed.

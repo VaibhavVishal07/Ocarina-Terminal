@@ -102,6 +102,74 @@ struct ThemeTests {
         }
     }
 
+    @Test("A lattice, where there is one, stays behind the text")
+    func patterns() {
+        for theme in bundled {
+            guard let motif = theme.pattern else { continue }
+            // Above about 0.07 it stops being texture and starts competing
+            // with the text in front of it.
+            #expect(motif.opacity > 0 && motif.opacity <= 0.07,
+                    "\(theme.id) motif opacity \(motif.opacity)")
+            #expect(motif.scale >= 2 && motif.scale <= 40)
+        }
+    }
+
+    @Test("Every theme has a surface of its own, and High Contrast has none")
+    func everyThemeHasATexture() {
+        // The point of bringing these back: a theme is a material as well as
+        // a palette, and thirteen of the fourteen say what they are made of.
+        // Somebody who turned contrast up did not ask for wallpaper, so the
+        // fourteenth is plain on purpose rather than by omission.
+        let plain = bundled.filter { $0.pattern == nil }.map(\.id)
+        #expect(plain == ["high-contrast"], "unexpectedly plain: \(plain)")
+
+        // And no two themes wear the same one, or the surface stops telling
+        // you which theme you are in.
+        let shapes = bundled.compactMap { $0.pattern?.shape }
+        #expect(Set(shapes).count == shapes.count, "two themes share a motif")
+    }
+
+    @Test("Every lattice actually draws something")
+    func everyLatticeDraws() {
+        // A pattern that builds an empty path is a theme with no surface that
+        // still claims one — and at 0.05 opacity nobody would ever notice.
+        let panel = CGSize(width: 230, height: 400)
+        for shape in Motif.Shape.allCases where shape != .brushed {
+            let (stroked, filled) = PatternView.paths(for: shape, size: panel, step: 12)
+            #expect(!stroked.isEmpty || !filled.isEmpty, "\(shape) draws nothing")
+
+            // And it has to cover the panel rather than sitting in a corner:
+            // every lattice runs a cell past all four edges on purpose.
+            let bounds = stroked.isEmpty ? filled.boundingRect
+                                         : stroked.boundingRect.union(filled.boundingRect)
+            #expect(bounds.width >= panel.width * 0.9, "\(shape) leaves a bare edge")
+            #expect(bounds.height >= panel.height * 0.9, "\(shape) leaves a bare edge")
+        }
+    }
+
+    @Test("A lattice is ruled to its period, not scattered")
+    func latticesAreRegular() {
+        // The whole reason the old motifs went: a scatter has marks to find,
+        // and a lattice has none. Two panels of the same size draw the same
+        // path, and a panel twice as tall draws more of it rather than a
+        // different arrangement of it.
+        let short = PatternView.paths(for: .diamonds, size: CGSize(width: 200, height: 100), step: 12)
+        let same = PatternView.paths(for: .diamonds, size: CGSize(width: 200, height: 100), step: 12)
+        #expect(short.1.description == same.1.description)
+
+        let tall = PatternView.paths(for: .diamonds, size: CGSize(width: 200, height: 200), step: 12)
+        #expect(tall.1.description.hasPrefix(short.1.description))
+    }
+
+    @Test("A hexagon closes, and is as wide as a pointy-top cell should be")
+    func honeycomb() {
+        let cell = PatternView.hexagon(at: CGPoint(x: 0, y: 0), radius: 10)
+        let bounds = cell.boundingRect
+        // Pointy-top: two radii tall, `radius * sqrt(3)` across.
+        #expect(abs(bounds.height - 20) < 0.01)
+        #expect(abs(bounds.width - 10 * sqrt(3.0)) < 0.01)
+    }
+
     @Test("The bundled typeface is there and the mono half is monospaced")
     func facesAreBundled() {
         BundledFonts.register()
@@ -112,10 +180,10 @@ struct ThemeTests {
         #expect(NSFont(name: BundledFonts.sans, size: 13)?.isFixedPitch == false)
     }
 
-    @Test("The interface face is Satoshi, and its weights are distinct")
-    func satoshiCarriesItsWeights() {
+    @Test("The interface face is Geist, and its weights are distinct")
+    func geistCarriesItsWeights() {
         BundledFonts.register()
-        #expect(BundledFonts.sans == "Satoshi Variable")
+        #expect(BundledFonts.sans == "Geist")
 
         // The one that is worth a test. The chrome leans on weight to
         // separate a label from its value — "This window" against "1.4M" —
@@ -143,8 +211,8 @@ struct ThemeTests {
     func themesUseTheBundledMono() {
         // Every theme used to name "SF Mono", which does not resolve under that
         // name on macOS — so all of them silently fell back and the files
-        // described a font nobody ever saw. Geist Mono ships with the app, so
-        // the name in the file is the face on the screen.
+        // described a font nobody ever saw. JetBrains Mono ships with the app,
+        // so the name in the file is the face on the screen.
         BundledFonts.register()
         for theme in bundled {
             #expect(theme.terminal.fontName == BundledFonts.mono, "\(theme.id)")
@@ -157,7 +225,7 @@ struct ThemeTests {
         // A theme could name its own typeface for a while, and the result was
         // fourteen apps rather than one app in fourteen colours — Georgia and
         // Futura are different objects before you have read a word of either.
-        // The face is Satoshi for everyone now, and the point of this test
+        // The face is Geist for everyone now, and the point of this test
         // is that no theme can quietly get that option back.
         BundledFonts.register()
         let house = Font.custom(BundledFonts.ui, fixedSize: 12).weight(.regular)

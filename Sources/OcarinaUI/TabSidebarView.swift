@@ -45,6 +45,15 @@ struct TabSidebarView: View {
     /// on screen.
     private static let rowHeight: CGFloat = 40
 
+    /// Extra air between a settings row's glyph and its label, on top of the
+    /// stack's own 7.
+    ///
+    /// The marks in this card are simple ones — a half-filled circle, a
+    /// bubble, three lines, a bolt — and a simple mark set tight against a
+    /// word reads as a bullet in front of it rather than as an icon beside
+    /// it. The gap is what makes the glyphs a column of their own.
+    private static let glyphGap: CGFloat = 8
+
     /// And a tighter one for the settings card.
     ///
     /// A tab row is 40 because a name wants air around it. Four settings in a
@@ -164,11 +173,8 @@ struct TabSidebarView: View {
     /// an opaque dark panel with one faint highlight along the top — enough to
     /// read as a brushed surface catching light, not enough to shine.
     private func metal(at place: OcarinaWindowView.PanelPlace) -> some View {
-        ZStack {
-            OcarinaWindowView.panelFill(theme, at: place)
-            OcarinaWindowView.panelSheen(theme, at: place)
-        }
-        .allowsHitTesting(false)
+        OcarinaWindowView.panelSurface(theme, at: place)
+            .allowsHitTesting(false)
     }
 
     // MARK: - New tab
@@ -234,7 +240,7 @@ struct TabSidebarView: View {
                 model.isThemePickerVisible = true
             } label: {
                 footerRow(
-                    symbol: "paintpalette",
+                    symbol: "circle.lefthalf.filled",
                     title: "Theme",
                     // Not the theme's name. The window is *wearing* the theme —
                     // the answer is the thing you are looking at, and printing
@@ -254,7 +260,7 @@ struct TabSidebarView: View {
                 model.isFeedbackVisible = true
             } label: {
                 footerRow(
-                    symbol: "bubble.left.and.text.bubble.right",
+                    symbol: "bubble.left",
                     title: "Share Feedback",
                     trailing: "",
                     hovered: isFeedbackHovered
@@ -265,7 +271,7 @@ struct TabSidebarView: View {
             .animation(.easeOut(duration: 0.12), value: isFeedbackHovered)
 
             switchRow(
-                symbol: "checklist",
+                symbol: "list.bullet",
                 title: "Tasks",
                 shortcut: "\u{2318}J",
                 isOn: Binding(
@@ -275,7 +281,7 @@ struct TabSidebarView: View {
             )
 
             switchRow(
-                symbol: "cup.and.saucer",
+                symbol: "bolt",
                 title: "Keep Awake",
                 shortcut: nil,
                 isOn: Binding(
@@ -321,13 +327,20 @@ struct TabSidebarView: View {
     ///
     /// The titlebar's own "Ocarina" is hidden in `main.swift`, or the window
     /// would wear its name twice, ten points apart.
+    /// It runs the website's chase while an agent is working in any tab. The
+    /// mark sits over the list of every tab, so it is the one thing in the
+    /// window that can say "something is still going" about a tab you are not
+    /// looking at — and it says it by lighting its own lamps, which costs the
+    /// column no room and adds no second spinner to a window that already has
+    /// one in the menu bar.
     private var wordmark: some View {
         DotMatrixText(
             text: "OCARINA",
             cell: 1.4,
             gap: 0.7,
             lit: theme.board.lit.color,
-            unlit: theme.board.unlit.color
+            unlit: theme.board.unlit.color,
+            chase: model.isAnythingRunning
         )
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityHidden(true)
@@ -344,6 +357,10 @@ struct TabSidebarView: View {
             Image(systemName: symbol)
                 .font(theme.uiFont(10.5, weight: .medium))
                 .frame(width: 9)
+                // On the icon rather than on the stack's spacing: that gap is
+                // also what sits between the label and the value, and widening
+                // it pushed those two apart as well.
+                .padding(.trailing, Self.glyphGap)
             // The label names the row, so it is never the thing that gets cut.
             // `fixedSize` on the *value* meant the opposite: a long value —
             // "High Contrast", when this row still printed the theme's name —
@@ -409,7 +426,7 @@ struct TabSidebarView: View {
             // and one at inset+7, against a Theme label at inset+7+9+7, so the
             // three settings had three different left edges.
             switchRow(
-                symbol: "checklist",
+                symbol: "list.bullet",
                 title: "Tasks",
                 shortcut: "\u{2318}J",
                 isOn: Binding(
@@ -420,7 +437,7 @@ struct TabSidebarView: View {
             .padding(.bottom, 2)
 
             switchRow(
-                symbol: "cup.and.saucer",
+                symbol: "bolt",
                 title: "Keep Awake",
                 shortcut: nil,
                 isOn: Binding(
@@ -457,6 +474,7 @@ struct TabSidebarView: View {
             Image(systemName: symbol)
                 .font(theme.uiFont(10.5, weight: .medium))
                 .frame(width: 9)
+                .padding(.trailing, Self.glyphGap)
                 .foregroundStyle(theme.chrome.textTertiary.color)
 
             Group {

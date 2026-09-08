@@ -18,40 +18,168 @@ struct DotMatrixText: View {
     /// Lit cells bloom, the way an LED board does behind its diffuser.
     var glow: Bool = true
 
+    /// The dots lighting one at a time, in the order the glyphs are built.
+    ///
+    /// The chase the marks on the website run, at the website's speed, and it
+    /// says the same thing here that it says there: a board tells you it is
+    /// live by its own lamps moving. In the app it is on while an agent is
+    /// working in any tab, so the mark answers "is anything still going" from
+    /// across the room, without a second spinner in the window.
+    ///
+    /// Off by default, and deliberately: every other place this is drawn is a
+    /// label — a token figure, an empty state, a heading — and a label that
+    /// shimmers is a label you cannot stop reading. The head takes the
+    /// board's `highlight`, so it is the mark's own brightest lamp rather
+    /// than a white this theme never uses.
+    var chase: Bool = false
+
+    /// One dot every 72ms, a trail of fifteen behind the head, and 26 dots of
+    /// dark between passes. The website's numbers, so the mark in the app and
+    /// the mark on the page move at one speed rather than at two that are
+    /// nearly the same.
+    private static let dwell: Double = 0.072
+    private static let trail: Double = 15
+    private static let rest: Double = 26
+    /// How far in front of itself the head starts bringing a lamp up. Without
+    /// it a dot snaps to full and the chase reads as a row of blinks.
+    private static let lead: Double = 1.4
+    /// The lamp under the head swells as it brightens, by the same fraction
+    /// the website grows its dots. Colour alone reads as a flicker; colour
+    /// and size together read as a lamp being driven harder.
+    private static let swell: Double = 0.21
+    /// 30fps rather than the display's own rate. The trail takes a second to
+    /// cross a dot, so nothing about this is quick enough to need 120 — and
+    /// the mark is 287 cells repainted every frame for as long as an agent is
+    /// working, which is exactly the kind of thing that should not cost a
+    /// display refresh.
+    private static let frameInterval: Double = 1.0 / 30
+
     private var pitch: CGFloat { cell + gap }
     private var columns: Int { max(0, text.count * 6 - 1) }
 
     var body: some View {
-        Canvas { context, _ in
-            let bits = Self.bitmap(for: text)
-            var on = Path(), off = Path()
-            for row in 0..<Self.height {
-                for column in 0..<columns {
-                    let box = CGRect(
-                        x: CGFloat(column) * pitch,
-                        y: CGFloat(row) * pitch,
-                        width: cell,
-                        height: cell
-                    )
-                    let dot = Path(roundedRect: box, cornerRadius: cell * 0.3)
-                    if bits[row][column] { on.addPath(dot) } else { off.addPath(dot) }
-                }
+        // Paused when nothing is chasing, so a still mark costs no frames at
+        // all — which is every mark in the app but this one.
+        TimelineView(.animation(minimumInterval: Self.frameInterval, paused: !chase)) { timeline in
+            Canvas { context, _ in
+                paint(context, at: timeline.date)
             }
-            context.fill(off, with: .color(unlit))
-            let bloom = theme.shape.bloom
-            if glow, bloom > 0 {
-                context.drawLayer { layer in
-                    layer.addFilter(.blur(radius: cell * 0.8 * bloom))
-                    layer.fill(on, with: .color(lit))
-                }
-            }
-            context.fill(on, with: .color(lit))
         }
         .frame(
             width: CGFloat(columns) * pitch - gap,
             height: CGFloat(Self.height) * pitch - gap
         )
         .accessibilityLabel(text)
+    }
+
+    private func paint(_ context: GraphicsContext, at now: Date) {
+        let bits = Self.bitmap(for: text)
+
+        // Where the head is, and which lit cell each rank belongs to.
+        //
+        // Column by column, top to bottom — through the O, then the C, and on
+        // across the word. That is the order the glyphs are built in and the
+        // order the head has to travel in: row by row instead would sweep the
+        // mark in seven horizontal bands, which is a scan and not a chase.
+        var rank = [Int: Double]()
+        var litCells = 0
+        for column in 0..<columns {
+            for row in 0..<Self.height where bits[row][column] {
+                rank[row * columns + column] = Double(litCells)
+                litCells += 1
+            }
+        }
+        let total = Double(litCells) + Self.rest
+        let head: Double = chase && litCells > 0
+            ? (now.timeIntervalSinceReferenceDate / Self.dwell)
+                .truncatingRemainder(dividingBy: total)
+            : -1
+
+        /// How hard this lamp is being driven, 0 for every dot outside the
+        /// trail.
+        func drive(_ position: Double) -> Double {
+            guard head >= 0 else { return 0 }
+            var distance = head - position
+            // The head wraps. A dot near the end of the word is still fading
+            // out while the head is back at the start of the next pass, so
+            // the distance has to be measured round the loop rather than
+            // straight down it.
+            if distance < -Self.lead { distance += total }
+            if distance >= 0, distance < Self.trail { return 1 - distance / Self.trail }
+            if distance < 0, distance > -Self.lead { return 1 + distance / Self.lead }
+            return 0
+        }
+
+        var all = Path(), off = Path(), still = Path()
+        var driven: [(Path, Double)] = []
+
+        for row in 0..<Self.height {
+            for column in 0..<columns {
+                let box = CGRect(
+                    x: CGFloat(column) * pitch,
+                    y: CGFloat(row) * pitch,
+                    width: cell,
+                    height: cell
+                )
+                guard bits[row][column] else {
+                    off.addPath(Path(roundedRect: box, cornerRadius: cell * 0.3))
+                    continue
+                }
+                let dot = Path(roundedRect: box, cornerRadius: cell * 0.3)
+                // The bloom is taken over every lit cell, driven or not, so
+                // turning the chase on does not change the haze the board
+                // sits in.
+                all.addPath(dot)
+
+                let k = drive(rank[row * columns + column] ?? 0)
+                guard k > 0 else { still.addPath(dot); continue }
+                let grow = cell * Self.swell * k
+                let swollen = box.insetBy(dx: -grow / 2, dy: -grow / 2)
+                driven.append((
+                    Path(roundedRect: swollen, cornerRadius: (cell + grow) * 0.3), k
+                ))
+            }
+        }
+
+        context.fill(off, with: .color(unlit))
+        let bloom = theme.shape.bloom
+        if glow, bloom > 0 {
+            context.drawLayer { layer in
+                layer.addFilter(.blur(radius: cell * 0.8 * bloom))
+                layer.fill(all, with: .color(lit))
+            }
+        }
+        // The still lamps in one fill, as they were before there was a chase,
+        // and only the seventeen under the trail painted one at a time.
+        context.fill(still, with: .color(lit))
+        for (dot, k) in driven {
+            context.fill(dot, with: .color(lamp(driven: k)))
+        }
+    }
+
+    /// The board's own lit colour, driven towards white.
+    ///
+    /// Towards white and not towards `board.highlight`: the highlight is the
+    /// meter's warning amber in most themes, and a gold head sweeping a blue
+    /// mark reads as a second colour rather than as the same lamps burning
+    /// harder. The website takes its head to `#EAF6FF`, which is the lit
+    /// colour with the hue nearly washed out of it — so this stops short of
+    /// pure white by the same margin, and every theme keeps a trace of itself
+    /// in the brightest dot.
+    ///
+    /// Built as a colour rather than mixed through `ThemeColor`, which would
+    /// format a hex string for every dot of every frame.
+    private static let peak: Double = 0.85
+
+    private func lamp(driven k: Double) -> Color {
+        let base = theme.board.lit
+        let t = min(max(k, 0), 1) * Self.peak
+        return Color(
+            .sRGB,
+            red: base.red + (1 - base.red) * t,
+            green: base.green + (1 - base.green) * t,
+            blue: base.blue + (1 - base.blue) * t
+        )
     }
 
     // MARK: - Font

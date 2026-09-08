@@ -140,7 +140,7 @@ public extension Theme {
                 "#7A8798", "#FF9090", "#84E0AC", "#F5CD84",
                 "#84C4F5", "#D6AFF2", "#84D8F5", "#EDF2F7",
             ].map(ThemeColor.init(hex:)),
-            fontName: "Geist Mono",
+            fontName: "JetBrains Mono",
             fontSize: 13
         ),
         chrome: Chrome(
@@ -181,7 +181,12 @@ public extension Theme {
             clear: "All the items are closed",
             blurb: "The house look. Blue lamps on a slate board."
         ),
-        texture: nil
+        texture: nil,
+        // A honeycomb, the same as the theme's own file. The compiled-in
+        // theme is the one that has to open the app when the bundle is
+        // unreadable, and a fallback with no surface of its own would be the
+        // one look nobody chose and everybody might see.
+        pattern: Motif(shape: .hexagons, opacity: 0.055, scale: 16, color: ThemeColor(hex: "#38C2FF"))
     )
 }
 

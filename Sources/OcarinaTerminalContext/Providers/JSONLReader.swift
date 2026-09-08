@@ -134,7 +134,15 @@ enum JSONLReader {
     /// two sessions started close together can still be told apart only by the
     /// order their files appear in. That order is usually the order they
     /// started in; when it is not, the worst case is the old behaviour.
-    static func session(in directory: URL, startedAt: Date?) -> URL? {
+    ///
+    /// `allowingResumed` is what keeps a plain terminal out of somebody else's
+    /// conversation. The fallback below is for `--continue` and `--resume`,
+    /// where the agent in *this* tab reopened a file older than itself — and
+    /// its test, "written since this process started", is also true of another
+    /// tab's agent typing right now. So a shell opened beside a working agent
+    /// adopted that agent's transcript and reported its work as its own. A tab
+    /// with no agent in front of it has nothing to resume, and says so.
+    static func session(in directory: URL, startedAt: Date?, allowingResumed: Bool = true) -> URL? {
         let candidates = files(
             in: directory,
             recursive: false,
@@ -154,6 +162,7 @@ enum JSONLReader {
 
         // `--continue` and `--resume` reopen a file older than the process, so
         // fall back to the newest one this process can have written.
+        guard allowingResumed else { return nil }
         return candidates.first { modificationDate(of: $0) >= threshold }
     }
 

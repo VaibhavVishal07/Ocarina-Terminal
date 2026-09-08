@@ -61,10 +61,36 @@ public struct AgentTaskSource: Sendable {
     /// tabs open on one project showed each other's tasks, and switching
     /// between them showed the first tab's list for as long as it took the
     /// next poll to overwrite it.
-    public func tasks(for directory: URL, startedAt: Date? = nil, limit: Int = 50) -> [AgentTask] {
+    ///
+    /// `agentInForeground` says whether this tab is running an agent at all.
+    /// A plain shell opened while an agent works in another tab is not doing
+    /// any of that agent's work, and listing its task as in progress made a
+    /// new terminal look busy the moment it opened.
+    public func tasks(
+        for directory: URL,
+        startedAt: Date? = nil,
+        agentInForeground: Bool = true,
+        limit: Int = 50
+    ) -> [AgentTask] {
         let folder = root.appendingPathComponent(Self.slug(for: directory), isDirectory: true)
-        guard let transcript = JSONLReader.session(in: folder, startedAt: startedAt) else { return [] }
+        guard let transcript = JSONLReader.session(
+            in: folder, startedAt: startedAt, allowingResumed: agentInForeground
+        ) else { return [] }
         return Self.tasks(inTranscript: transcript, limit: limit)
+    }
+
+    /// The binaries whose transcripts this reads.
+    ///
+    /// One name, because there is one transcript format here: `claude` writes
+    /// the files under `~/.claude/projects` and nothing else does. Codex and
+    /// the rest name tabs through their own sources; they do not fill this
+    /// panel, so a tab running one of them has no tasks to inherit either.
+    public static let agentNames: Set<String> = ["claude"]
+
+    /// Whether the process at the front of a terminal is an agent this can read.
+    public static func isAgent(_ process: String?) -> Bool {
+        guard let process else { return false }
+        return agentNames.contains(process.lowercased())
     }
 
     /// Cheap fingerprint of the transcript this directory would read.
@@ -72,9 +98,15 @@ public struct AgentTaskSource: Sendable {
     /// The panel polls, and a poll that re-parses an unchanged file is pure
     /// waste — on a large transcript, a fifth of a second of it. Comparing a
     /// path, a size and a modification date costs one `stat`.
-    public func signature(for directory: URL, startedAt: Date? = nil) -> String? {
+    public func signature(
+        for directory: URL,
+        startedAt: Date? = nil,
+        agentInForeground: Bool = true
+    ) -> String? {
         let folder = root.appendingPathComponent(Self.slug(for: directory), isDirectory: true)
-        guard let transcript = JSONLReader.session(in: folder, startedAt: startedAt),
+        guard let transcript = JSONLReader.session(
+                  in: folder, startedAt: startedAt, allowingResumed: agentInForeground
+              ),
               let values = try? transcript.resourceValues(
                   forKeys: [.fileSizeKey, .contentModificationDateKey]
               )
@@ -96,24 +128,40 @@ public struct AgentTaskSource: Sendable {
     /// Walks a transcript once, in order.
     ///
     /// A prompt becomes a task; a later `end_turn` closes whichever tasks are
-    /// still open. Only the newest can be open at the end, because a turn has
-    /// to finish before the next prompt is answered.
+    /// still open. More than one can be open at once, because a prompt typed
+    /// while the agent is working is answered inside the turn already running.
     static func tasks(inTranscript url: URL, limit: Int = 50) -> [AgentTask] {
         guard let blob = try? Data(contentsOf: url, options: .mappedIfSafe) else { return [] }
 
         var tasks: [AgentTask] = []
         var openIndices: [Int] = []
 
-        // Only two kinds of line matter, and a transcript is mostly neither:
-        // the bulk of it is assistant turns carrying tool results, some of them
-        // enormous. Decoding and JSON-parsing all of that to find a few dozen
-        // prompts cost about half a second on a 32MB file — on the main thread,
-        // at the moment the panel opened.
+        /// A prompt, and the task it opens.
+        func ask(_ prompt: String, id: String, at askedAt: Date?) {
+            tasks.append(
+                AgentTask(
+                    id: id,
+                    title: Self.title(from: prompt),
+                    prompt: prompt,
+                    askedAt: askedAt ?? Date(),
+                    state: .working
+                )
+            )
+            openIndices.append(tasks.count - 1)
+        }
+
+        // Only a few kinds of line matter, and a transcript is mostly none of
+        // them: the bulk of it is assistant turns carrying tool results, some
+        // of them enormous. Decoding and JSON-parsing all of that to find a few
+        // dozen prompts cost about half a second on a 32MB file — on the main
+        // thread, at the moment the panel opened.
         //
-        // A byte search for the two markers throws almost every line out before
-        // it is ever turned into a String.
+        // A byte search for the markers throws almost every line out before it
+        // is ever turned into a String.
         for line in blob.jsonLines() {
             guard line.range(of: Self.typedMarker) != nil
+                    || line.range(of: Self.queuedMarker) != nil
+                    || line.range(of: Self.absorbedMarker) != nil
                     || line.range(of: Self.endTurnMarker) != nil
             else { continue }
             guard let row = try? JSONSerialization.jsonObject(with: line) as? [String: Any]
@@ -125,24 +173,41 @@ public struct AgentTaskSource: Sendable {
 
             switch row["type"] as? String {
             case "user":
-                // Only what a human typed. Queued, system and
+                // What a human typed, whether it went straight in or waited in
+                // the queue for the turn in front of it to end. System and
                 // suggestion-accepted prompts are the app talking, and listing
                 // them as the user's tasks would be a lie about who asked.
-                guard row["promptSource"] as? String == "typed",
+                guard let source = row["promptSource"] as? String,
+                      source == "typed" || source == "queued",
                       let prompt = Self.text(from: row["message"]),
                       !prompt.isEmpty
                 else { continue }
 
-                tasks.append(
-                    AgentTask(
-                        id: row["uuid"] as? String ?? UUID().uuidString,
-                        title: Self.title(from: prompt),
-                        prompt: prompt,
-                        askedAt: Self.date(row["timestamp"]) ?? Date(),
-                        state: .working
-                    )
-                )
-                openIndices.append(tasks.count - 1)
+                ask(prompt, id: row["uuid"] as? String ?? UUID().uuidString,
+                    at: Self.date(row["timestamp"]))
+
+            case "attachment":
+                // A prompt typed while the agent was working and picked up
+                // inside the turn already running. It never becomes a `user`
+                // row at all — the queue hands it to the running turn and
+                // records it as an attachment on that turn — so a panel
+                // reading only `user` rows loses every prompt after the first
+                // one in a turn, and a session of eight requests lists one.
+                //
+                // The other half of the queue is the `queued` source above:
+                // whichever way a queued prompt is delivered it is recorded
+                // once, in one shape or the other, so neither is double-read.
+                guard let attachment = row["attachment"] as? [String: Any],
+                      attachment["type"] as? String == "queued_command",
+                      // Task notifications come through the same door with no
+                      // origin at all. This is the half a person typed.
+                      (attachment["origin"] as? [String: Any])?["kind"] as? String == "human",
+                      let prompt = (attachment["prompt"] as? String)?.trimmed,
+                      !prompt.isEmpty
+                else { continue }
+
+                ask(prompt, id: row["uuid"] as? String ?? UUID().uuidString,
+                    at: Self.date(attachment["timestamp"]) ?? Self.date(row["timestamp"]))
 
             case "assistant":
                 guard let message = row["message"] as? [String: Any],
@@ -169,6 +234,8 @@ public struct AgentTaskSource: Sendable {
     }
 
     private static let typedMarker = Data(#""promptSource":"typed""#.utf8)
+    private static let queuedMarker = Data(#""promptSource":"queued""#.utf8)
+    private static let absorbedMarker = Data(#""type":"queued_command""#.utf8)
     private static let endTurnMarker = Data(#""stop_reason":"end_turn""#.utf8)
 
     /// A prompt is either a plain string or content blocks; take the text.

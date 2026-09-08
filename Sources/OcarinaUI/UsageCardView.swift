@@ -41,10 +41,7 @@ struct UsageCardView: View {
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            ZStack {
-                OcarinaWindowView.panelFill(theme, at: place)
-                OcarinaWindowView.panelSheen(theme, at: place)
-            }
+            OcarinaWindowView.panelSurface(theme, at: place)
         }
         .help(helpText)
     }

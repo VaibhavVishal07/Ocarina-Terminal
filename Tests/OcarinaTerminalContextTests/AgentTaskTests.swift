@@ -19,6 +19,26 @@ struct AgentTaskTests {
         """
     }
 
+    /// A prompt typed mid-turn and picked up by the turn already running.
+    private func absorbed(_ text: String, uuid: String) -> String {
+        """
+        {"type":"attachment","uuid":"\(uuid)","isSidechain":false,\
+        "timestamp":"2026-09-05T10:00:00Z","attachment":{"type":"queued_command",\
+        "prompt":"\(text)","commandMode":"prompt","origin":{"kind":"human"},\
+        "timestamp":"2026-09-05T10:00:00Z"}}
+        """
+    }
+
+    /// Background work reporting back, which comes through the same queue.
+    private func notification(_ text: String, uuid: String) -> String {
+        """
+        {"type":"attachment","uuid":"\(uuid)","isSidechain":false,\
+        "timestamp":"2026-09-05T10:00:00Z","attachment":{"type":"queued_command",\
+        "prompt":"\(text)","commandMode":"task-notification","origin":null,\
+        "timestamp":"2026-09-05T10:00:00Z"}}
+        """
+    }
+
     private let endTurn = #"{"type":"assistant","message":{"stop_reason":"end_turn"}}"#
     private let toolUse = #"{"type":"assistant","message":{"stop_reason":"tool_use"}}"#
 
@@ -30,14 +50,55 @@ struct AgentTaskTests {
         #expect(tasks[0].prompt == "Add a login screen to the app")
     }
 
-    @Test("Only what the human typed counts")
-    func onlyTypedPrompts() throws {
-        // queued, system and suggestion-accepted prompts are the app talking.
-        // Listing them as the user's tasks would misreport who asked.
+    @Test("Only what the human asked for counts")
+    func onlyHumanPrompts() throws {
+        // System and suggestion-accepted prompts are the app talking. Listing
+        // them as the user's tasks would misreport who asked.
         let url = try transcript([
             prompt("real request", uuid: "a"),
             prompt("injected", uuid: "b", source: "system"),
-            prompt("queued up", uuid: "c", source: "queued"),
+            prompt("a follow-up offered to me", uuid: "c", source: "suggestion_accepted"),
+        ])
+        #expect(AgentTaskSource.tasks(inTranscript: url).count == 1)
+    }
+
+    @Test("A prompt that waited in the queue is still the user asking")
+    func queuedPromptsAreTasks() throws {
+        // Typed while the agent was busy and delivered as its own turn once
+        // the one in front of it ended. The words are the user's either way.
+        let url = try transcript([
+            prompt("first", uuid: "a"), endTurn,
+            prompt("second", uuid: "b", source: "queued"), endTurn,
+        ])
+        let tasks = AgentTaskSource.tasks(inTranscript: url)
+        #expect(tasks.map(\.prompt) == ["first", "second"])
+    }
+
+    @Test("A prompt absorbed mid-turn is a task of its own")
+    func absorbedPromptsAreTasks() throws {
+        // The one that made a session of many requests list one. Typed while
+        // the agent was working and picked up inside the running turn, it is
+        // never written as a `user` row — only as an attachment on the turn
+        // that swallowed it — so reading `user` rows alone loses every prompt
+        // after the first.
+        let url = try transcript([
+            prompt("move to geist sans", uuid: "a"),
+            absorbed("and jetbrains mono for the terminal", uuid: "b"),
+            endTurn,
+        ])
+        let tasks = AgentTaskSource.tasks(inTranscript: url)
+        #expect(tasks.map(\.prompt) == ["move to geist sans", "and jetbrains mono for the terminal"])
+        // Both were answered by the one turn, so both close on its end.
+        #expect(tasks.map(\.state) == [.finished, .finished])
+    }
+
+    @Test("A task notification is not a task")
+    func notificationsAreNotTasks() throws {
+        // Background work reporting back arrives through the same queue door,
+        // with no human origin on it.
+        let url = try transcript([
+            prompt("real request", uuid: "a"),
+            notification("Agent finished: 3 files changed", uuid: "b"),
         ])
         #expect(AgentTaskSource.tasks(inTranscript: url).count == 1)
     }
@@ -224,5 +285,58 @@ struct AgentTaskSessionTests {
         // tab's list against another tab's signature and skip the read.
         #expect(source.signature(for: directory, startedAt: now.addingTimeInterval(-620))
                 != source.signature(for: directory, startedAt: now.addingTimeInterval(-3610)))
+    }
+
+    /// A shell opened beside a working agent. It has no conversation, and the
+    /// resume fallback used to hand it the neighbour's — so a terminal opened
+    /// to run one `git status` came up carrying somebody else's task list with
+    /// a task still in progress on it.
+    @Test("A plain terminal opened mid-task has no tasks of its own")
+    func aPlainShellInheritsNothing() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-shell-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let directory = URL(fileURLWithPath: "/Users/me/checkout")
+        let folder = root.appendingPathComponent(
+            AgentTaskSource.slug(for: directory), isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        let now = Date()
+        let line = """
+        {"type":"user","promptSource":"typed","uuid":"a",\
+        "message":{"role":"user","content":"Rewrite the checkout page"}}
+        """
+        let url = folder.appendingPathComponent("busy.jsonl")
+        try line.write(to: url, atomically: true, encoding: .utf8)
+        // Opened an hour ago and being typed into right now: older than the
+        // new tab, and modified after it — which is what the fallback looks
+        // for.
+        try FileManager.default.setAttributes(
+            [.creationDate: now.addingTimeInterval(-3600), .modificationDate: now],
+            ofItemAtPath: url.path
+        )
+
+        let source = AgentTaskSource(root: root)
+        let openedJustNow = now.addingTimeInterval(-5)
+
+        // A shell. Nothing of its own, and nothing borrowed.
+        #expect(source.tasks(for: directory, startedAt: openedJustNow,
+                             agentInForeground: false).isEmpty)
+        #expect(source.signature(for: directory, startedAt: openedJustNow,
+                                 agentInForeground: false) == nil)
+
+        // An agent in the same tab, resuming that conversation, still gets it.
+        #expect(source.tasks(for: directory, startedAt: openedJustNow,
+                             agentInForeground: true).count == 1)
+    }
+
+    @Test("A shell is not an agent, and `claude` is")
+    func agentsAreNamed() {
+        #expect(AgentTaskSource.isAgent("claude"))
+        #expect(AgentTaskSource.isAgent("Claude"))
+        #expect(!AgentTaskSource.isAgent("zsh"))
+        #expect(!AgentTaskSource.isAgent(nil))
     }
 }

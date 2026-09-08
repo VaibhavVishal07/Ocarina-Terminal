@@ -111,6 +111,24 @@ them it actually got to. The panel down the right is that list, read from the
 transcript the agent writes anyway — so it costs the session nothing and it
 survives scrollback.
 
+Every prompt you typed, and only the prompts you typed. That is harder than it
+sounds. A prompt sent while the agent is already working never becomes a prompt
+record at all — the queue hands it to the turn already running and files it as
+an attachment on that turn — so a panel reading prompt records alone drops every
+request after the first one in a turn, and a session of eight asks lists one.
+A prompt that waited for the turn in front of it to end is filed a third way
+again. All three are read. What is not read is anything the app said on your
+behalf: injected prompts, follow-ups you accepted from a suggestion, background
+work reporting back through the same queue, and a subagent talking to itself.
+
+The list belongs to the tab, not to the folder. Two agents open on one project
+write two transcripts side by side, and each tab is bound to the one that
+appeared after its own agent started. A terminal with no agent in front of it is
+bound to nothing at all — that case used to fall through to "whichever
+transcript has been written to lately", which is exactly the neighbour that is
+working right now, so opening a shell to run one `git status` came up carrying
+somebody else's list with a task still in progress on it.
+
 `TaskSummariser` asks Claude to rewrite the local titles, because it is better
 at it: "Toggle option near right-hand" becomes "Move toggle to right side".
 Three rules follow from where that work happens.
@@ -189,6 +207,16 @@ failure that reads as anything else.
 The item goes away when there is no tab open. A menu bar item saying the
 all-clear about an app with nothing in it is furniture in the most expensive
 strip of screen on the Mac.
+
+Inside the window, the wordmark says it. While an agent is working in **any**
+tab, the mark's lamps light one at a time along the word, with a short trail
+behind the head — the same chase the marks on the website run, at the same
+speed. Any tab and not the selected one, because the mark sits over the list of
+every tab: bound to the tab in front of you it would only repeat what that tab's
+own dot already says. It costs the column no room and adds no second spinner to
+a window that has one in the menu bar, and it is the only `DotMatrixText` in the
+app that moves — the rest are labels, and a label that shimmers is a label you
+cannot stop reading.
 
 ## It still says what the window has cost
 
@@ -425,18 +453,36 @@ Every colour is then checked against the reading floor and lifted until it
 clears — turning saturation up takes light out of a colour, and one theme's dim
 grey, which is where comments land, fell to 4.38 against a floor of 4.5.
 
-Themes used to carry a background motif as well — petals, leaves, embers, rain.
-Read at one row it was texture; read down a column of tabs it was litter behind
-the thing you were trying to scan. That version is gone, and the reason it
-failed is worth holding on to, because it is not "motifs are bad": it was drawn
-behind content.
+Every theme also has a surface. Blueprint is ruled in an engineering grid,
+Matrix in scanlines, Steel in the grain of rolled metal; Ocarina is a honeycomb,
+Sakura a lattice of diamonds, Ocean rows of chevrons. Thirteen of them, no two
+alike, at four to six and a half hundredths — you should not be able to say what
+the pattern is without looking for it. The panel simply stops reading as a flat
+rectangle. It is drawn between the panel's fill and its sheen, so the light
+lands across the texture instead of the texture sitting on the glass.
 
-`Trinket` brings it back to the one surface in the app that has no content to be
-behind. The landing screen is empty by definition — that is its whole name — so
-a handful of petals crossing it is the only thing on screen that is neither the
-app's name nor a button, and there is nothing there for it to get in the way of.
-It appears nowhere else, and there is no field for making it appear anywhere
-else.
+The first version of this drew pictures — petals, leaves, embers, rain,
+scattered on a jittered grid. Read at one row it was texture; read down a column
+of tabs it was litter behind the thing you were trying to scan, and it came out
+entirely. What was wrong with it was not that it sat behind content but that it
+had a subject: the eye finds a blossom, resolves it, and has spent attention
+that belonged to the tab you were reading. A lattice has nothing to resolve. It
+is regular, it is about nothing, and it reads as what the panel is made of
+rather than as things lying on it — which is also why these are ruled rather
+than jittered. The scatter existed to stop nine repeated blossoms looking like
+wallpaper, and a grid of lines has no such problem.
+
+High Contrast has no surface, and `nil` is the honest value rather than a
+quieter setting: texture is the last thing that helps somebody who needed to
+turn contrast up. Steel is the one lattice that is not regular, because an
+evenly ruled one is printed paper and that surface has to read as a material.
+
+The pictures were not thrown away, though. `Trinket` keeps them on the one
+surface in the app that has no content to be behind: the landing screen is empty
+by definition — that is its whole name — so a handful of petals crossing it is
+the only thing on screen that is neither the app's name nor a button, and there
+is nothing there for it to get in the way of. It appears nowhere else, and there
+is no field for making it appear anywhere else.
 
 Each theme gets its own: Sakura has petals, Matcha leaves, Ember rising sparks,
 Ocean bubbles, Midnight stars that fade where they are, Matrix its rain, Ocarina
@@ -542,14 +588,13 @@ cue from `NSAppearance`, not from us; without this a light theme kept a dark
 switch and dark scrollbars, which reads as a half-finished theme rather than a
 choice.
 
-The interface is set in Satoshi and the terminal in Geist Mono — the terminal
+The interface is set in Geist and the terminal in JetBrains Mono — the terminal
 needs a fixed cell, and a proportional face there does not look wrong, it tears.
 Both are bundled and registered before the first frame draws, so nothing flashes
-through a fallback face on its way to the right one. Geist Mono is under the SIL
-Open Font License; Satoshi is under the ITF Free Font License, which permits
-embedding in a desktop application and forbids altering the file, so it ships
-unsubsetted, unconverted and under the name the foundry gave it. Both licences
-are in `Sources/OcarinaUI/Resources/Fonts/`.
+through a fallback face on its way to the right one. Both are under the SIL Open
+Font License, and because they come from different projects each carries its own
+copyright line, so both licence files are in
+`Sources/OcarinaUI/Resources/Fonts/`.
 
 ## It stays awake while you wait
 
@@ -852,7 +897,6 @@ Sources/OcarinaUI/       SwiftUI layer
   TaskPanelView          what you have asked the agent in this tab
   TaskSummariser         better names for those tasks, via the `claude` binary
   StatusCardView         working, done or stopped, under the task list
-  DotRingLoader          the app's mark lighting round while work is running
   ThemeStore / Theme     bundled + user themes, and the colour model
   ThemePickerView        pick by looking, not by remembering names
   CommandPaletteView     jump by what a terminal is doing (⇧⌘P)
@@ -865,6 +909,7 @@ Sources/OcarinaUI/       SwiftUI layer
   AgentMarks             the marks each tool wears, drawn as geometry
   TerminalBed            what the terminal is drawn on, and the activity rail
   Trinket / TrinketField each theme's own small thing on the landing screen
+  Pattern                the geometric lattice each theme's panels are ruled in
   DotMatrix              5x7 dot-matrix panel, the board is built from it
   OcarinaIcon            the bundled app mark, prepared for the dock
   FeedbackView           the report sheet, and the issue URL it builds
@@ -878,7 +923,7 @@ Sources/OcarinaUI/       SwiftUI layer
   AppIdentity            what this build calls itself
   TabIcon / StatusDot    a symbol and a state for each tab
   SleepGuard             holds the Mac awake while Ocarina is open
-  BundledFonts           registers Satoshi and Geist Mono before frame one
+  BundledFonts           registers Geist and JetBrains Mono before frame one
   MainMenu               the menu bar; where ⌘T / ⌘W / ⌘K / ⇧⌘P actually live
   ToolTip                AppKit tool tips, because .help draws none here
 Sources/Ocarina/         executable entry point

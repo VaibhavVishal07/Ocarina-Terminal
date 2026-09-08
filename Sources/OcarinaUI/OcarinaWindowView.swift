@@ -319,6 +319,25 @@ public struct OcarinaWindowView: View {
         }
     }
 
+    /// A panel's whole surface: the fill, the motif on it, and the light
+    /// landing on top.
+    ///
+    /// One builder rather than the `ZStack { panelFill; panelSheen }` that
+    /// stood in three files, because the motif has to go *between* those two
+    /// layers everywhere. Under the sheen it is part of the material and the
+    /// light falls across it; over the sheen it sits on the glass, and the top
+    /// of every panel comes out looking dusty.
+    @ViewBuilder
+    static func panelSurface(_ theme: Theme, at place: PanelPlace) -> some View {
+        ZStack {
+            panelFill(theme, at: place)
+            if let motif = theme.pattern {
+                PatternView(motif: motif)
+            }
+            panelSheen(theme, at: place)
+        }
+    }
+
     /// Rounds a panel off and draws its edge.
     ///
     /// No drop shadow. The gap and the hairline are what say a panel is a

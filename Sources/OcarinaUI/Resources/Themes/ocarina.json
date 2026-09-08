@@ -25,7 +25,7 @@
       "#84C1F5",
       "#EDF2F7"
     ],
-    "fontName": "Geist Mono",
+    "fontName": "JetBrains Mono",
     "fontSize": 13
   },
   "chrome": {
@@ -62,5 +62,11 @@
     "stopped": "A build stopped short",
     "clear": "All the items are closed",
     "blurb": "The house look. Blue lamps on a slate board."
+  },
+  "pattern": {
+    "shape": "hexagons",
+    "opacity": 0.055,
+    "scale": 16,
+    "color": "#38C2FF"
   }
 }

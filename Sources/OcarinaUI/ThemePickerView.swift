@@ -168,6 +168,9 @@ private struct ThemeSwatch: View {
                 theme.terminal.background.color
                 // The texture belongs here — it is as much the theme as the
                 // hue is, and it is the only way to tell Steel from Midnight.
+                if let motif = theme.pattern {
+                    PatternView(motif: motif)
+                }
                 VStack {
                     Spacer(minLength: 0)
                     swatches

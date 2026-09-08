@@ -41,10 +41,7 @@ struct TaskPanelView: View {
         // The top of the right-hand column, so it carries the light and the
         // token card below it carries the fall.
         .background {
-            ZStack {
-                OcarinaWindowView.panelFill(theme, at: .top)
-                OcarinaWindowView.panelSheen(theme, at: .top)
-            }
+            OcarinaWindowView.panelSurface(theme, at: .top)
         }
     }
 

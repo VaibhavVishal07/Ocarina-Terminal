@@ -25,7 +25,7 @@
       "#9CCFE6",
       "#EFF3F6"
     ],
-    "fontName": "Geist Mono",
+    "fontName": "JetBrains Mono",
     "fontSize": 13
   },
   "chrome": {
@@ -68,5 +68,11 @@
     "sheen": 0.2,
     "bloom": 0,
     "weight": "heavy"
+  },
+  "pattern": {
+    "shape": "brushed",
+    "opacity": 0.05,
+    "scale": 3,
+    "color": "#DDE5EC"
   }
 }
