@@ -40,6 +40,9 @@ enum ActivityCard: Equatable, CaseIterable {
     /// never *done*. A ring makes no claim. It also gives the menu bar the one
     /// mark that says whose it is.
     case backToYou
+    /// It rang. An exclamation, and the seam falls inside the mark's own gap —
+    /// the one plate where the fold is not something to draw around.
+    case needsYou
     /// It exited non-zero. A cross, cut by the seam. The number is in the
     /// tooltip; a five-lamp card has no way to say 127 and no business trying.
     case stopped
@@ -49,6 +52,7 @@ enum ActivityCard: Equatable, CaseIterable {
         case .idle: self = .ready
         case .running: self = .working
         case .succeeded: self = .backToYou
+        case .needsYou: self = .needsYou
         case .failed: self = .stopped
         }
     }
@@ -99,6 +103,14 @@ enum ActivityCard: Equatable, CaseIterable {
              "#.....#",
              ".#...#.",
              "..###.."]
+        case .needsYou:
+            ["..###..",
+             "..###..",
+             "..###..",
+             ".......",
+             ".......",
+             "..###..",
+             "......."]
         case .stopped:
             ["#.....#",
              ".#...#.",

@@ -28,6 +28,26 @@ public final class TabItem: Identifiable {
     public var isManuallyNamed: Bool = false
     /// Busy, done, or failed — drawn as the status dot.
     public var activity: TabActivity = .idle
+    /// This tab rang while you were somewhere else.
+    ///
+    /// Held on the tab rather than folded into `activity`, because the two
+    /// come from different places and would fight: activity is rewritten from
+    /// the naming service's stream every time the pty moves, and a ring set
+    /// there would be gone on the next update. `OcarinaModel.reported` puts
+    /// them together on the way out. See `TabActivity.needsYou`.
+    public var needsAttention: Bool = false
+
+    /// What the column should draw for this tab.
+    ///
+    /// The ring wins over what the pty is doing, and loses to a failure. This
+    /// is the sidebar's version of `OcarinaModel.reported` — it has no
+    /// transcript to consult, because none is read for a tab nobody is looking
+    /// at, so what is left is the pty's own reading and whether this tab has
+    /// asked for you.
+    public var displayActivity: TabActivity {
+        if case .failed = activity { return activity }
+        return needsAttention ? .needsYou : activity
+    }
 
     /// The summariser, so the strip can show the same quality of name the task
     /// panel does. Weak and ignored: the model owns it, and it is read here,
@@ -409,6 +429,9 @@ public final class OcarinaModel {
 
     /// Somebody typed. Names may now cost a subprocess.
     private func noteUserInput() {
+        // Typing into the tab settles it too, for the case where it rang while
+        // it was already in front of you and you never had to switch.
+        clearBell(selectedTabID)
         guard !summarisingAllowed else { return }
         summarisingAllowed = true
         // The transcript is usually already read and unchanged, and
@@ -682,20 +705,51 @@ public final class OcarinaModel {
         return Self.reported(
             activity,
             isConversation: selectedTab?.isConversation == true,
-            tasks: rawTasks
+            tasks: rawTasks,
+            hasRung: selectedTab?.needsAttention == true
         )
     }
 
     /// The rule on its own, so it can be checked without a pty.
+    ///
+    /// `hasRung` outranks everything but a failure, and it is the only input
+    /// here that does not come from watching the program — it comes from the
+    /// program *asking*. An agent that has stopped to get a decision out of you
+    /// is not making progress, however busy the screen looks, and it is not
+    /// finished either. A non-zero exit still wins: something that has already
+    /// stopped badly is not waiting on you, and the number is worth more than
+    /// the ring.
     static func reported(
         _ activity: TabActivity,
         isConversation: Bool,
-        tasks: [AgentTask]
+        tasks: [AgentTask],
+        hasRung: Bool = false
     ) -> TabActivity {
-        guard isConversation else { return activity }
         if case .failed = activity { return activity }
+        if hasRung { return .needsYou }
+        guard isConversation else { return activity }
         if tasks.contains(where: { $0.state == .working }) { return .running }
         return tasks.isEmpty ? .idle : .succeeded
+    }
+
+    /// A tab rang. Recorded on the tab, not on the session, because the
+    /// question it answers — "which of these wants me" — is one you ask of the
+    /// column.
+    ///
+    /// A ring in the tab you are already looking at is not news: you are here,
+    /// you can see the prompt. It only becomes a state worth carrying when it
+    /// happened somewhere you are not.
+    private func noteBell(from id: UUID) {
+        guard id != selectedTabID, let tab = tabs.first(where: { $0.id == id }) else { return }
+        tab.needsAttention = true
+        refreshStatusItem()
+    }
+
+    /// Clears the mark on a tab you have now looked at.
+    private func clearBell(_ id: UUID?) {
+        guard let id, let tab = tabs.first(where: { $0.id == id }), tab.needsAttention
+        else { return }
+        tab.needsAttention = false
     }
 
 
@@ -768,6 +822,7 @@ public final class OcarinaModel {
         let session = TerminalSession(workingDirectory: workingDirectory)
         session.onInput = { [weak self] in self?.noteUserInput() }
         session.onDragStateChange = { [weak self] isOver in self?.isDropTarget = isOver }
+        session.onBell = { [weak self] in self?.noteBell(from: session.id) }
         // Styled before it is ever shown, so a new tab never flashes the
         // default palette on its way to the chosen one.
         session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
@@ -900,6 +955,10 @@ public final class OcarinaModel {
         guard id != selectedTabID else { return }
         selectedTabID = id
         noteVisit(id)
+        // Looking at it is the answer to it. Anything else — a button, a
+        // dismiss — would be a second thing to do after the thing you already
+        // did.
+        clearBell(id)
 
         // The list belongs to the tab, so it goes with the tab — at once, not
         // on the next poll. Leaving it up meant switching tabs showed the tab

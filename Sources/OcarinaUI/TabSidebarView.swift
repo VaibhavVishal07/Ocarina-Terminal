@@ -696,7 +696,7 @@ struct TabSidebarView: View {
         HStack(spacing: 7) {
             // First in the row, so the whole column of dots can be read down
             // the edge without stopping at any of the names.
-            StatusDot(activity: tab.activity)
+            StatusDot(activity: tab.displayActivity)
             tabIcon(for: tab)
 
             if isRenaming {

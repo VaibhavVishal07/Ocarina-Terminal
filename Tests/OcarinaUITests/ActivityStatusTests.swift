@@ -11,6 +11,7 @@ struct ActivityStatusTests {
     private let speech = Theme.Speech(
         working: "Steeping",
         done: "Steeped through",
+        needsYou: "The pot wants pouring",
         stopped: "It went bitter",
         clear: "The cup is empty",
         blurb: "Green, and in no hurry about it."
@@ -197,6 +198,7 @@ struct ActivityStatusTests {
         let silent = Theme.Speech(
             working: Theme.fallback.speech.working,
             done: Theme.fallback.speech.done,
+            needsYou: Theme.fallback.speech.needsYou,
             stopped: Theme.fallback.speech.stopped,
             clear: Theme.fallback.speech.clear,
             blurb: nil
@@ -310,5 +312,58 @@ struct ActivityStatusTests {
         // A window that closed while you were away counts down to nothing
         // rather than to a negative number of minutes.
         #expect(ActivityStatusItem.countdown(to: now.addingTimeInterval(-90), from: now) == "0m")
+    }
+
+    // MARK: - Needs you
+
+    @Test("A ring outranks the run, and loses to a failure")
+    func ringingBeatsTheRun() {
+        func reported(_ activity: TabActivity, rung: Bool, tasks: [AgentTask] = []) -> TabActivity {
+            OcarinaModel.reported(activity, isConversation: true, tasks: tasks, hasRung: rung)
+        }
+        // An agent that has stopped to get a decision out of you is not making
+        // progress, however busy the screen looks.
+        #expect(reported(.running, rung: true) == .needsYou)
+        #expect(reported(.idle, rung: true) == .needsYou)
+        #expect(reported(.succeeded, rung: true) == .needsYou)
+        // Something that has already stopped badly is not waiting on you, and
+        // the number is worth more than the ring.
+        #expect(reported(.failed(exitCode: 127), rung: true) == .failed(exitCode: 127))
+        // And with no ring nothing changes.
+        #expect(reported(.running, rung: false) == .idle)
+    }
+
+    @Test("A plain shell can ring too")
+    func aShellCanRing() {
+        // The conversation rule only governs what a *transcript* is allowed to
+        // say about a tab. A ring is the program asking, and `make` finishing
+        // with a bell in it is asking exactly as much as an agent is.
+        #expect(OcarinaModel.reported(.running, isConversation: false, tasks: [], hasRung: true)
+                == .needsYou)
+        #expect(OcarinaModel.reported(.running, isConversation: false, tasks: [], hasRung: false)
+                == .running)
+    }
+
+    @Test("Needs you says so in the bar, and in the theme's own words below")
+    func theWordsForARing() {
+        // The house line up top, because the menu bar is read from outside
+        // Ocarina and the two things somebody glancing up wants are which app
+        // is talking and whether it is waiting on them.
+        #expect(ActivityStatusItem.title(for: .needsYou) == "Needs you")
+        #expect(ActivityStatusItem.line(for: .needsYou, speech: speech) == "The pot wants pouring")
+        // No theme can turn it into a report about the run.
+        #expect(!ActivityStatusItem.title(for: .needsYou).localizedCaseInsensitiveContains("done"))
+    }
+
+    @Test("The ring has a card of its own, and it keeps the seam")
+    func theRingHasACard() {
+        #expect(ActivityCard(.needsYou) == .needsYou)
+        let plate = ActivityCard.needsYou.plate
+        #expect(plate[ActivityCard.seam] == String(repeating: ".", count: ActivityCard.columns))
+        #expect(plate.count == ActivityCard.rows)
+        // Its own picture, not a borrowed one.
+        for other in ActivityCard.allCases where other != .needsYou {
+            #expect(other.plate != plate)
+        }
     }
 }

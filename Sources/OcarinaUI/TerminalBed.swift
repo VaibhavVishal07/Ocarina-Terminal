@@ -107,6 +107,7 @@ struct TerminalBed: View {
     private var railColour: Color {
         switch activity {
         case .running: theme.status.running.color
+        case .needsYou: theme.chrome.accent.color
         case .succeeded: theme.status.succeeded.color
         case .failed: theme.status.failed.color
         case .idle, nil: theme.status.idle.color
@@ -120,6 +121,11 @@ struct TerminalBed: View {
     private var railStrength: Double {
         switch activity {
         case .running: 0.85
+        // The brightest of the four, and brighter than running. A rail is the
+        // only thing on this surface you can see without looking away from
+        // what you are typing, and this is the one state where the tab is
+        // waiting on you rather than the other way round.
+        case .needsYou: 0.95
         case .failed: 0.8
         case .succeeded: 0.5
         case .idle, nil: 0.22

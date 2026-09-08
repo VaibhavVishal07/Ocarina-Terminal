@@ -211,6 +211,10 @@ public struct Theme: Codable, Sendable, Equatable, Identifiable {
         public let working: String?
         /// It stopped, and cleanly.
         public let done: String?
+        /// What this theme calls a tab that has rung for you. Optional like
+        /// every other line here, so a theme file written before the state
+        /// existed still loads.
+        public let needsYou: String?
         /// It stopped, and did not. The exit code is appended by the caller,
         /// so this line does not carry a number.
         public let stopped: String?
@@ -372,6 +376,11 @@ public extension Theme {
         Speech(
             working: voice?.working ?? "Something is building",
             done: voice?.done ?? "A build has completed",
+            // Every theme file predates this field, so every theme gets the
+            // house line until it says otherwise — the same rule the rest of
+            // `speech` follows, and the reason a user's own theme file does
+            // not come up with an empty menu bar.
+            needsYou: voice?.needsYou ?? "Something is asking for you",
             stopped: voice?.stopped ?? "A build stopped short",
             clear: voice?.clear ?? "All the items are closed",
             blurb: voice?.blurb
@@ -394,6 +403,8 @@ public extension Theme {
     struct Speech: Sendable, Equatable {
         public let working: String
         public let done: String
+        /// What this theme calls a tab that has rung for you.
+        public let needsYou: String
         public let stopped: String
         public let clear: String
         public let blurb: String?

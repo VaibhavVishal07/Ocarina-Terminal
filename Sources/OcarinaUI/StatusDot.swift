@@ -19,6 +19,12 @@ struct StatusDot: View {
         case .idle: theme.status.idle.color
         case .running: theme.status.running.color
         case .succeeded: theme.status.succeeded.color
+        // The accent rather than a fifth colour in `Theme.Status`, which every
+        // theme file would have had to grow. It is the colour this app already
+        // uses to mean "this is the thing", and a tab asking for you is the
+        // thing. See `TabIcon` for the same argument: name the slot, and let
+        // the theme say what colour that is.
+        case .needsYou: theme.chrome.accent.color
         case .failed: theme.status.failed.color
         }
     }
@@ -28,6 +34,7 @@ struct StatusDot: View {
         case .idle: "Idle"
         case .running: "Working"
         case .succeeded: "Finished"
+        case .needsYou: "Needs you"
         case let .failed(code): "Failed (exit \(code))"
         }
     }

@@ -15,8 +15,17 @@ struct OcarinaModelTests {
         return directory
     }
 
+    /// Waits for a name to arrive, generously.
+    ///
+    /// 24 seconds, which is absurd for a thing that takes well under one on an
+    /// idle machine — and the number is about the machine, not the feature.
+    /// This test boots a real login shell and `exec`s a real Python into it,
+    /// and the suite runs its suites concurrently: at 8 seconds it failed
+    /// roughly one full run in three while passing every time it was run on
+    /// its own. A test that cries wolf at that rate costs more than the minute
+    /// it saves, because it makes every green run afterwards worth less.
     private func waitForTitle(_ tab: TabItem, toBecome expected: String) async -> Bool {
-        for _ in 0..<80 {
+        for _ in 0..<240 {
             if tab.title == expected { return true }
             try? await Task.sleep(for: .milliseconds(100))
         }
@@ -276,5 +285,51 @@ struct OcarinaModelTests {
         // And whatever the close landed on is now the most recent, so the
         // palette does not open on the tab you just left.
         #expect(model.tabsByRecency.first?.id == model.selectedTabID)
+    }
+
+    // MARK: - Ringing
+
+    @Test("A ring in the tab you are looking at is not news")
+    func ringingWhereYouAlreadyAre() {
+        let model = OcarinaModel()
+        let a = model.newTab(), b = model.newTab()
+        defer { [a, b].forEach { model.closeTab($0.id) } }
+
+        // b is selected — it was made last.
+        model.session(for: b.id)?.onBell?()
+        #expect(!b.needsAttention, "you are here; you can see the prompt")
+
+        model.session(for: a.id)?.onBell?()
+        #expect(a.needsAttention)
+        #expect(a.displayActivity == .needsYou)
+    }
+
+    @Test("Looking at a tab is the answer to it")
+    func lookingSettlesIt() {
+        let model = OcarinaModel()
+        let a = model.newTab(), b = model.newTab()
+        defer { [a, b].forEach { model.closeTab($0.id) } }
+
+        model.session(for: a.id)?.onBell?()
+        #expect(a.needsAttention)
+        model.selectTab(a.id)
+        // No button, no dismiss: anything else would be a second thing to do
+        // after the thing you already did.
+        #expect(!a.needsAttention)
+        #expect(a.displayActivity == a.activity)
+    }
+
+    @Test("A failed tab keeps its number rather than its ring")
+    func failureOutranksTheRing() {
+        let model = OcarinaModel()
+        let a = model.newTab(), b = model.newTab()
+        defer { [a, b].forEach { model.closeTab($0.id) } }
+
+        a.activity = .failed(exitCode: 127)
+        model.session(for: a.id)?.onBell?()
+        #expect(a.needsAttention)
+        // The mark is still recorded — it did ring — but the column draws the
+        // failure, because a number is worth more than a ring.
+        #expect(a.displayActivity == .failed(exitCode: 127))
     }
 }

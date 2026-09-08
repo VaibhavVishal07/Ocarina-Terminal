@@ -36,6 +36,8 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
 
     /// A drag is over this terminal, or has left it.
     public var onDragStateChange: ((Bool) -> Void)?
+    /// The program rang. See `TabActivity.needsYou`.
+    public var onBell: (() -> Void)?
 
     /// A command waiting for the shell to be ready for it. See `runWhenReady`.
     private var pendingCommand: String?
@@ -184,6 +186,11 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
 
     public func bell(source: TerminalView) {
         NSSound.beep()
+        // And it is written down, not only heard. A beep is gone the moment it
+        // happens: ring it while the window is behind a browser and nothing on
+        // the screen remembers that this tab asked for something. See
+        // `TabActivity.needsYou`.
+        onBell?()
     }
 
     public func clipboardCopy(source: TerminalView, content: Data) {

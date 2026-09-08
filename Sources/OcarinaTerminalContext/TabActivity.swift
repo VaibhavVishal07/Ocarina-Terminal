@@ -12,6 +12,18 @@ public enum TabActivity: Sendable, Equatable {
     case running
     /// The last command exited 0.
     case succeeded
+    /// The program in this tab rang the bell and you have not looked since.
+    ///
+    /// The one state here that is not read off the pty's own behaviour. BEL is
+    /// a program *asking for you* — it has meant that for fifty years, and the
+    /// coding agents ring it when they want a decision — so it is the only
+    /// honest way to tell "waiting on you" from "still thinking". A transcript
+    /// cannot say it: a permission prompt that has not been answered has not
+    /// happened yet, so nothing is written down.
+    ///
+    /// It outranks running, because an agent that has stopped to ask is not
+    /// making progress however busy the screen looks.
+    case needsYou
     /// The last command exited non-zero.
     case failed(exitCode: Int)
 

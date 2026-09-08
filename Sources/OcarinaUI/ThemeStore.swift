@@ -177,6 +177,7 @@ public extension Theme {
         voice: Voice(
             working: "Something is building",
             done: "A build has completed",
+            needsYou: "Something is asking for you",
             stopped: "A build stopped short",
             clear: "All the items are closed",
             blurb: "The house look. Blue lamps on a slate board."

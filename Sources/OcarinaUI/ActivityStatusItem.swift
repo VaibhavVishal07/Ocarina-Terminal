@@ -221,6 +221,10 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         case .idle: "Ready"
         case .running: "Still going"
         case .succeeded: "Back to you"
+        // Not "Needs input", which reads as a form. This is the one state that
+        // is about *you* rather than about the run, and the words up here are
+        // meant to answer "is it waiting on me" in a glance.
+        case .needsYou: "Needs you"
         // Same rule as `line`: the code is appended here, not written by a
         // theme, so a failure in the menu bar always carries its number.
         case let .failed(code): "Stopped (\(code))"
@@ -237,6 +241,7 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         case .idle: speech.clear
         case .running: speech.working
         case .succeeded: speech.done
+        case .needsYou: speech.needsYou
         // The code goes here rather than in the theme's line, so a theme
         // cannot write a failure that does not carry its number.
         case let .failed(code): "\(speech.stopped) (\(code))"

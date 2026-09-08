@@ -358,6 +358,65 @@ a window that has one in the menu bar, and it is the only `DotMatrixText` in the
 app that moves — the rest are labels, and a label that shimmers is a label you
 cannot stop reading.
 
+## It says when a tab is asking for you
+
+A fifth state, and the only one in the app that is not read off the pty's own
+behaviour: **Needs you**. The tab's dot goes to the theme's accent, the rail
+over the terminal comes up brighter than it does for a run, and the menu bar
+wears an exclamation whose gap falls exactly on the seam.
+
+**The signal is the bell.** BEL has meant "a program is asking for you" for
+fifty years, and the coding agents ring it when they want a decision. Nothing
+else available can say it. A transcript cannot: a permission prompt that has not
+been answered *has not happened yet*, so there is nothing written down — across
+the transcripts this was checked against, `stop_reason` is only ever `tool_use`
+or `end_turn`, and neither distinguishes "running your build" from "waiting for
+you to say yes". Watching the screen cannot either, because an agent thinking
+and an agent waiting both repaint.
+
+So the app stops guessing and uses the thing the program says on purpose. The
+beep still sounds; what is new is that it is also *written down*. A beep is gone
+the moment it happens, and ringing while the window sits behind a browser used
+to leave nothing on screen that remembered it.
+
+**A ring in the tab you are already looking at is not news** — you are there,
+you can see the prompt — so it is only recorded for a tab you are not in. And
+**looking at the tab is the answer to it**: there is no button and no dismiss,
+because either would be a second thing to do after the thing you already did.
+
+It outranks running and loses to a failure. An agent that has stopped to get a
+decision out of you is not making progress however busy the screen looks; a
+command that has already exited non-zero is not waiting on anybody, and the
+number is worth more than the ring.
+
+A plain shell can ring too. The conversation rule governs what a *transcript* is
+allowed to claim about a tab — `make` finishing with a bell in it is asking for
+you exactly as much as an agent is.
+
+### What it is still not called
+
+The roadmap this came from asks for **Finished** as a state of its own, and the
+app does not have one. The completion signal is `stop_reason: "end_turn"`, which
+means the agent stopped talking — not that it managed what you asked. A task it
+abandoned looks exactly like one it nailed. So the state stays **Back to you**,
+which is a thing this data can support, and *Needs you* is the part of that
+split which could be built honestly, because a ring is a program saying so
+rather than the app inferring it.
+
+`TabItem.needsAttention` is held beside `activity` rather than folded into it:
+activity is rewritten from the naming service's stream every time the pty moves,
+and a ring set there would be gone on the next update. `OcarinaModel.reported`
+puts the two together on the way out, which is where the conversation rule
+already lives.
+
+The dot takes the theme's **accent** rather than a fifth colour in
+`Theme.Status`, which every theme file would have had to grow. It is the colour
+the app already uses to mean "this is the thing", and a tab asking for you is
+the thing — the same argument `TabIcon` settled: name the slot, and let the
+theme say what colour that is. The words work the same way: `needsYou` is
+optional on a theme's `voice`, so all fourteen bundled themes and anybody's own
+file still load, saying the house line until they say otherwise.
+
 ## It still says what the window has cost
 
 Under the task list, a small card: what this agent has spent, and how long the
