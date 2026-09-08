@@ -31,6 +31,26 @@ struct EmptyStateView: View {
     /// thing you just watched arrive is not here.
     @State private var installed: Set<String> = []
     @State private var isHovered = false
+
+    /// The arrival, in three beats.
+    ///
+    /// The screen used to be finished before you saw it. Everything on it is
+    /// static by nature — a mark, four icons, a button — so the only thing
+    /// saying the app had just come to life was the trinket drifting behind
+    /// it, and that reads as weather rather than as an arrival.
+    ///
+    /// So: the name lights up column by column, the line under it follows, and
+    /// the row of tools rises in behind them one tile at a time. One thing
+    /// after another rather than all at once, because three things moving
+    /// together is a transition and three things moving in order is something
+    /// assembling itself. It runs once, on appear, and takes about a second —
+    /// short enough that pressing ⌘T through it costs nothing.
+    @State private var nameLit: Double = 0
+    @State private var taglineLit: Double = 0
+    @State private var toolsIn = false
+    /// Set when the name has finished arriving, which is when it starts to
+    /// idle. See the chase note on the mark below.
+    @State private var alive = false
     /// When the flurry ends, and with it the theme's own line. Set by pressing
     /// the wordmark; nil the rest of the time. See `Trinket`.
     @State private var flurryUntil: Date?
@@ -60,7 +80,14 @@ struct EmptyStateView: View {
                     cell: 4.4,
                     gap: 1.6,
                     lit: lit,
-                    unlit: unlit
+                    unlit: unlit,
+                    // Once it has finished arriving it keeps a slow sweep
+                    // running through it, the way the mark on the website
+                    // does. It cannot be misread as work in progress here:
+                    // this screen only exists when there is not a single tab
+                    // open, so there is nothing that could be running.
+                    chase: alive,
+                    reveal: nameLit
                 )
                 // The one thing on this screen that does nothing, so it is the
                 // one thing that can afford to do something. Pressing it throws
@@ -75,7 +102,8 @@ struct EmptyStateView: View {
                     gap: 0.85,
                     lit: isFlurrying ? lit : litDim,
                     unlit: unlit,
-                    glow: false
+                    glow: false,
+                    reveal: taglineLit
                 )
                 .padding(.top, 12)
 
@@ -94,24 +122,58 @@ struct EmptyStateView: View {
                 AgentDock(
                     installed: installed,
                     onPick: onPickAgent,
-                    onMore: onMoreTools
+                    onMore: onMoreTools,
+                    hasArrived: toolsIn
                 )
                 .padding(.top, 44)
 
-                callToAction
-                    .padding(.top, 40)
-
-                quickActions
-                    .padding(.top, 18)
+                // The two quiet ones come in together and last, with no
+                // stagger of their own: they are the things you reach for when
+                // the row above was not what you wanted, and a landing screen
+                // should finish settling before it starts offering
+                // alternatives.
+                VStack(spacing: 18) {
+                    callToAction
+                    quickActions
+                }
+                .padding(.top, 40)
+                .opacity(toolsIn ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.28), value: toolsIn)
             }
         }
-        .onAppear { installed = AgentCatalog.installedIDs() }
+        .onAppear {
+            installed = AgentCatalog.installedIDs()
+            arrive()
+        }
         // And again when the app comes back to the front, which is what
         // happens when the install was done anywhere other than in here.
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didBecomeActiveNotification
         )) { _ in
             installed = AgentCatalog.installedIDs()
+        }
+    }
+
+    /// Lights the screen up, once.
+    ///
+    /// Wall-clock delays rather than one long keyframe: each beat is a
+    /// different curve over a different property, and the only thing they
+    /// share is the order. Guarded on `nameLit` so coming back to this screen
+    /// after closing a tab does not replay it — the app introducing itself
+    /// every time you close the last tab is the same joke told twice.
+    private func arrive() {
+        guard nameLit == 0 else { return }
+
+        withAnimation(.easeOut(duration: 0.7)) { nameLit = 1 }
+        withAnimation(.easeOut(duration: 0.55).delay(0.34)) { taglineLit = 1 }
+        withAnimation(.easeOut(duration: 0.42).delay(0.5)) { toolsIn = true }
+
+        // The idle sweep starts when the arrival is over, not with it: a chase
+        // running through a name that is still lighting up is two lights
+        // crossing.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.9))
+            alive = true
         }
     }
 

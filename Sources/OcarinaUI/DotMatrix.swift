@@ -33,6 +33,20 @@ struct DotMatrixText: View {
     /// than a white this theme never uses.
     var chase: Bool = false
 
+    /// How much of the word has lit, left to right, 0 to 1.
+    ///
+    /// A board powers on. A mark that is simply *there* the instant a screen
+    /// appears is a picture of a board, and the landing screen is the one
+    /// place with the room and the reason to show the difference — nothing
+    /// else is on it yet, so the app lighting up its own name is the arrival
+    /// rather than an interruption of one.
+    ///
+    /// By column, which is the order the chase travels in too, so the arrival
+    /// and the motion that follows it are one gesture at two speeds. A column
+    /// not yet reached is drawn in the unlit colour rather than left out: the
+    /// dark half of the board is what makes it a board.
+    var reveal: Double = 1
+
     /// One dot every 72ms, a trail of fifteen behind the head, and 26 dots of
     /// dark between passes. The website's numbers, so the mark in the app and
     /// the mark on the page move at one speed rather than at two that are
@@ -113,6 +127,11 @@ struct DotMatrixText: View {
         var all = Path(), off = Path(), still = Path()
         var driven: [(Path, Double)] = []
 
+        // How far along the word the light has got. Clamped rather than
+        // trusted: this is animated from outside, and SwiftUI will overshoot a
+        // spring straight past 1.
+        let arrived = min(max(reveal, 0), 1) * Double(columns)
+
         for row in 0..<Self.height {
             for column in 0..<columns {
                 let box = CGRect(
@@ -121,7 +140,7 @@ struct DotMatrixText: View {
                     width: cell,
                     height: cell
                 )
-                guard bits[row][column] else {
+                guard bits[row][column], Double(column) < arrived else {
                     off.addPath(Path(roundedRect: box, cornerRadius: cell * 0.3))
                     continue
                 }

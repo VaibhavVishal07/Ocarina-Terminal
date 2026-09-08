@@ -21,6 +21,15 @@ struct AgentDock: View {
     let onPick: (AgentTool) -> Void
     let onMore: () -> Void
 
+    /// Whether the landing screen has finished introducing itself.
+    ///
+    /// The row comes in behind the mark, a tile at a time, left to right — the
+    /// same direction the name lights in, so the whole screen assembles in one
+    /// sweep rather than in two arguing about which way to read it. Defaults to
+    /// true, because everywhere other than that first appearance the row is
+    /// simply there.
+    var hasArrived: Bool = true
+
     @State private var hovered: String?
 
     private static let moreID = "more"
@@ -36,8 +45,10 @@ struct AgentDock: View {
     private var amber: Color { theme.board.highlight.color }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Self.gap) {
-            ForEach(AgentCatalog.ordered(byInstalled: installed)) { tool in
+        let tools = AgentCatalog.ordered(byInstalled: installed)
+
+        return HStack(alignment: .top, spacing: Self.gap) {
+            ForEach(Array(tools.enumerated()), id: \.element.id) { index, tool in
                 let isInstalled = installed.contains(tool.id)
                 item(
                     id: tool.id,
@@ -52,6 +63,7 @@ struct AgentDock: View {
                     name: tool.name,
                     onPress: { onPick(tool) }
                 )
+                .modifier(Arrival(hasArrived: hasArrived, place: index))
             }
 
             // Node, Git, Homebrew, and any agent that arrives after this
@@ -67,6 +79,32 @@ struct AgentDock: View {
                 name: "More tools",
                 onPress: onMore
             )
+            .modifier(Arrival(hasArrived: hasArrived, place: tools.count))
+        }
+    }
+
+    /// One tile's share of the row's entrance.
+    ///
+    /// Up rather than down, and only eight points of it: a tile that drops in
+    /// reads as something falling into place, which is a heavier claim than a
+    /// row of icons should make about itself. Eight points is far enough to
+    /// see the order and short enough that the eye takes the row as one thing.
+    private struct Arrival: ViewModifier {
+        let hasArrived: Bool
+        let place: Int
+
+        /// A twentieth of a second apart. Any slower and the last tile is
+        /// visibly waiting its turn; any faster and there is no order to read.
+        private static let beat: Double = 0.05
+
+        func body(content: Content) -> some View {
+            content
+                .opacity(hasArrived ? 1 : 0)
+                .offset(y: hasArrived ? 0 : 8)
+                .animation(
+                    .easeOut(duration: 0.34).delay(Double(place) * Self.beat),
+                    value: hasArrived
+                )
         }
     }
 
@@ -93,8 +131,11 @@ struct AgentDock: View {
             .background { box.fill(.ultraThinMaterial).opacity(isHovered ? 0.7 : 0.38) }
             .overlay { box.strokeBorder(edge, style: StrokeStyle(lineWidth: 1, dash: dash)) }
             // A press should feel like the icon moved, not like a rectangle
-            // somewhere changed colour.
+            // somewhere changed colour. It lifts as well as growing: scale
+            // alone is a tile getting closer to you, and two points of rise
+            // with it is a tile picking itself up off the screen.
             .scaleEffect(isHovered ? 1.05 : 1)
+            .offset(y: isHovered ? -2 : 0)
     }
 
     private func item(

@@ -158,18 +158,34 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// costs them both: Steel used to put "Under load" in the menu bar, which
     /// reads as a warning about the Mac rather than a report about a build.
     ///
-    /// So the strip names the app and the state, in the same four words every
-    /// theme gets. The register is not lost — it is one click down, in
+    /// So the strip names the app and the state, in the same words every theme
+    /// gets. The register is not lost — it is one click down, in
     /// `menuNeedsUpdate`, where you have already pressed something belonging
     /// to Ocarina and know whose voice you are reading.
+    ///
+    /// The words answer the question somebody actually has up here, which is
+    /// not "what state is this in" but "is the thing I asked for still going,
+    /// and is it waiting on me". They were the state's own names for a
+    /// release — Working, Idle, Done — and each was wrong in the same way: a
+    /// label for a value in an enum rather than an answer to a question.
+    /// *Working* also reads as a claim about the Mac when it is glanced at
+    /// with no window and no icon beside it, which is the failure Steel's
+    /// "Under load" made obvious.
+    ///
+    /// - **still going** — your ask has not come back yet.
+    /// - **back to you** — the agent stopped and it is your move. Not "done":
+    ///   the agent stopping does not mean it managed what you asked, and the
+    ///   word up here has to be one this can support.
+    /// - **ready** — nothing has been asked in this tab yet.
+    /// - **stopped (n)** — it exited, and here is the number.
     nonisolated static func title(for activity: TabActivity) -> String {
         switch activity {
-        case .idle: "Ocarina Idle"
-        case .running: "Ocarina Working"
-        case .succeeded: "Ocarina Done"
+        case .idle: "Ocarina · ready"
+        case .running: "Ocarina · still going"
+        case .succeeded: "Ocarina · back to you"
         // Same rule as `line`: the code is appended here, not written by a
         // theme, so a failure in the menu bar always carries its number.
-        case let .failed(code): "Ocarina Stopped (\(code))"
+        case let .failed(code): "Ocarina · stopped (\(code))"
         }
     }
 

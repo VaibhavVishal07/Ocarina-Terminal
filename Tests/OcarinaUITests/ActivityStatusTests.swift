@@ -22,17 +22,68 @@ struct ActivityStatusTests {
         #expect(ActivityStatusItem.line(for: .idle, speech: speech) == "The cup is empty")
     }
 
-    @Test("The strip names the app and the state, in every theme")
+    @Test("The strip names the app and answers the question, in every theme")
     func stripNamesTheApp() {
         // The menu bar is read from outside Ocarina, so it says which app is
-        // talking. It is also the same four words in all fourteen themes:
-        // Steel put "Under load" up there, which is a sentence about a Mac in
-        // trouble rather than about a build that is running.
-        #expect(ActivityStatusItem.title(for: .running) == "Ocarina Working")
-        #expect(ActivityStatusItem.title(for: .succeeded) == "Ocarina Done")
-        #expect(ActivityStatusItem.title(for: .idle) == "Ocarina Idle")
+        // talking. It is also the same words in all fourteen themes: Steel put
+        // "Under load" up there, which is a sentence about a Mac in trouble
+        // rather than about a build that is running.
+        #expect(ActivityStatusItem.title(for: .running) == "Ocarina · still going")
+        #expect(ActivityStatusItem.title(for: .succeeded) == "Ocarina · back to you")
+        #expect(ActivityStatusItem.title(for: .idle) == "Ocarina · ready")
         for activity: TabActivity in [.running, .succeeded, .idle, .failed(exitCode: 1)] {
-            #expect(ActivityStatusItem.title(for: activity).hasPrefix("Ocarina "))
+            #expect(ActivityStatusItem.title(for: activity).hasPrefix("Ocarina · "))
+        }
+    }
+
+    @Test("An agent is working when it owes you an answer, not when it repaints")
+    func agentWorkIsAnOpenAsk() {
+        // The one the menu bar got wrong. `.running` off the terminal means
+        // "this program drew something in the last two and a half seconds",
+        // and Claude sitting at its prompt with a cursor blinking in it
+        // repaints forever — so a terminal left open on an agent that had been
+        // waiting since lunch reported itself as working.
+        func ask(_ state: AgentTask.State) -> AgentTask {
+            AgentTask(id: "a", title: "t", prompt: "p", askedAt: Date(), state: state)
+        }
+
+        // Busy screen, nothing outstanding: it is your move.
+        #expect(OcarinaModel.reported(.running, isConversation: true, tasks: [ask(.finished)])
+                == .succeeded)
+        // Busy screen, nothing ever asked: ready, not working.
+        #expect(OcarinaModel.reported(.running, isConversation: true, tasks: []) == .idle)
+        // An ask still open is work, however quiet the screen has gone.
+        #expect(OcarinaModel.reported(.succeeded, isConversation: true, tasks: [ask(.working)])
+                == .running)
+    }
+
+    @Test("A terminal that is not a conversation is taken at its word")
+    func plainTerminalsKeepTheirOwnActivity() {
+        // `make` in the foreground is working, and has no transcript to check
+        // it against. Only a tab with a conversation in it gets second-guessed.
+        for activity: TabActivity in [.running, .succeeded, .idle, .failed(exitCode: 2)] {
+            #expect(OcarinaModel.reported(activity, isConversation: false, tasks: []) == activity)
+        }
+    }
+
+    @Test("An agent that exited badly still says so")
+    func failureOutranksTheTranscript() {
+        // The transcript ends on a finished ask either way; the exit code is
+        // the part it cannot tell you.
+        #expect(OcarinaModel.reported(.failed(exitCode: 130), isConversation: true, tasks: [])
+                == .failed(exitCode: 130))
+    }
+
+    @Test("The strip never claims the work succeeded")
+    func nothingUpThereSaysItWorked() {
+        // An agent stopping means it stopped talking. It does not mean it did
+        // what was asked, and "Done" beside the Wi-Fi said it did — so the
+        // word for that state hands the turn back rather than grading it.
+        for activity: TabActivity in [.running, .succeeded, .idle, .failed(exitCode: 1)] {
+            let title = ActivityStatusItem.title(for: activity).lowercased()
+            for claim in ["done", "success", "complete", "finished", "worked"] {
+                #expect(!title.contains(claim), "\(activity) says \(claim)")
+            }
         }
     }
 

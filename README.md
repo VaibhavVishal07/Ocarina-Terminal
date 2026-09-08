@@ -177,8 +177,30 @@ middle of the fall.
 ## It says whether the thing you asked for is still going, where you can see it
 
 In the menu bar, beside the Wi-Fi. A braille spinner and a line while an agent
-is working, a tick and a line when it stopped cleanly, a warning triangle and
-the exit code when it did not, and the all-clear when nothing is running.
+is working, a tick and a line when it stopped, a warning triangle and the exit
+code when it exited badly, and the all-clear when nothing is running.
+
+It says **still going**, **back to you**, **ready**, or **stopped (n)**. Those
+were the states' own names for a release — Working, Idle, Done — and each was
+wrong in the same way: a label for a value in an enum rather than an answer to
+the question somebody actually has up there. *Working* also reads as a claim
+about the Mac when it is glanced at with no window and no icon beside it, which
+is the failure Steel's "Under load" made obvious. And nothing up there says
+*done*: an agent stopping means it stopped talking, not that it managed what
+you asked, so the word for that state hands the turn back rather than grading
+the work.
+
+**Still going** means an ask that has not come back yet, and only that.
+`.running` off the terminal means "this program drew something in the last two
+and a half seconds", which for a compiler is exactly right and for an agent is
+not the same claim at all — Claude sitting at its prompt with a cursor blinking
+in it repaints forever, so a terminal left open on an agent that had been
+waiting on you since lunch reported itself as working. For a tab with a
+conversation in it the answer now comes from the conversation: an unanswered
+ask is work in progress, and anything else is not, however busy the screen
+looks. A plain terminal is still taken at its word — `make` in the foreground is
+working and has no transcript to check it against — and an agent that exited
+non-zero still says so whatever the transcript ends on.
 
 It was a card under the task list for one release, and that was the wrong
 surface for it. The state of the run is the one reading you want *while you are
@@ -680,6 +702,32 @@ than over them, drawn in the accent at a quarter strength.
 
 The screenshot above is the older version of this screen, with the lit NEW
 TERMINAL slab that the row of tools replaced.
+
+### It arrives rather than appearing
+
+Everything on this screen is static by nature — a mark, four icons, a button —
+so for a while the only thing saying the app had come to life was the trinket
+drifting behind it, which reads as weather rather than as an arrival. Now the
+screen assembles itself in three beats: the name lights up column by column the
+way a departure board powers on, the line under it follows, and the row of tools
+rises in behind them a tile at a time. One thing after another rather than all
+at once — three things moving together is a transition, and three things moving
+in order is something putting itself together.
+
+All of it runs left to right, including the tiles, so the screen assembles in
+one sweep rather than in two arguing about which way to read it. It takes about
+a second, and it runs once: coming back here after closing a tab does not replay
+it, because the app introducing itself every time you close the last tab is the
+same joke told twice. Pressing ⌘T through it costs nothing.
+
+When the name has finished arriving it keeps a slow sweep running through it —
+the same chase the mark in the sidebar runs while an agent is working, and it
+cannot be misread as that here, because this screen only exists when there is
+not a single tab open and so there is nothing that could be running.
+
+A tool under the pointer lifts two points as well as growing. Scale on its own
+is a tile getting closer to you; a little rise with it is a tile picking itself
+up off the screen.
 
 ### The tools
 

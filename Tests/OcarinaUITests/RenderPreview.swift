@@ -134,6 +134,43 @@ struct RenderPreview {
         print("wrote \(out.path)")
     }
 
+    /// The landing screen's name lighting up, column by column.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func arrival() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let theme = try #require(all.first { $0.id == "ocarina" })
+
+        let sheet = VStack(alignment: .leading, spacing: 10) {
+            ForEach([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], id: \.self) { reveal in
+                DotMatrixText(
+                    text: "OCARINA", cell: 4.4, gap: 1.6,
+                    lit: theme.board.lit.color,
+                    unlit: theme.board.unlit.color,
+                    reveal: reveal
+                )
+                .environment(\.theme, theme)
+            }
+        }
+        .padding(20)
+        .background(theme.board.backdrop.color)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 2
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/arrival.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
     /// The mark's chase, as a filmstrip.
     ///
     /// Eight frames a fifth of a second apart, so the head is visibly further

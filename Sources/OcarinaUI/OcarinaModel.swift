@@ -246,7 +246,7 @@ public final class OcarinaModel {
     /// leaving it there saying the all-clear about an app with nothing in it.
     private func refreshStatusItem() {
         activityStatusItem.update(ActivityStatusItem.Reading(
-            activity: tabs.isEmpty ? nil : selectedActivity,
+            activity: tabs.isEmpty ? nil : reportedActivity,
             task: selectedTaskTitle,
             usage: usage,
             speech: themes.theme.speech
@@ -295,10 +295,16 @@ public final class OcarinaModel {
     /// shown whenever an agent is selected — so this cannot stop dead on a
     /// hidden panel the way it once did.
     ///
-    /// The saving it was making is kept: with no agent tab in front of you,
-    /// nothing is consuming this and it does not run.
+    /// The menu bar reads it too, and that is not optional: what it says about
+    /// an agent tab is now decided by whether there is an unanswered ask, so a
+    /// poll that stopped with the panel would leave the strip stuck on
+    /// whatever was true when you hid it.
+    ///
+    /// The saving it was making is kept: with a plain shell in front of you and
+    /// the panel down, nothing is consuming this and it does not run.
     private func pollTasksIfWatched() {
-        guard isTaskPanelVisible || !NSApp.isActive else { return }
+        guard isTaskPanelVisible || !NSApp.isActive || selectedTab?.isConversation == true
+        else { return }
         refreshTasks()
     }
 
@@ -491,9 +497,54 @@ public final class OcarinaModel {
     /// have while you are looking at some *other* tab: is the thing I started
     /// still going. Bound to the selected tab it would say nothing you could
     /// not already see in the tab you were in.
+    ///
+    /// The selected tab answers through `reportedActivity`, which knows about
+    /// asks; the rest answer with what their terminal is doing, because no
+    /// transcript is read for a tab nobody is looking at. So a background
+    /// agent sitting at its prompt can still light the mark, and the tab in
+    /// front of you — the one you would check — cannot.
     public var isAnythingRunning: Bool {
-        tabs.contains { $0.activity.isRunning }
+        if reportedActivity?.isRunning == true { return true }
+        return tabs.contains { $0.id != selectedTabID && $0.activity.isRunning }
     }
+
+    /// What the selected tab is doing, as the menu bar and the mark report it.
+    ///
+    /// `.running` off the terminal means "this program drew something in the
+    /// last two and a half seconds". For a compiler that is exactly right. For
+    /// an agent it is not the same claim at all: Claude sitting at its prompt
+    /// with a cursor blinking in it repaints forever, so a terminal left open
+    /// on an agent that has been waiting on you since lunch reported itself as
+    /// working, and the menu bar said so.
+    ///
+    /// For a tab with a conversation in it the answer comes from the
+    /// conversation. An ask that has not been answered yet is work in
+    /// progress; anything else is not, however busy the screen looks. A
+    /// failure still carries: an agent that exited non-zero is worth saying
+    /// out loud whatever the transcript ends on.
+    public var reportedActivity: TabActivity? {
+        guard let activity = selectedActivity else { return nil }
+        // `rawTasks`, not `tasks`: drawing a line under the list is a way of
+        // tidying what you are reading, not a claim that the agent stopped.
+        return Self.reported(
+            activity,
+            isConversation: selectedTab?.isConversation == true,
+            tasks: rawTasks
+        )
+    }
+
+    /// The rule on its own, so it can be checked without a pty.
+    static func reported(
+        _ activity: TabActivity,
+        isConversation: Bool,
+        tasks: [AgentTask]
+    ) -> TabActivity {
+        guard isConversation else { return activity }
+        if case .failed = activity { return activity }
+        if tasks.contains(where: { $0.state == .working }) { return .running }
+        return tasks.isEmpty ? .idle : .succeeded
+    }
+
 
     /// The exit code of the selected tab's last command, when it failed.
     public var selectedFailure: Int? {
