@@ -1,0 +1,72 @@
+{
+  "id": "big-blue",
+  "name": "Big Blue",
+  "isDark": true,
+  "terminal": {
+    "background": "#000E5E",
+    "foreground": "#E8ECFF",
+    "cursor": "#FFFFFF",
+    "selection": "#2A44A8",
+    "ansi": [
+      "#8E9AC8",
+      "#FF8A8A",
+      "#66E08A",
+      "#FFE066",
+      "#8AB4FF",
+      "#FF9CE8",
+      "#7AE8E8",
+      "#D8DDF0",
+      "#AEB8DC",
+      "#FFAFAF",
+      "#95F0AF",
+      "#FFEB99",
+      "#B0CCFF",
+      "#FFC0F0",
+      "#A8F2F2",
+      "#FFFFFF"
+    ],
+    "fontName": "JetBrains Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#0A1A72",
+    "panelBottom": "#05105C",
+    "bed": "#000B4E",
+    "bedOpacity": 0.7,
+    "rowHover": "#9FB0E8",
+    "rowSelected": "#AEBEF0",
+    "border": "#8E9EDC",
+    "textPrimary": "#E4E9FF",
+    "textSecondary": "#A8B4E4",
+    "textTertiary": "#7482BC",
+    "accent": "#F0C838"
+  },
+  "status": {
+    "idle": "#8AB4FF",
+    "running": "#7AE8E8",
+    "succeeded": "#66E08A",
+    "failed": "#FF8A8A"
+  },
+  "board": {
+    "lit": "#F0C838",
+    "litDim": "#9A7C1E",
+    "unlit": "#031052",
+    "backdrop": "#000A48",
+    "highlight": "#FFFFFF"
+  },
+  "trinket": "stars",
+  "flavour": "F1 FOR HELP",
+  "voice": {
+    "working": "Working",
+    "done": "Done",
+    "stopped": "Abnormal termination",
+    "clear": "Ready",
+    "blurb": "The blue every serious computer used to be, and bright text on it."
+  },
+  "pattern": {
+    "shape": "squares",
+    "opacity": 0.06,
+    "scale": 9,
+    "color": "#FFFFFF"
+  }
+}

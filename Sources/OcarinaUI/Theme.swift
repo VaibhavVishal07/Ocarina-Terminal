@@ -362,11 +362,26 @@ public extension Theme {
     /// after and SwiftUI synthesises it where the family has no such cut.
     func uiFont(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         let shifted = shape.shift(weight)
-        guard NSFont(name: BundledFonts.ui, size: size) != nil else {
-            return .system(size: size, weight: shifted)
+        let set = size + Theme.typeBump
+        guard NSFont(name: BundledFonts.ui, size: set) != nil else {
+            return .system(size: set, weight: shifted)
         }
-        return .custom(BundledFonts.ui, fixedSize: size).weight(shifted)
+        return .custom(BundledFonts.ui, fixedSize: set).weight(shifted)
     }
+
+    /// Added to every size this function is asked for.
+    ///
+    /// The scale was set against Geist at what read as right on the machine it
+    /// was drawn on, and it came out a step small everywhere — a 10.5pt caption
+    /// is fine in a mockup and thin in a window somebody works in all day. Two
+    /// points, applied here rather than by editing seventy-six call sites, so
+    /// the relationships between them are untouched and the whole thing can be
+    /// tuned or taken back by changing one number.
+    ///
+    /// Not applied to the terminal. `terminal.fontSize` is the theme's own, it
+    /// is what the person reading code chose, and a house adjustment has no
+    /// business in it.
+    static let typeBump: CGFloat = 2
 
     /// The theme's words, with the house line standing in wherever it has
     /// none. Nothing downstream reads `voice` directly — a caller that did

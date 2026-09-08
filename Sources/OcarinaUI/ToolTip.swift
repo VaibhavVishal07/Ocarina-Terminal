@@ -222,7 +222,7 @@ struct ToolTipBubble: View {
 
     var body: some View {
         Text(target.text)
-            .font(.system(size: 11))
+            .font(.system(size: 13))
             .foregroundStyle(theme.chrome.textPrimary.color)
             .lineLimit(3)
             .fixedSize(horizontal: false, vertical: true)

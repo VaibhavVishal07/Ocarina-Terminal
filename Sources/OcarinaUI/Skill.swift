@@ -288,40 +288,222 @@ public enum SkillCatalog {
         }
     }
 
+    /// What a query found, and why.
+    ///
+    /// The `why` is not bookkeeping — the row underlines the words that earned
+    /// the match, so a search that answered "UI design" with a skill whose
+    /// description says *frontend* shows its working instead of looking like a
+    /// mistake. See `SkillsView.highlighted`.
+    public struct Match: Identifiable, Equatable, Sendable {
+        public let skill: Skill
+        /// The words actually found in the row's own text, lowercased.
+        public let hits: Set<String>
+        let score: Int
+        public var id: String { skill.id }
+    }
+
     /// Rows matching a search and a category, in the order they should be read.
     ///
-    /// Name before description: somebody typing "pdf" wants the skill called
-    /// pdf at the top, not the eleven that mention PDFs in passing.
+    /// Kept as the shape callers already use. Everything interesting is in
+    /// `search`.
     public static func filter(
         _ skills: [Skill],
-        search: String,
+        search text: String,
         category: Skill.Category?
     ) -> [Skill] {
-        let needle = search.trimmingCharacters(in: .whitespaces).lowercased()
+        Self.search(skills, for: text, category: category).map(\.skill)
+    }
+
+    /// The catalogue, scored against a typed phrase.
+    ///
+    /// The filter this replaced asked whether the whole query appeared inside a
+    /// name, a description or an author. That is the right question for `pdf`
+    /// and the wrong one for every phrase a person actually types: **"UI
+    /// design" matched none of the 216 skills**, because that pair of words in
+    /// that order is in nobody's description.
+    ///
+    /// The obvious repair — split on spaces, keep using `contains` — is worse
+    /// than the bug. `ui` is inside *build*, *require* and *quick*; `look` is
+    /// inside *lookup*; and "make my app look good" came back led by an Azure
+    /// resource browser. So three things had to change together:
+    ///
+    /// **Whole words.** Both sides are cut into words and compared as words, so
+    /// *build* stops answering to `ui`. A term of three letters or more may
+    /// also match the *start* of a word, which is what makes the list settle
+    /// while you are still typing "desig".
+    ///
+    /// **Weighted by where it was found.** A hit in the name is worth six, in
+    /// the category three, in the description two — because somebody typing
+    /// `pdf` wants the skill called pdf, not the eleven that mention PDFs in
+    /// passing. Exactly equalling the name is worth ten on top.
+    ///
+    /// **A table of near-words.** `ui` also looks for *interface*, *frontend*,
+    /// *component*, *layout*, *css*; `design` for *visual*, *aesthetic*,
+    /// *brand*, *typography*. A near-word is always worth less than the word
+    /// itself, which is what keeps `api-and-interface-design` behind
+    /// `frontend-design` on "UI design" rather than tied with it.
+    ///
+    /// This is a house call, like `Category.ordered` — thirty-odd lines of
+    /// opinion about what people mean. It is not a search engine and it does
+    /// not need to be: a phrase whose useful words are all absent is the empty
+    /// state's problem, and the empty state has an agent one pane away.
+    public static func search(
+        _ skills: [Skill],
+        for text: String,
+        category: Skill.Category? = nil
+    ) -> [Match] {
         let pool = category.map { wanted in skills.filter { $0.category == wanted } } ?? skills
+        let terms = Self.terms(in: text)
 
         // Nothing typed: the house order, which puts design at the front. See
         // `Category.ordered`.
-        guard !needle.isEmpty else {
+        guard !terms.isEmpty else {
             return pool.sorted { a, b in
                 if a.category.leads != b.category.leads { return a.category.leads }
                 return a.installs > b.installs
-            }
+            }.map { Match(skill: $0, hits: [], score: 0) }
         }
 
-        return pool.filter {
-            $0.name.lowercased().contains(needle)
-                || $0.description.lowercased().contains(needle)
-                || $0.author.lowercased().contains(needle)
+        return pool.compactMap { skill -> Match? in
+            let name = Self.words(skill.name)
+            let describe = Self.words(skill.description)
+            let kind: Set<String> = [skill.category.rawValue, skill.category.label.lowercased()]
+            let by = Self.words(skill.author)
+
+            var score = 0
+            var hits: Set<String> = []
+
+            for term in terms {
+                // One score per term, at its strongest evidence — a word in
+                // both the name and the description is one hit, not two, or a
+                // long description would outrank the skill actually called
+                // that.
+                var best = 0
+                if skill.name.lowercased() == term.literal { best = 16 }
+                else if name.contains(term.literal) { best = 6 }
+                else if Self.begins(name, with: term.literal) { best = 5 }
+                else if kind.contains(term.literal) { best = 3 }
+                else if describe.contains(term.literal) || by.contains(term.literal) { best = 2 }
+                else if Self.begins(describe, with: term.literal) { best = 2 }
+                if best > 0 { hits.insert(term.literal) }
+
+                // Near-words, always under the word itself.
+                if best < 4, let found = term.kin.first(where: name.contains) {
+                    best = max(best, 4); hits.insert(found)
+                } else if best < 2, let found = term.kin.first(where: kind.contains) {
+                    best = max(best, 2); hits.insert(found)
+                } else if best < 1, let found = term.kin.first(where: describe.contains) {
+                    best = max(best, 1); hits.insert(found)
+                }
+                score += best
+            }
+
+            guard score > 0 else { return nil }
+            return Match(skill: skill, hits: hits, score: score)
         }.sorted { a, b in
-            // What you typed wins over everything. A shelf that answered
-            // "pdf" with a design skill because design leads the house order
-            // would be a search box that does not search.
-            let (first, second) = (a.name.lowercased().contains(needle),
-                                   b.name.lowercased().contains(needle))
-            if first != second { return first }
-            if a.category.leads != b.category.leads { return a.category.leads }
-            return a.installs > b.installs
+            if a.score != b.score { return a.score > b.score }
+            if a.skill.category.leads != b.skill.category.leads { return a.skill.category.leads }
+            return a.skill.installs > b.skill.installs
         }
     }
+
+    /// The phrase, as words worth searching for.
+    ///
+    /// Everything a sentence carries to be a sentence is dropped. "make my app
+    /// look good" is four words of grammar and one of intent, and keeping the
+    /// grammar is how the naive version ranked *azure-resource-lookup* first.
+    private static func terms(in text: String) -> [Term] {
+        var seen: Set<String> = []
+        return words(text).sorted().compactMap { word in
+            guard word.count > 1, !stopWords.contains(word), seen.insert(word).inserted
+            else { return nil }
+            return Term(literal: word, kin: Set(nearWords[word] ?? []).subtracting([word]))
+        }
+    }
+
+    private struct Term { let literal: String; let kin: Set<String> }
+
+    /// Words split on anything that is not a letter or a digit, lowercased.
+    /// `front-end` becomes two words, which is why the table below carries
+    /// both halves.
+    private static func words(_ text: String) -> Set<String> {
+        Set(text.lowercased()
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .map(String.init))
+    }
+
+    /// Whether any word starts with this, for the letters typed so far. Two
+    /// letters is too little — `ui` would prefix-match *unit* and *use*.
+    private static func begins(_ pool: Set<String>, with stem: String) -> Bool {
+        guard stem.count >= 3 else { return false }
+        return pool.contains { $0.hasPrefix(stem) }
+    }
+
+    /// Grammar, and the words people wrap a request in. Not a general stop
+    /// list: `test`, `write` and `check` are all real queries here.
+    private static let stopWords: Set<String> = [
+        "a", "an", "the", "my", "me", "i", "im", "it", "its", "is", "are", "am",
+        "to", "of", "for", "on", "in", "at", "by", "with", "from", "into",
+        "and", "or", "but", "so", "that", "this", "these", "those",
+        "do", "does", "did", "can", "could", "would", "should", "will",
+        "want", "wants", "need", "needs", "like", "please", "help", "make",
+        "makes", "made", "get", "gets", "how", "what", "when", "where", "which",
+        "some", "any", "all", "more", "less", "thing", "things", "stuff",
+        "something", "anything", "skill", "skills",
+    ]
+
+    /// What else a word might have been written as.
+    ///
+    /// Hand-written, and meant to stay that way — it is thirty opinions about
+    /// this catalogue, not a thesaurus. Add to it when a search you expected to
+    /// work does not. The rule for adding: only words that would appear in a
+    /// skill's own `SKILL.md`, since that is the entire text being searched.
+    private static let nearWords: [String: [String]] = [
+        // No "design" here, deliberately. A near-word list must never contain
+        // a word somebody is likely to have typed *alongside* this one: with
+        // it, "UI design" scored the word design twice, and `codebase-design`
+        // — which has nothing to do with a screen — tied `frontend-design` and
+        // then won the tie on house order.
+        "ui": ["interface", "frontend", "front", "end", "component", "layout",
+               "css", "visual", "screen"],
+        "design": ["visual", "aesthetic", "brand", "typography", "style",
+                   "layout", "figma", "mockup", "ux"],
+        "ux": ["design", "interface", "usability", "accessibility"],
+        "frontend": ["ui", "interface", "css", "react", "component", "web"],
+        "css": ["style", "styling", "tailwind", "ui", "frontend", "design"],
+        "look": ["design", "visual", "aesthetic", "style"],
+        "app": ["application", "frontend", "web", "ui"],
+        "web": ["frontend", "http", "browser", "html", "site"],
+        "test": ["testing", "tests", "spec", "unit", "coverage", "tdd"],
+        "testing": ["test", "tests", "spec", "coverage", "tdd"],
+        "bug": ["debug", "debugging", "error", "failure", "fix", "broken"],
+        "debug": ["debugging", "bug", "error", "failure", "trace"],
+        "fix": ["repair", "debug", "bug", "correct"],
+        "review": ["reviewing", "critique", "audit", "feedback", "pr"],
+        "pr": ["pull", "request", "review", "diff"],
+        "commit": ["git", "message", "changelog", "version"],
+        "git": ["commit", "branch", "merge", "diff", "repository"],
+        "docs": ["documentation", "readme", "reference", "guide"],
+        "documentation": ["docs", "readme", "reference", "guide"],
+        "write": ["writing", "draft", "prose", "editing", "author"],
+        "writing": ["write", "prose", "draft", "editing", "style"],
+        "spreadsheet": ["excel", "xlsx", "csv", "sheet", "tabular"],
+        "csv": ["spreadsheet", "tabular", "data", "xlsx"],
+        "slides": ["presentation", "pptx", "deck", "powerpoint"],
+        "chart": ["graph", "plot", "visualization", "dataviz", "diagram"],
+        "database": ["sql", "postgres", "query", "schema", "migration"],
+        "sql": ["database", "query", "postgres", "schema"],
+        "deploy": ["deployment", "ship", "release", "hosting", "vercel"],
+        "cloud": ["aws", "azure", "gcp", "infrastructure", "deploy"],
+        "security": ["vulnerability", "audit", "secure", "auth", "secrets"],
+        "auth": ["authentication", "login", "oauth", "session", "security"],
+        "api": ["endpoint", "rest", "http", "interface", "client"],
+        "speed": ["performance", "fast", "optimize", "latency", "profiling"],
+        "performance": ["speed", "optimize", "profiling", "latency", "benchmark"],
+        "refactor": ["refactoring", "cleanup", "restructure", "architecture"],
+        "plan": ["planning", "spec", "design", "roadmap", "brief"],
+        "research": ["search", "investigate", "sources", "reading"],
+        "pdf": ["document", "documents", "print"],
+        "agent": ["agents", "subagent", "orchestration", "workflow"],
+    ]
 }

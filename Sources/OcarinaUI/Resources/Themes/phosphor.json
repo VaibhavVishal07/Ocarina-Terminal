@@ -1,0 +1,72 @@
+{
+  "id": "phosphor",
+  "name": "Phosphor",
+  "isDark": true,
+  "terminal": {
+    "background": "#0B0700",
+    "foreground": "#FFB000",
+    "cursor": "#FFC94D",
+    "selection": "#5C3D00",
+    "ansi": [
+      "#805300",
+      "#FF8A3D",
+      "#E0A62E",
+      "#FFC94D",
+      "#C98F2B",
+      "#FF9E5C",
+      "#D9A83D",
+      "#FFB000",
+      "#A16E00",
+      "#FFA766",
+      "#F0BE55",
+      "#FFD980",
+      "#DBA84E",
+      "#FFB985",
+      "#EFC169",
+      "#FFDCA8"
+    ],
+    "fontName": "JetBrains Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#150E02",
+    "panelBottom": "#0F0901",
+    "bed": "#0A0600",
+    "bedOpacity": 0.74,
+    "rowHover": "#D8A24A",
+    "rowSelected": "#E0AC57",
+    "border": "#C0913F",
+    "textPrimary": "#F0C377",
+    "textSecondary": "#A67C33",
+    "textTertiary": "#6E5320",
+    "accent": "#C07A12"
+  },
+  "status": {
+    "idle": "#C98F2B",
+    "running": "#FFB000",
+    "succeeded": "#E8C24D",
+    "failed": "#FF7A33"
+  },
+  "board": {
+    "lit": "#FFB000",
+    "litDim": "#8A5E00",
+    "unlit": "#120C02",
+    "backdrop": "#080500",
+    "highlight": "#FFE0A0"
+  },
+  "trinket": "dust",
+  "flavour": "9600 8N1",
+  "voice": {
+    "working": "Cycling",
+    "done": "Halted, clean",
+    "stopped": "Carrier dropped",
+    "clear": "Screen clear",
+    "blurb": "One colour, because the terminals this is copying had one."
+  },
+  "pattern": {
+    "shape": "columns",
+    "opacity": 0.07,
+    "scale": 4,
+    "color": "#FFB000"
+  }
+}

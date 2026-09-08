@@ -78,16 +78,22 @@ public final class SystemNotificationPoster: NotificationPoster {
 @MainActor
 @Observable
 public final class Notifier {
-    /// Whether to post at all. Persisted, and on by default: the feature is
-    /// worth nothing to somebody who never finds the switch, and the system's
-    /// own permission prompt is the real opt-in.
-    public var isEnabled: Bool {
-        didSet {
-            guard isEnabled != oldValue else { return }
-            UserDefaults.standard.set(isEnabled, forKey: Self.key)
-        }
-    }
-
+    /// There is no switch here any more, and that is the point.
+    ///
+    /// It was a persisted flag with a row in the sidebar, on by default. Both
+    /// were redundant: macOS already owns this. Notifications are off until the
+    /// system prompt is answered, and System Settings › Notifications › Ocarina
+    /// turns them off again — per-app, alongside every other app, with Focus
+    /// modes and scheduled summaries the app could never offer. A second switch
+    /// inside the app is a second answer to one question, and the two can
+    /// disagree: somebody who allowed notifications at the system prompt and
+    /// then wondered why none arrived was looking at an app-level switch they
+    /// had turned off months earlier.
+    ///
+    /// So the app always says its piece and lets the system decide whether
+    /// anybody hears it. The gate that remains is the one the app is uniquely
+    /// placed to know — see `say`, which stays quiet while Ocarina is the app
+    /// in front.
     private static let key = "ocarina.notifications.enabled"
 
     @ObservationIgnored private let poster: NotificationPoster
@@ -107,7 +113,10 @@ public final class Notifier {
     ) {
         self.poster = poster ?? SystemNotificationPoster()
         self.isAppActive = isAppActive
-        self.isEnabled = defaults.object(forKey: Self.key) as? Bool ?? true
+        // Cleared rather than left behind. Nothing reads it now, and a stored
+        // `false` sitting in the domain is a thing that looks like it means
+        // something the next time somebody greps the defaults.
+        defaults.removeObject(forKey: Self.key)
     }
 
     /// The three things worth saying, and the words for each.
@@ -150,7 +159,7 @@ public final class Notifier {
     /// `tab` is the name, which is the whole of what identifies the session —
     /// it is the ask you made, which is exactly the thing you are waiting on.
     public func say(_ moment: Moment, about tab: String, id: UUID) {
-        guard isEnabled, !isAppActive() else { return }
+        guard !isAppActive() else { return }
         let title = moment.line
         let body = tab
         Task { [poster] in

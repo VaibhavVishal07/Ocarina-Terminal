@@ -1,18 +1,33 @@
 import OcarinaTerminalContext
 import SwiftUI
 
-/// Tasks: what you have asked the agent in this tab.
+/// Tasks: what you have asked the agents, here or anywhere.
 ///
 /// The problem it solves is losing track: you give an agent five things across
 /// twenty minutes and cannot remember which of them it actually got to. The
 /// list is read from the transcript the agent writes anyway, so it costs the
 /// session nothing and survives scrollback.
+///
+/// ## One list, and it is this tab's
+///
+/// It had a second scope for a while — every tab's asks under the folder each
+/// was made in, with a row that took you to its terminal. The reading was good
+/// and the control was not: two tabs at the head of a 230pt column, over a
+/// panel that is itself one of three in the window, to choose between two lists
+/// somebody asked for once. The panel is a list you read while doing something
+/// else, and it had grown a navigation layer.
+///
+/// The cross-session reading is not gone, it is unbuilt — `ProjectHistory` and
+/// the per-tab store behind it are still here, and the right home for it is
+/// somewhere you *go*, like the command palette, rather than a tab strip on a
+/// panel that is always up.
 struct TaskPanelView: View {
     @Environment(\.theme) private var theme
     let tasks: [AgentTask]
     let clear: () -> Void
 
     @State private var isClearHovered = false
+    @State private var hovered: String?
 
     /// The shared side-panel width — this column and the sidebar are the same
     /// width, because they are the same kind of object.
@@ -66,6 +81,10 @@ struct TaskPanelView: View {
             // Only when there is something to clear, and only on hover: a
             // permanently lit "clear" over a list you are reading is an
             // invitation to lose it by accident.
+            //
+            // Not offered across all sessions. Clearing draws a line under one
+            // folder's list — a control that said "Clear" over eight of them at
+            // once would be a much larger action wearing the same small word.
             if !tasks.isEmpty {
                 // The word, not a control drawn around it.
                 //
@@ -97,6 +116,13 @@ struct TaskPanelView: View {
         .padding(.vertical, Self.textInset)
     }
 
+
+
+
+
+
+
+
     /// Says what it is waiting for, in the middle of the space it will fill.
     ///
     /// A single line in the top corner read as a panel that had failed to load
@@ -105,7 +131,7 @@ struct TaskPanelView: View {
     private var empty: some View {
         VStack(spacing: 9) {
             Image(systemName: "checklist")
-                .font(.system(size: 19, weight: .light))
+                .font(.system(size: 21, weight: .light))
                 .foregroundStyle(theme.chrome.textTertiary.color.opacity(0.65))
 
             Text("No tasks yet")

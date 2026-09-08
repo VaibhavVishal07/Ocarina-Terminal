@@ -203,11 +203,13 @@ struct DotMatrixText: View {
 
     // MARK: - Font
 
-    static let height = 7
+    nonisolated static let height = 7
 
     /// `true` where a cell is lit. Characters are 5 wide with one blank column
     /// between them, so every row of the same length lines up as a column.
-    static func bitmap(for text: String) -> [[Bool]] {
+    /// `nonisolated` so the menu bar can set its words in this alphabet: the
+    /// status item draws off the main actor and the font is a constant table.
+    nonisolated static func bitmap(for text: String) -> [[Bool]] {
         let width = max(0, text.count * 6 - 1)
         var rows = Array(repeating: Array(repeating: false, count: width), count: height)
         for (index, character) in text.uppercased().enumerated() {
@@ -222,7 +224,7 @@ struct DotMatrixText: View {
         return rows
     }
 
-    private static let font: [Character: [String]] = [
+    private nonisolated static let font: [Character: [String]] = [
         " ": [".....", ".....", ".....", ".....", ".....", ".....", "....."],
         "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
         "B": ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],

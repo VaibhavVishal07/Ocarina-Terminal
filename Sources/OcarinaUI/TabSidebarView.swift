@@ -103,7 +103,6 @@ struct TabSidebarView: View {
     var body: some View {
         VStack(spacing: OcarinaWindowView.panelGap) {
             listCard
-            stateCard
             doorCard
         }
         .frame(width: Self.width)
@@ -236,69 +235,6 @@ struct TabSidebarView: View {
 
     // MARK: - Settings
 
-    /// What is true right now: the task panel, and whether the Mac is being
-    /// held awake.
-    ///
-    /// Directly under the tab list, because the list is what these two are
-    /// about — one says whether the panel listing that tab's asks is up, the
-    /// other whether the machine those asks are running on is allowed to
-    /// sleep. A reading belongs beside the thing it reads.
-    ///
-    /// Two rows and no more. A switch is not a door, and the whole reason this
-    /// card exists is that the eye should be able to tell the difference
-    /// before it reads a word.
-    private var stateCard: some View {
-        VStack(spacing: 1) {
-            switchRow(
-                symbol: "list.bullet",
-                title: "Tasks",
-                shortcut: "\u{2318}J",
-                isOn: Binding(
-                    get: { model.isTaskPanelVisible },
-                    set: { model.setTaskPanel(visible: $0) }
-                )
-            )
-
-            switchRow(
-                symbol: "bolt",
-                title: "Keep Awake",
-                shortcut: nil,
-                isOn: Binding(
-                    get: { model.sleepGuard.isEnabled },
-                    set: { isOn in
-                        model.sleepGuard.isEnabled = isOn
-                        TactileClick.shared.play(.down)
-                    }
-                ),
-                // The tip hangs off the label, not the row. Over the switch it
-                // would be explaining a control you are already using, and the
-                // switch is an AppKit view with tracking of its own — leaving
-                // the row *from* the switch swallowed the exit, and the bubble
-                // stayed up until something else replaced it.
-                tip: sleepHelp
-            )
-
-            // Third on the shelf rather than anywhere else, because it is the
-            // same kind of thing as the two above it: something that is on or
-            // off for this window, and that you check rather than press.
-            switchRow(
-                symbol: "bell",
-                title: "Notify",
-                shortcut: nil,
-                isOn: Binding(
-                    get: { model.notifier.isEnabled },
-                    set: { model.notifier.isEnabled = $0 }
-                ),
-                tip: "Tells you when a tab asks for you, comes back, or stops "
-                    + "badly — and only while Ocarina is not the app in front."
-            )
-        }
-        .padding(.horizontal, Self.inset)
-        .padding(.vertical, Self.inset - 2)
-        .layoutPriority(1)
-        .background(card(at: .middle))
-    }
-
     /// What opens: the skills browser and the theme picker.
     ///
     /// At the foot of the column, which is where a row you press to leave the
@@ -310,7 +246,38 @@ struct TabSidebarView: View {
     /// above them at a glance: same height, same glyph column, same type. The
     /// card edge they sit in says they are a group; the chevron says what kind.
     private var doorCard: some View {
-        VStack(spacing: 1) {
+        // 6, not the 1 the rows used to sit on. At 1 the three of them read as
+        // one block of text with a rule through it — the card is three separate
+        // things you press, and the space between them is what says so. The
+        // hairline keeps its own padding on top of this, so the switch is still
+        // a step further from the doors than they are from each other.
+        VStack(spacing: 6) {
+            // The one switch left, at the head of the card the rest of the
+            // settings already live in.
+            //
+            // It had a card of its own with two neighbours, on the argument
+            // that a switch is not a door and the eye should be able to tell
+            // before it reads a word. Both neighbours have since gone — Notify
+            // to the system, which owns it, and Keep Awake to always-on — and a
+            // card built to separate two kinds of row is not worth a panel gap
+            // and sixteen points of padding to hold one row of each. The rule
+            // under it makes the same distinction for a fifth of the height.
+            switchRow(
+                symbol: "list.bullet",
+                title: "Tasks",
+                shortcut: "\u{2318}J",
+                isOn: Binding(
+                    get: { model.isTaskPanelVisible },
+                    set: { model.setTaskPanel(visible: $0) }
+                )
+            )
+
+            Rectangle()
+                .fill(theme.chrome.border.color.opacity(0.12))
+                .frame(height: 1)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
+
             // First, because it is the one row in the sidebar that is about
             // the work rather than about the app.
             //
@@ -373,7 +340,7 @@ struct TabSidebarView: View {
         .padding(.horizontal, Self.inset)
         .padding(.vertical, Self.inset - 2)
         .layoutPriority(1)
-        .background(card(at: .foot))
+        .background(card(at: .bottom))
     }
 
     /// The app's mark, in the board's own alphabet.
@@ -487,65 +454,31 @@ struct TabSidebarView: View {
     /// wrapped lines that nobody reads twice.
     /// A stock `.switch` draws itself in the system accent, which made the one
     /// saturated object in the window a setting you touch about twice a month.
-    /// It sat at the bottom of a column of muted greys and pulled the eye down
-    /// there and held it.
-    ///
-    /// Turning the switch grey would only have made it look disabled, so the
-    /// control is gone instead of recoloured. The row already had two things
-    /// saying what the state was — the cup fills when the assertion is held,
-    /// and the line underneath says it in words — so the switch was the third,
-    /// and the loudest, and the only one that needed a colour. The whole row
-    /// is the target now, lighting up under the pointer exactly like a tab
-    /// does, with On or Off where the switch used to be.
-    private var sleepPanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Rectangle()
-                .fill(theme.chrome.border.color.opacity(0.12))
-                .frame(height: 1)
-                .padding(.bottom, 6)
-
-            // Both rows are built like the Theme row above them, because they
-            // are the same kind of row. They were not: one sat at inset+inset
-            // and one at inset+7, against a Theme label at inset+7+9+7, so the
-            // three settings had three different left edges.
-            switchRow(
-                symbol: "list.bullet",
-                title: "Tasks",
-                shortcut: "\u{2318}J",
-                isOn: Binding(
-                    get: { model.isTaskPanelVisible },
-                    set: { model.setTaskPanel(visible: $0) }
-                )
-            )
-            .padding(.bottom, 2)
-
-            switchRow(
-                symbol: "bolt",
-                title: "Keep Awake",
-                shortcut: nil,
-                isOn: Binding(
-                    get: { model.sleepGuard.isEnabled },
-                    set: { isOn in
-                        model.sleepGuard.isEnabled = isOn
-                        TactileClick.shared.play(.down)
-                    }
-                ),
-                // The tip hangs off the label, not the row. Over the switch it
-                // would be explaining a control you are already using, and the
-                // switch is an AppKit view with tracking of its own — leaving
-                // the row *from* the switch swallowed the exit, and the bubble
-                // stayed up until something else replaced it.
-                tip: sleepHelp
-            )
-        }
-        .padding(.horizontal, Self.inset)
-        .padding(.bottom, Self.inset)
-    }
-
     /// A settings row with a switch, laid out exactly like `footerRow`: a 9pt
     /// symbol column at inset + 7, and the label after it. Sharing the geometry
     /// is the point — these sit directly under the Theme row and any difference
     /// in the left edge is visible as a ragged column.
+    ///
+    /// ## The switch is the real one, at four fifths
+    ///
+    /// A hand-drawn track and knob was tried here and taken out. It solved the
+    /// weight — the native control at `.mini` is 36pt of frame with the track
+    /// filled in the tint when it is on, and that fill was the loudest thing in
+    /// a window of greys — but it solved it by rebuilding a control macOS
+    /// already ships, and then owing it everything the real one comes with:
+    /// the switch trait for VoiceOver, Space to flip it under Full Keyboard
+    /// Access, the focus ring, Reduce Motion on the knob, and Increase Contrast
+    /// on the track. Every one of those had to be written by hand and kept in
+    /// step with whatever AppKit does next.
+    ///
+    /// `scaleEffect` gets the same quiet at none of that cost. 0.8 takes the
+    /// control to about 21×12 — a shade smaller than the drawn one was — and
+    /// everything underneath is still the system's switch, so it stays correct
+    /// for free.
+    ///
+    /// Anchored trailing, because `scaleEffect` does not change the space a
+    /// view takes: unanchored the control shrinks toward its own centre and
+    /// walks 3pt in from the edge the two rows are aligned on.
     private func switchRow(
         symbol: String,
         title: String,
@@ -553,7 +486,25 @@ struct TabSidebarView: View {
         isOn: Binding<Bool>,
         tip: String? = nil
     ) -> some View {
-        HStack(spacing: 7) {
+        // Every switch in the card clicks, and it clicks here rather than in
+        // the three bindings that feed it. Keep Awake played the stroke in its
+        // own setter and the other two silently did not, so two of the three
+        // rows felt like nothing had happened — the sort of difference nobody
+        // reports as a bug and everybody feels.
+        //
+        // Down going on, up coming off. `TactileClick` renders down brighter
+        // and louder and up as "the spring returning", which is the same
+        // gesture this control is: something engaging, and something letting
+        // go.
+        let clicking = Binding(
+            get: { isOn.wrappedValue },
+            set: { wanted in
+                TactileClick.shared.play(wanted ? .down : .up)
+                isOn.wrappedValue = wanted
+            }
+        )
+
+        return HStack(spacing: 7) {
             Image(systemName: symbol)
                 .font(theme.uiFont(10.5, weight: .medium))
                 .frame(width: 9)
@@ -585,10 +536,10 @@ struct TabSidebarView: View {
             // Small on purpose. The switch is laid over the row, so this only
             // has to stop the label running under it — and a large minimum is
             // what broke the alignment: with `fixedSize` labels, 44 here put
-            // the "Keep Awake" row's minimum width above the 145pt column, so
-            // that row overflowed its own frame and took the overlay's trailing
-            // edge with it. "Tasks ⌘J" is shorter and fitted, which is why only
-            // one of the two moved.
+            // the "Keep Awake" row's minimum width above the column, so that
+            // row overflowed its own frame and took the overlay's trailing edge
+            // with it. "Tasks ⌘J" is shorter and fitted, which is why only one
+            // of the two moved.
             Spacer(minLength: 8)
         }
         .padding(.horizontal, 7)
@@ -601,7 +552,7 @@ struct TabSidebarView: View {
             // Tinted rather than left on the system accent, which painted it
             // the brightest object in a window that is otherwise greys and
             // terminal text.
-            Toggle("", isOn: isOn)
+            Toggle("", isOn: clicking)
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.mini)
@@ -610,19 +561,17 @@ struct TabSidebarView: View {
                 // it overflowing, and an overflowing child is placed by rules
                 // that are not the alignment you asked for.
                 .frame(width: 36, alignment: .trailing)
+                .scaleEffect(0.8, anchor: .trailing)
+                // The tip is on the label rather than the row, so it is not
+                // over the control — the switch is an AppKit view with tracking
+                // of its own, and leaving the row *from* it swallowed the exit.
+                .accessibilityLabel(title)
+                .accessibilityHint(tip ?? "")
                 .padding(.trailing, 7)
         }
     }
 
-    private var sleepHelp: String {
-        if model.sleepGuard.isHolding {
-            return "The display stays on while Ocarina is open, so a long build or an agent working is never cut short."
-        }
-        if model.sleepGuard.isEnabled {
-            return "Requested, but the system has not granted it — the display may still sleep."
-        }
-        return "Off. The display sleeps on its usual schedule, even mid-run."
-    }
+
 
     // MARK: - Rows
 

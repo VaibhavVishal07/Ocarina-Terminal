@@ -26,11 +26,9 @@ struct NotifierTests {
 
     private func notifier(
         active: Bool = false,
-        enabled: Bool = true,
         spy: Spy = Spy()
     ) -> (Notifier, Spy) {
         let defaults = UserDefaults(suiteName: "ocarina-notify-\(UUID().uuidString)")!
-        defaults.set(enabled, forKey: "ocarina.notifications.enabled")
         let n = Notifier(poster: spy, defaults: defaults, isAppActive: { active })
         return (n, spy)
     }
@@ -61,15 +59,6 @@ struct NotifierTests {
         // card in the menu bar. A notification would be a second copy of it.
         #expect(spy.posted.isEmpty)
         #expect(spy.asked == 0, "and it must not ask for permission to say nothing")
-    }
-
-    @Test("Turned off means off, and unasked")
-    func offMeansOff() async {
-        let (n, spy) = notifier(enabled: false)
-        n.say(.failed(exitCode: 1), about: "npm run build", id: UUID())
-        await settle()
-        #expect(spy.posted.isEmpty)
-        #expect(spy.asked == 0)
     }
 
     @Test("Away from the window, it says the state and names the ask")
@@ -134,16 +123,23 @@ struct NotifierTests {
         #expect(Set(spy.posted.map(\.id)).count == 1)
     }
 
-    @Test("The switch is remembered")
-    func theSwitchPersists() {
+    /// There is no app-level switch any more: macOS owns it, and a second
+    /// answer to one question is a way for the two to disagree.
+    @Test("A stored switch from an older build does not silence anything")
+    func theOldSwitchIsIgnored() async {
         let name = "ocarina-notify-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
-        let first = Notifier(poster: Spy(), defaults: defaults, isAppActive: { false })
-        #expect(first.isEnabled, "on by default: a feature nobody finds is worth nothing")
-        first.isEnabled = false
+        // What an older build would have left behind for somebody who turned
+        // notifications off in the sidebar.
+        defaults.set(false, forKey: "ocarina.notifications.enabled")
 
-        // The real one writes to .standard, which is what the app reads back.
-        #expect(UserDefaults.standard.bool(forKey: "ocarina.notifications.enabled") == false)
-        UserDefaults.standard.removeObject(forKey: "ocarina.notifications.enabled")
+        let spy = Spy()
+        let notifier = Notifier(poster: spy, defaults: defaults, isAppActive: { false })
+        notifier.say(.needsYou, about: "Fix the checkout page", id: UUID())
+        await settle()
+
+        #expect(spy.posted.count == 1, "the old flag must not outlive its switch")
+        // And it is gone, rather than sitting in the domain looking meaningful.
+        #expect(defaults.object(forKey: "ocarina.notifications.enabled") == nil)
     }
 }

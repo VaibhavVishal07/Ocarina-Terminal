@@ -228,7 +228,11 @@ struct ThemeTests {
         // The face is Geist for everyone now, and the point of this test
         // is that no theme can quietly get that option back.
         BundledFonts.register()
-        let house = Font.custom(BundledFonts.ui, fixedSize: 12).weight(.regular)
+        // `Theme.typeBump` is added to every size on the way through, so the
+        // comparison has to add it too — this test is about the *face*, and it
+        // would otherwise start failing every time the house scale is tuned.
+        let house = Font.custom(BundledFonts.ui, fixedSize: 12 + Theme.typeBump)
+            .weight(.regular)
         for theme in bundled where theme.shape.weight == .regular {
             #expect(theme.uiFont(12) == house, "\(theme.id) is not in the app face")
         }

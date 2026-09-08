@@ -30,6 +30,7 @@ struct TerminalBed: View {
 
     /// What the tab in front of you is doing. Nil while nothing is selected.
     let activity: TabActivity?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The dot grid's spacing and size.
     ///
@@ -59,14 +60,30 @@ struct TerminalBed: View {
             ))
             .resizable(resizingMode: .tile)
 
-            // A light source. Falling to clear by the middle of the card, so
-            // the bottom of a long scrollback is not a different colour from
-            // the top of it.
+            // A light source, and the one thing on this surface that is *about
+            // the room* rather than about a line of text.
+            //
+            // It was the chrome accent at a flat 0.11 — one brightness whatever
+            // was happening, and a colour the theme reserves for "this wants
+            // you". **The lamp colour is what a theme means by lit**: it is
+            // what the wordmark burns and what the meter fills with, so the top
+            // of the terminal is now the same light as the panels beside it.
+            //
+            // And it breathes. Bright while this tab is working, low while it
+            // sits at a prompt — the slowest signal in the window, and the only
+            // one you can read with the terminal out of focus. The rail across
+            // the top says *what* is happening in four colours; this says
+            // *whether*, in one, across the whole surface.
             LinearGradient(
-                colors: [theme.chrome.accent.color.opacity(0.11), .clear],
+                colors: [theme.board.lit.color.opacity(glow), .clear],
                 startPoint: .topLeading,
                 endPoint: .center
             )
+            // Slow, because this is weather. A wash that snapped between two
+            // brightnesses over a terminal somebody is reading would be a
+            // flicker; at a second and a half it is something you notice has
+            // changed rather than something you watch change.
+            .animation(reduceMotion ? nil : .easeInOut(duration: 1.4), value: glow)
 
             // And the edges falling away from it. This is what stops the grid
             // reading as a pattern: it is strongest where you are working and
@@ -102,6 +119,24 @@ struct TerminalBed: View {
         .frame(height: 1.5)
         .animation(.easeOut(duration: 0.35), value: railStrength)
         .animation(.easeOut(duration: 0.35), value: activity)
+    }
+
+    /// How hard the light lands, by what the tab is doing.
+    ///
+    /// Working is the bright case and idle is the floor — not nothing, because
+    /// a terminal at a prompt is open and ready rather than switched off, which
+    /// is the same argument the status dots and the rail both settled. The two
+    /// finished states sit between: something happened here recently, and the
+    /// room has not gone cold yet.
+    private var glow: Double {
+        switch activity {
+        case .running: 0.20
+        // Brighter than working, for the reason the rail is: this is the state
+        // where the tab is waiting on you rather than the other way round.
+        case .needsYou: 0.24
+        case .failed, .succeeded: 0.13
+        case .idle, nil: 0.06
+        }
     }
 
     private var railColour: Color {

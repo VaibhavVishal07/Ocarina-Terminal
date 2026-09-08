@@ -90,8 +90,14 @@ struct OcarinaModelTests {
         #expect(model.session(for: tab.id) != nil)
     }
 
-    @Test("Running a command renames the tab to what it is doing")
-    func tabFollowsActivity() async throws {
+    /// The rule that replaced "the tab is named after the work".
+    ///
+    /// A long-running command used to rename the tab to what it was doing. The
+    /// name is the project now and it holds while the work changes underneath
+    /// it — what the tab is *doing* is the dot's job, and the panel's, and the
+    /// menu bar's. This asserts the holding.
+    @Test("Running a command does not rename the tab")
+    func nameSurvivesTheWork() async throws {
         let directory = try makeProjectDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         try "import time\ntime.sleep(60)\n".write(
@@ -107,13 +113,16 @@ struct OcarinaModelTests {
         defer { model.closeTab(tab.id) }
         let session = try #require(model.session(for: tab.id))
         model.start()
+        let named = tab.title
 
-        // Let the login shell finish starting before typing at it.
         try? await Task.sleep(for: .milliseconds(800))
         session.send(text: "exec python3 generate_report.py\n")
+        // Long enough that the old behaviour would certainly have renamed it.
+        try? await Task.sleep(for: .seconds(3))
 
-        #expect(await waitForTitle(tab, toBecome: "Generate Report"))
-        // The secondary line names the process and where it is running.
+        #expect(tab.title == named, "the project name has to outlast the work")
+        // The secondary line still names the process and where it is running,
+        // which is where "what it is doing" belongs.
         #expect(tab.subtitle?.contains(directory.lastPathComponent) == true)
     }
 

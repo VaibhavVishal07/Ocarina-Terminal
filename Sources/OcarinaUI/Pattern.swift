@@ -29,7 +29,7 @@ public struct Motif: Codable, Sendable, Equatable {
     public let scale: Double
     public let color: ThemeColor
 
-    /// Thirteen lattices, one per theme that has one.
+    /// Eighteen lattices, one per theme that has one.
     ///
     /// No two themes share one. The pattern is the only part of a theme you
     /// can still tell apart at a glance once the window is mostly terminal, so
@@ -51,6 +51,11 @@ public struct Motif: Codable, Sendable, Equatable {
         case weave       // mocha — a basket weave of dashes
         case chevrons    // ocean
         case hexagons    // ocarina — a honeycomb
+        case columns     // phosphor — an aperture grille, ruled the other way
+        case squares     // big-blue — the character cell, drawn
+        case waves       // shibuya — rain running down glass
+        case ticks       // calibrated — a rule, with its marks
+        case rules       // preprint — lines of text, seen from too far to read
     }
 }
 
@@ -245,6 +250,83 @@ struct PatternView: View {
                     x += step
                 }
                 row += 1
+                y += step
+            }
+
+        case .columns:
+            // Scanlines' opposite number. A shadow-mask tube is ruled across;
+            // an aperture grille is ruled down, and the two themes that wear a
+            // phosphor should not be wearing the same one.
+            var x = 0.0
+            while x < width { rule(from: CGPoint(x: x, y: 0), to: CGPoint(x: x, y: height)); x += step }
+
+        case .squares:
+            // The character cell itself, which is the only lattice a text-mode
+            // screen ever really had. Outlined rather than filled: filled at
+            // this pitch is a grid of blocks, and a grid of blocks is a wall.
+            let inset = step * 0.22
+            cells { point in
+                stroked.addRect(CGRect(
+                    x: point.x - inset, y: point.y - inset,
+                    width: inset * 2, height: inset * 2
+                ))
+            }
+
+        case .waves:
+            // Rows of shallow curves, each row offset half a step, so the
+            // crests never stack into a vertical rule. Chevrons with the
+            // corner taken off — which is the difference between a folded
+            // thing and a running one.
+            let rise = step * 0.22
+            var waveRow = 0
+            var waveY = 0.0
+            while waveY < height + step {
+                var x = -step + (waveRow.isMultiple(of: 2) ? 0 : step / 2)
+                stroked.move(to: CGPoint(x: x, y: waveY))
+                while x < width + step {
+                    stroked.addQuadCurve(
+                        to: CGPoint(x: x + step / 2, y: waveY),
+                        control: CGPoint(x: x + step / 4, y: waveY + rise)
+                    )
+                    stroked.addQuadCurve(
+                        to: CGPoint(x: x + step, y: waveY),
+                        control: CGPoint(x: x + step * 0.75, y: waveY - rise)
+                    )
+                    x += step
+                }
+                waveRow += 1
+                waveY += step
+            }
+
+        case .ticks:
+            // A ruler's face: a long mark every fifth cell and a short one
+            // between, which is the only pattern here that is a measurement
+            // rather than a decoration.
+            var tickColumn = 0
+            var x = 0.0
+            while x < width + step {
+                let long = tickColumn.isMultiple(of: 5)
+                let arm = step * (long ? 0.42 : 0.2)
+                var y = 0.0
+                while y < height + step {
+                    rule(from: CGPoint(x: x, y: y - arm), to: CGPoint(x: x, y: y + arm))
+                    y += step
+                }
+                tickColumn += 1
+                x += step
+            }
+
+        case .rules:
+            // Lines of set text at the size where the words have gone and only
+            // the measure is left. Every fourth line is short, because that is
+            // where a paragraph ended.
+            var ruleRow = 0
+            var y = 0.0
+            while y < height + step {
+                let short = (ruleRow % 4) == 3
+                let end = short ? width * 0.58 : width
+                rule(from: CGPoint(x: 0, y: y), to: CGPoint(x: end, y: y))
+                ruleRow += 1
                 y += step
             }
 

@@ -395,4 +395,48 @@ struct ActivityStatusTests {
         }
         #expect(ActivityStatusItem.title(for: .needsYou) == "Needs you")
     }
+    // MARK: - The board's alphabet
+
+    /// The menu bar sets its words in the app's own 5x7 font now, and that font
+    /// has no brackets — `Stopped (127)` would draw two holes where the number
+    /// starts. This is the guard on that.
+    @Test("Every word the menu bar sets can actually be drawn")
+    func boardWordsAreDrawable() {
+        let drawable = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-./:")
+        let states: [TabActivity] = [
+            .idle, .running, .succeeded, .needsYou,
+            .failed(exitCode: 1), .failed(exitCode: 127),
+        ]
+        for state in states {
+            let words = ActivityStatusItem.boardWords(for: state)
+            let stray = words.filter { !drawable.contains($0) }
+            #expect(stray.isEmpty, "cannot draw '\(stray)' in \(words)")
+            #expect(words == words.uppercased(), "\(words) must be uppercase")
+        }
+    }
+
+    /// A failure carries its code up here, the same way `title(for:)` does —
+    /// the plate for exit 1 and exit 127 is one picture and the reading is not.
+    @Test("A failure's code reaches the menu bar")
+    func failureCarriesItsCode() {
+        #expect(ActivityStatusItem.boardWords(for: .failed(exitCode: 127)) == "STOPPED 127")
+    }
+
+    /// The whole item has to fit in a menu bar beside everything else. A note
+    /// in `ActivityStatusItem` measured the earlier attempt at 136pt and called
+    /// it wider than the clock, the Wi-Fi and the battery together.
+    @Test("No state is wider than the bar can afford")
+    func theItemFits() {
+        let states: [TabActivity] = [
+            .idle, .running, .succeeded, .needsYou, .failed(exitCode: 127),
+        ]
+        for state in states {
+            let plate = ActivityStatusItem.plate(
+                ActivityCard(state), words: ActivityStatusItem.boardWords(for: state)
+            )
+            #expect(plate.size.width <= 120, "\(state) is \(plate.size.width)pt wide")
+            // And it has to sit inside 22 points with room above and below.
+            #expect(plate.size.height <= 18, "\(state) is \(plate.size.height)pt tall")
+        }
+    }
 }

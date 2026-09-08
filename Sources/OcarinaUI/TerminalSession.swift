@@ -22,9 +22,6 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
 
     private var pty: PTYProcess?
     private let shellPath: String
-    /// Rewrites colours a program names in full into the theme's own. See
-    /// `PaletteFilter`.
-    private var palette = PaletteFilter(theme: .fallback, isEnabled: false)
 
     /// Called the first time anything is typed into this tab.
     ///
@@ -101,7 +98,7 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// Output goes to the screen, and to the monitor so a program that sets its
     /// own title is noticed. The monitor keeps only the title, never the bytes.
     private func receive(_ bytes: [UInt8]) {
-        terminalView.feed(byteArray: palette.filter(bytes[...])[...])
+        terminalView.feed(byteArray: bytes[...])
         noteDrawn()
         // The monitor gets the bytes as they arrived. It reads titles out of
         // them, and it should be reading what the program actually said.
@@ -215,9 +212,7 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
     /// The background stays clear whatever the theme says: the window is
     /// non-opaque and the bed behind the text is drawn by `OcarinaWindowView`,
     /// so painting it here would lay an opaque slab over the glass.
-    public func apply(_ theme: Theme, tintingOutput: Bool = false) {
-        palette.use(theme)
-        palette.isEnabled = tintingOutput
+    public func apply(_ theme: Theme) {
         let terminal = theme.terminal
         terminalView.font = terminal.resolvedFont
         // `text` and `palette`, not `foreground` and `ansi`: body text is

@@ -22,11 +22,11 @@ struct ErrorBannerView: View {
             // Names the fact without dressing it up. "Exit code 1" is the
             // technical truth and says nothing; this says what happened.
             Text("That didn't work.")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(theme.chrome.textPrimary.color)
 
             Text("The last command stopped with an error (code \(exitCode)).")
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundStyle(theme.chrome.textSecondary.color)
                 .lineLimit(1)
 
@@ -41,7 +41,7 @@ struct ErrorBannerView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(theme.chrome.textSecondary.color)
                     .frame(width: 18, height: 18)
                     .contentShape(.circle)

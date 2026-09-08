@@ -24,7 +24,7 @@ struct DropZoneView: View {
 
             VStack(spacing: 10) {
                 Image(systemName: "arrow.down.document")
-                    .font(.system(size: 26, weight: .light))
+                    .font(.system(size: 28, weight: .light))
                     .foregroundStyle(theme.chrome.accent.color)
 
                 Text("Drop to add it here")

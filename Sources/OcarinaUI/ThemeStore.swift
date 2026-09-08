@@ -22,21 +22,8 @@ public final class ThemeStore {
     /// find is worse than one listed as broken.
     public private(set) var rejected: [ThemeReport]
 
-    /// Whether a program's own colours are rewritten into the theme's. See
-    /// `PaletteFilter`.
-    ///
-    /// On by default, because the alternative is a theme that stops at the
-    /// edge of the terminal: the window, the panels and the shell all follow
-    /// the palette, and then the tool you spend the day inside is whatever
-    /// colour its author picked. Off is here for the times a colour is the
-    /// content — a diff you are reading closely, an image drawn in half
-    /// blocks — where a faithful colour beats a consistent one.
-    public var tintsProgramColours: Bool {
-        didSet { UserDefaults.standard.set(tintsProgramColours, forKey: Self.tintKey) }
-    }
 
     private static let key = "ocarina.theme"
-    private static let tintKey = "ocarina.tintProgramColours"
     private static let houseThemeID = "ocarina"
 
     public var theme: Theme {
@@ -63,11 +50,15 @@ public final class ThemeStore {
         // Resolved into locals first: every stored property has to be set
         // before any of them can be read back.
         let usable = loaded.isEmpty ? [Theme.fallback] : loaded
+        // Recolouring programs to match the theme was removed; nothing reads
+        // this any more, and a leftover flag is a thing that looks like it
+        // still means something the next time somebody reads the defaults.
+        UserDefaults.standard.removeObject(forKey: "ocarina.tintProgramColours")
+
         let saved = UserDefaults.standard.string(forKey: Self.key)
 
         available = usable
         rejected = bad
-        tintsProgramColours = UserDefaults.standard.object(forKey: Self.tintKey) as? Bool ?? true
         // Saved choice, else the house theme, else whatever loaded. Falling
         // straight to `usable[0]` meant the alphabetically first file won, so a
         // fresh install opened in High Contrast — a theme for people who need
@@ -202,5 +193,21 @@ public extension EnvironmentValues {
     var theme: Theme {
         get { self[ThemeKey.self] }
         set { self[ThemeKey.self] = newValue }
+    }
+}
+
+/// Whether anything in the window is working right now.
+///
+/// In the environment rather than passed down, because the thing that reads it
+/// is the panel surface — and a panel is drawn in half a dozen places that have
+/// no reason to know about the model. See `OcarinaWindowView.PanelSheen`.
+private struct WorkingKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+public extension EnvironmentValues {
+    var isWorking: Bool {
+        get { self[WorkingKey.self] }
+        set { self[WorkingKey.self] = newValue }
     }
 }

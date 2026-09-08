@@ -30,7 +30,7 @@ struct CommandPaletteView: View {
                     .foregroundStyle(.secondary)
                 TextField("Go to terminal", text: $query)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 15))
+                    .font(.system(size: 17))
                     .focused($isSearchFocused)
                     .onSubmit { select(matches.first) }
             }
@@ -46,10 +46,10 @@ struct CommandPaletteView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(tab.title)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 15, weight: .medium))
                                 if let subtitle = tab.subtitle {
                                     Text(subtitle)
-                                        .font(.system(size: 11))
+                                        .font(.system(size: 13))
                                         .foregroundStyle(.secondary)
                                 }
                             }

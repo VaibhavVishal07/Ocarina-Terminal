@@ -38,7 +38,7 @@ struct QuickActionsView: View {
                     if groups.isEmpty { empty } else {
                         ForEach(groups) { group in
                             Text(group.title)
-                                .font(.system(size: 10.5, weight: .semibold))
+                                .font(.system(size: 12.5, weight: .semibold))
                                 .tracking(0.08)
                                 .textCase(.uppercase)
                                 .foregroundStyle(theme.chrome.textTertiary.color)
@@ -69,11 +69,11 @@ struct QuickActionsView: View {
                 .foregroundStyle(theme.chrome.textTertiary.color)
             TextField("What do you want to do?", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
+                .font(.system(size: 17))
                 .foregroundStyle(theme.chrome.textPrimary.color)
                 .focused($searching)
             Text("esc")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(theme.chrome.textTertiary.color)
         }
         .padding(14)
@@ -81,7 +81,7 @@ struct QuickActionsView: View {
 
     private var empty: some View {
         Text("Nothing here matches “\(query)”.")
-            .font(.system(size: 13))
+            .font(.system(size: 15))
             .foregroundStyle(theme.chrome.textSecondary.color)
             .padding(16)
     }
@@ -91,9 +91,9 @@ struct QuickActionsView: View {
             Rectangle().fill(theme.chrome.border.color.opacity(0.14)).frame(height: 1)
             HStack(spacing: 6) {
                 Image(systemName: "return")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                 Text("Choosing types the command at your prompt. You press Return to run it.")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
             }
             .foregroundStyle(theme.chrome.textTertiary.color)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -115,16 +115,16 @@ struct QuickActionsView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(recipe.name)
-                            .font(.system(size: 13.5, weight: .medium))
+                            .font(.system(size: 15.5, weight: .medium))
                             .foregroundStyle(theme.chrome.textPrimary.color)
                         Text(recipe.blurb)
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 13.5))
                             .foregroundStyle(theme.chrome.textSecondary.color)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
                     Image(systemName: isOpen ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(theme.chrome.textTertiary.color)
                 }
                 .padding(.horizontal, 16)
@@ -142,7 +142,7 @@ struct QuickActionsView: View {
     private func details(_ recipe: Recipe) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(recipe.explain)
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundStyle(theme.chrome.textSecondary.color)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -151,7 +151,7 @@ struct QuickActionsView: View {
             ForEach(recipe.alternatives ?? [], id: \.command) { alternative in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(alternative.label)
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(theme.chrome.textTertiary.color)
                     commandRow(alternative.command, primary: false)
                 }
@@ -159,9 +159,9 @@ struct QuickActionsView: View {
 
             HStack(spacing: 5) {
                 Image(systemName: "checkmark.seal")
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                 Text("Checked against \(recipe.docs) on \(recipe.lastVerified)")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -174,7 +174,7 @@ struct QuickActionsView: View {
     private func commandRow(_ command: String, primary: Bool) -> some View {
         HStack(spacing: 8) {
             Text(command)
-                .font(.system(size: 11.5, design: .monospaced))
+                .font(.system(size: 13.5, design: .monospaced))
                 .foregroundStyle(theme.chrome.textPrimary.color)
                 .lineLimit(2)
                 .truncationMode(.middle)

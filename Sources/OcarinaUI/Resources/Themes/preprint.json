@@ -1,0 +1,72 @@
+{
+  "id": "preprint",
+  "name": "Preprint",
+  "isDark": true,
+  "terminal": {
+    "background": "#14110B",
+    "foreground": "#E6DECB",
+    "cursor": "#D4483A",
+    "selection": "#4F4533",
+    "ansi": [
+      "#6A5F49",
+      "#D64F41",
+      "#7A9448",
+      "#C4A244",
+      "#5C86C4",
+      "#B06AAE",
+      "#4E9C9C",
+      "#C2B9A4",
+      "#867C5F",
+      "#E86A5C",
+      "#9AB468",
+      "#DCBE66",
+      "#7CA4DC",
+      "#C88AC6",
+      "#6EB8B8",
+      "#F0E8D6"
+    ],
+    "fontName": "JetBrains Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#1E1A12",
+    "panelBottom": "#17140D",
+    "bed": "#12100A",
+    "bedOpacity": 0.76,
+    "rowHover": "#C4B89C",
+    "rowSelected": "#D0C4A8",
+    "border": "#9C9078",
+    "textPrimary": "#E4DCC8",
+    "textSecondary": "#A0977E",
+    "textTertiary": "#6E6754",
+    "accent": "#B03A2C"
+  },
+  "status": {
+    "idle": "#A0977E",
+    "running": "#5C86C4",
+    "succeeded": "#7A9448",
+    "failed": "#D4483A"
+  },
+  "board": {
+    "lit": "#E6DECB",
+    "litDim": "#8A8068",
+    "unlit": "#1A1710",
+    "backdrop": "#100E09",
+    "highlight": "#D4483A"
+  },
+  "trinket": "dust",
+  "flavour": "CITATION NEEDED",
+  "voice": {
+    "working": "Compiling",
+    "done": "Compiled",
+    "stopped": "Failed to compile",
+    "clear": "Nothing pending",
+    "blurb": "Ink and paper colours, and one red for the parts that did not work."
+  },
+  "pattern": {
+    "shape": "rules",
+    "opacity": 0.05,
+    "scale": 11,
+    "color": "#C4B89C"
+  }
+}

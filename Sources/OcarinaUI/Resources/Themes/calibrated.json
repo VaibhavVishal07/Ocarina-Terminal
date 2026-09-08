@@ -1,0 +1,72 @@
+{
+  "id": "calibrated",
+  "name": "Calibrated",
+  "isDark": true,
+  "terminal": {
+    "background": "#04262E",
+    "foreground": "#C2D2D2",
+    "cursor": "#39A8A0",
+    "selection": "#145969",
+    "ansi": [
+      "#43737C",
+      "#E0685C",
+      "#8FB33A",
+      "#C4A03A",
+      "#4B95D6",
+      "#CC7BAF",
+      "#39A8A0",
+      "#93A8A8",
+      "#669097",
+      "#F0857A",
+      "#A6C75C",
+      "#DBBB5C",
+      "#6FAEE8",
+      "#DE98C6",
+      "#5CC2BA",
+      "#B8C9C9"
+    ],
+    "fontName": "JetBrains Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#0A3038",
+    "panelBottom": "#062A32",
+    "bed": "#04222A",
+    "bedOpacity": 0.74,
+    "rowHover": "#88A8AC",
+    "rowSelected": "#93B4B8",
+    "border": "#6E9098",
+    "textPrimary": "#C2D2D2",
+    "textSecondary": "#8AA0A2",
+    "textTertiary": "#5E7478",
+    "accent": "#2E8C86"
+  },
+  "status": {
+    "idle": "#6FAEE8",
+    "running": "#39A8A0",
+    "succeeded": "#8FB33A",
+    "failed": "#E0685C"
+  },
+  "board": {
+    "lit": "#39A8A0",
+    "litDim": "#1E605C",
+    "unlit": "#062C34",
+    "backdrop": "#032026",
+    "highlight": "#C4A03A"
+  },
+  "trinket": "dust",
+  "flavour": "MEASURED NOT CHOSEN",
+  "voice": {
+    "working": "Running",
+    "done": "Within tolerance",
+    "stopped": "Out of tolerance",
+    "clear": "Nothing outstanding",
+    "blurb": "Low contrast on purpose, and you will be told about it at length."
+  },
+  "pattern": {
+    "shape": "ticks",
+    "opacity": 0.05,
+    "scale": 22,
+    "color": "#39A8A0"
+  }
+}

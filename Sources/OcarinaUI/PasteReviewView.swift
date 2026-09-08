@@ -10,12 +10,12 @@ struct PasteReviewView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(reading.isDestructive ? "Read this before you paste it" : "About to paste")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(theme.chrome.textPrimary.color)
 
             ScrollView {
                 Text(reading.text)
-                    .font(.system(size: 11.5, design: .monospaced))
+                    .font(.system(size: 13.5, design: .monospaced))
                     .foregroundStyle(theme.chrome.textPrimary.color)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -66,11 +66,11 @@ struct PasteReviewView: View {
     private func label(_ text: String, symbol: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: 7) {
             Image(systemName: symbol)
-                .font(.system(size: 10))
+                .font(.system(size: 12))
                 .foregroundStyle(tint)
                 .padding(.top, 2)
             Text(text)
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundStyle(theme.chrome.textSecondary.color)
                 .fixedSize(horizontal: false, vertical: true)
         }

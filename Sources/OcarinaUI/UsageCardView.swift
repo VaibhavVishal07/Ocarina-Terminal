@@ -46,34 +46,69 @@ struct UsageCardView: View {
         .help(helpText)
     }
 
-    /// The card with a window behind it.
+    /// The card with a window behind it: what has been spent, and when the
+    /// window comes back.
+    ///
+    /// ## Why there is no percentage
+    ///
+    /// A card like this wants to say *67% used* with a bar under it, the way
+    /// every other usage meter does, and this one cannot. **Nothing on the
+    /// machine records the size of the allowance.** The transcript Claude Code
+    /// writes carries `message.usage` — input, output, cache — and no limit, no
+    /// tier ceiling, no reset quota. `/usage` inside Claude Code asks the API
+    /// live and never writes the answer down.
+    ///
+    /// Several denominators were tried here and all of them were inventions: a
+    /// high-water mark of your own history, a plan you declare in a picker, a
+    /// ratio against the clock. Each produced a confident number that looked
+    /// like the one people wanted and was not it. **A wrapper does not get to
+    /// make up the figure the thing it wraps declines to give.**
+    ///
+    /// So: what was spent, which is true, and when the window resets, which is
+    /// also true. The meter measures the window's own five hours — time, not
+    /// tokens — and the hairline says these are two readings rather than one
+    /// sentence.
     @ViewBuilder
     private func spent(_ usage: UsageWindow) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("This window")
-                .font(theme.uiFont(10.5, weight: .medium))
-                .foregroundStyle(theme.chrome.textTertiary.color)
-            Spacer(minLength: 4)
-            Text(Self.compact(usage.tokens))
-                .font(theme.uiFont(12.5, weight: .semibold))
-                .foregroundStyle(theme.chrome.textPrimary.color)
-            Text("tokens")
-                .font(theme.uiFont(10, weight: .medium))
-                .foregroundStyle(theme.chrome.textTertiary.color)
-        }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text(Self.compact(usage.tokens))
+                    .font(theme.uiFont(17, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(theme.chrome.textPrimary.color)
+                Text("tokens")
+                    .font(theme.uiFont(10.5, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+                Spacer(minLength: 4)
+                Text(countdown(to: usage.resetsAt) + " left")
+                    .font(theme.uiFont(10.5, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+            }
 
-        HStack(spacing: 8) {
-            TickMeter(fraction: usage.elapsedFraction(at: now))
-            // The countdown sits *on* the meter's row, because the meter is
-            // the clock and not the tokens. A bar under a token count that
-            // is filling with something else needs the thing it is actually
-            // measuring standing next to it, or it reads as a quota — which
-            // is the one thing this card cannot show.
-            Text(countdown(to: usage.resetsAt))
-                .font(theme.uiFont(10, weight: .medium))
-                .monospacedDigit()
-                .foregroundStyle(theme.chrome.textSecondary.color)
-                .fixedSize()
+            WindowBar(elapsed: usage.elapsedFraction(at: now))
+
+            Rectangle()
+                .fill(theme.chrome.border.color.opacity(0.14))
+                .frame(height: 1)
+                .padding(.vertical, 1)
+
+            HStack(spacing: 8) {
+                Text("Refreshes")
+                    .font(theme.uiFont(10.5, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+                Spacer(minLength: 4)
+                // In the board's alphabet, which has the colon it needs — the
+                // same hand the empty state and the menu bar are written in.
+                DotMatrixText(
+                    text: Self.clock.string(from: usage.resetsAt),
+                    cell: 1.5,
+                    gap: 0.7,
+                    lit: theme.board.highlight.color,
+                    unlit: theme.board.unlit.color,
+                    glow: false
+                )
+            }
         }
     }
 
@@ -87,29 +122,31 @@ struct UsageCardView: View {
     /// nobody can tell apart from a meter that has broken.
     @ViewBuilder
     private var nothingYet: some View {
-        // The word takes the whole row rather than sitting opposite a "This
-        // window" label: there is no window, so labelling one is the wrong
-        // sentence, and the board's alphabet needs the width to be read at
-        // all. Sized like the landing screen's tagline — 1.9 on 0.85 — which
-        // is what this is, in a smaller frame.
-        DotMatrixText(
-            text: "NO SPEND YET",
-            cell: 1.9,
-            gap: 0.85,
-            lit: theme.board.litDim.color,
-            unlit: theme.board.unlit.color,
-            glow: false
-        )
-        .frame(maxWidth: .infinity, alignment: .leading)
-
-        HStack(spacing: 8) {
-            // Floor 0, unlike the live meter: there is no window running, so
-            // the one lamp that would say "this has begun" would be a lie.
-            TickMeter(fraction: 0, floor: 0)
-            Text("not started")
-                .font(theme.uiFont(10, weight: .medium))
-                .foregroundStyle(theme.chrome.textTertiary.color)
-                .fixedSize()
+        // No dial here, and that is the point rather than an omission: there
+        // is no window open, so a clock face with nothing on it would be a
+        // reading of something that is not running. It also takes the width
+        // back — the board's alphabet needs about 195pt to set "NO SPEND YET",
+        // and a 56pt dial beside it clipped the last letter off the card.
+        Group {
+            VStack(alignment: .leading, spacing: 5) {
+                // The board's alphabet rather than a sentence. An empty card
+                // has one job — to say that the zero is a reading and not a
+                // failure to read — and a row of unlit lamps under a lit word
+                // is the app already saying exactly that on its landing
+                // screen. A greyed-out "0 tokens" would be the other thing.
+                DotMatrixText(
+                    text: "NO SPEND YET",
+                    cell: 1.9,
+                    gap: 0.85,
+                    lit: theme.board.litDim.color,
+                    unlit: theme.board.unlit.color,
+                    glow: false
+                )
+                Text("A window opens on this agent's first request.")
+                    .font(theme.uiFont(10, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -159,51 +196,38 @@ struct UsageCardView: View {
     }
 }
 
-/// A meter drawn as lamps on the board.
+/// The five-hour window, running down.
 ///
-/// Two reasons, and the second is the better one.
+/// It measures **time, not tokens** — how far through the window you are, which
+/// is a thing the app actually knows. That distinction is the whole reason this
+/// card has no percentage: see `UsageCardView.spent(_:)`.
 ///
-/// A solid bar is read as a proportion of something continuous, which invites
-/// exactly the reading this card must not invite — that the fill is an
-/// allowance running down. Counted lamps read as counted units, and these are:
-/// the five-hour window in fifteen-minute pieces, of which some have gone.
+/// ## The unlit half is not empty space
 ///
-/// And the app already has an alphabet. The wordmark at the top of the sidebar
-/// and the empty state are both dot matrix, drawn in `board.lit` and
-/// `board.unlit`, on the argument that a departure board is the one piece of
-/// pure identity Ocarina has. A meter is exactly what such a board is for.
-/// Drawing it in that language costs nothing and makes the token card belong
-/// to the app rather than to every dashboard tile ever shipped.
-struct TickMeter: View {
-    var fraction: Double
-    /// The fewest lamps that may be lit while there is anything to measure.
+/// The meter this replaces drew its dark cells in `board.unlit`, which on most
+/// themes is a shade off the panel itself — so a window that had just opened
+/// read as one short bright bar floating in nothing, and you could not see how
+/// much of the track was still to come. **The unspent track is the other half
+/// of the reading.** It is drawn at a real weight: `litDim` held back, visible
+/// on every theme in the set and still clearly the unlit state.
+struct WindowBar: View {
+    /// 0 at the top of the window, 1 at the end of it.
+    var elapsed: Double
+    /// The fewest cells that may be lit while a window is open.
     ///
-    /// 1, not 0. A window that has just opened is a minute into five hours,
-    /// which rounds to no lamps at all — and twenty dark lamps under a token
-    /// figure is indistinguishable from a meter that has failed to read. One
-    /// lamp is the honest floor: the window is open, and this is the least it
-    /// can be. The empty card passes 0, because there it is not open.
+    /// 1, not 0. A window a minute into five hours rounds to nothing lit, and
+    /// an empty bar under a token figure is indistinguishable from a meter that
+    /// has failed to read.
     var floor: Int = 1
     @Environment(\.theme) private var theme
 
-    /// Five hours in quarter-hours. Enough to see one go by; few enough that
-    /// each lamp is still a lamp rather than a hairline.
+    /// Five hours in quarter-hours.
     private static let count = 20
-    /// Two rows, because one row of dots is a dotted line and two is a panel.
-    private static let rows = 2
-    private static let cell: CGFloat = 3
-    private static let gap: CGFloat = 1.6
+    private static let height: CGFloat = 7
+    private static let gap: CGFloat = 2.2
 
-    /// Cold at the top of the window, warm at the end of it.
-    ///
-    /// One flat colour for twenty lamps was the board's own `lit` and read as
-    /// a bar that happened to be made of dots — you could see how many were
-    /// on, but not, at a glance, whereabouts in the window you were. A ramp
-    /// laid across the whole meter fixes that without adding a number: the
-    /// lamps you have are dim and cool near the start and run up through the
-    /// board's lit colour to its highlight as the five hours go. All three
-    /// are the theme's own board colours, so it warms in whatever palette is
-    /// on rather than in a hard-coded green-to-red nobody chose.
+    /// Cold at the top of the window, warm at the end of it — the board's own
+    /// three colours, so it warms in whatever palette is on.
     private var ramp: Gradient {
         Gradient(colors: [
             theme.board.litDim.color,
@@ -213,53 +237,43 @@ struct TickMeter: View {
     }
 
     var body: some View {
-        let reading = min(max(fraction, 0), 1)
+        let reading = min(max(elapsed, 0), 1)
         let lit = max(
             reading > 0 ? floor : 0,
             Int((Double(Self.count) * reading).rounded())
         )
         Canvas { context, size in
-            let pitch = Self.cell + Self.gap
-            // Spread across whatever width the card gives it, so the lamps sit
-            // on the card's own edges rather than on a grid of their own.
-            let step = max((size.width - Self.cell) / CGFloat(Self.count - 1), pitch)
-            var on = Path(), off = Path()
-            for column in 0..<Self.count {
-                for row in 0..<Self.rows {
-                    let dot = Path(
-                        roundedRect: CGRect(
-                            x: CGFloat(column) * step,
-                            y: CGFloat(row) * pitch,
-                            width: Self.cell,
-                            height: Self.cell
-                        ),
-                        cornerRadius: Self.cell * 0.3
-                    )
-                    if column < lit { on.addPath(dot) } else { off.addPath(dot) }
-                }
+            let step = (size.width + Self.gap) / CGFloat(Self.count)
+            let width = max(1, step - Self.gap)
+            var on = Path(), track = Path()
+            for index in 0..<Self.count {
+                let cell = Path(
+                    roundedRect: CGRect(x: CGFloat(index) * step, y: 0,
+                                        width: width, height: Self.height),
+                    cornerRadius: Self.height * 0.28
+                )
+                if index < lit { on.addPath(cell) } else { track.addPath(cell) }
             }
-            context.fill(off, with: .color(theme.board.unlit.color))
-            // Across the meter's full width, not the lit run's: a lamp's
-            // colour has to mean the same thing at 3 lamps as it does at 18,
-            // and a gradient rescaled to the fill would make the last lit
-            // lamp the warmest one at every reading.
+            context.fill(track, with: .color(theme.board.litDim.color.opacity(0.34)))
+
+            // Across the whole track rather than the lit run, so a cell's
+            // colour means the same thing at four lit as it does at twenty.
             let shading = GraphicsContext.Shading.linearGradient(
                 ramp,
-                startPoint: CGPoint(x: 0, y: size.height / 2),
-                endPoint: CGPoint(x: size.width, y: size.height / 2)
+                startPoint: CGPoint(x: 0, y: 0),
+                endPoint: CGPoint(x: size.width, y: 0)
             )
-            // The bloom, the same as the board's: an LED behind a diffuser,
-            // not a rectangle that happens to be coloured in. How much
-            // diffuser is the theme's to say — Steel has none.
             let bloom = theme.shape.bloom
             if bloom > 0 {
                 context.drawLayer { layer in
-                    layer.addFilter(.blur(radius: Self.cell * 0.7 * bloom))
+                    layer.addFilter(.blur(radius: Self.height * 0.5 * bloom))
                     layer.fill(on, with: shading)
                 }
             }
             context.fill(on, with: shading)
         }
-        .frame(height: CGFloat(Self.rows) * (Self.cell + Self.gap) - Self.gap)
+        .frame(height: Self.height)
+        .accessibilityElement()
+        .accessibilityLabel("\(Int((reading * 100).rounded())) per cent through this window")
     }
 }

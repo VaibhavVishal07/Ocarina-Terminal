@@ -1,0 +1,72 @@
+{
+  "id": "shibuya",
+  "name": "Shibuya",
+  "isDark": true,
+  "terminal": {
+    "background": "#0A0616",
+    "foreground": "#DED2F5",
+    "cursor": "#FF4FD8",
+    "selection": "#512B91",
+    "ansi": [
+      "#645197",
+      "#FF5C8A",
+      "#4FE8B4",
+      "#FFD24F",
+      "#7A8CFF",
+      "#FF4FD8",
+      "#4FE8FF",
+      "#CFC2EC",
+      "#806FAA",
+      "#FF85A8",
+      "#7DF2CC",
+      "#FFE080",
+      "#9EACFF",
+      "#FF85E6",
+      "#85F0FF",
+      "#F2ECFF"
+    ],
+    "fontName": "JetBrains Mono",
+    "fontSize": 13
+  },
+  "chrome": {
+    "panelTop": "#150C28",
+    "panelBottom": "#0E0820",
+    "bed": "#0B0618",
+    "bedOpacity": 0.72,
+    "rowHover": "#B79AE8",
+    "rowSelected": "#C4A8F0",
+    "border": "#8A6ED0",
+    "textPrimary": "#E4D8FA",
+    "textSecondary": "#A091C4",
+    "textTertiary": "#6E6190",
+    "accent": "#C233A8"
+  },
+  "status": {
+    "idle": "#9EACFF",
+    "running": "#4FE8FF",
+    "succeeded": "#4FE8B4",
+    "failed": "#FF5C8A"
+  },
+  "board": {
+    "lit": "#FF4FD8",
+    "litDim": "#8A2A76",
+    "unlit": "#12092A",
+    "backdrop": "#07040F",
+    "highlight": "#4FE8FF"
+  },
+  "trinket": "rain",
+  "flavour": "IT IS ALWAYS RAINING",
+  "voice": {
+    "working": "Running hot",
+    "done": "Landed",
+    "stopped": "Went dark",
+    "clear": "The street is empty",
+    "blurb": "Neon on wet asphalt, at the hour nothing else is open."
+  },
+  "pattern": {
+    "shape": "waves",
+    "opacity": 0.05,
+    "scale": 18,
+    "color": "#FF4FD8"
+  }
+}

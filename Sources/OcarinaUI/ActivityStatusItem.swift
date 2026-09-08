@@ -26,6 +26,9 @@ import OcarinaTerminalContext
 @MainActor
 public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     private var item: NSStatusItem?
+    /// The words currently up, so the turn can redraw the plate without
+    /// re-deriving them and so a changed exit code still reaches the bar.
+    private var lastWords = ""
     private var spinner: Timer?
     /// The last thing we were told, kept because the menu is built from it on
     /// the way open rather than rebuilt every time the reading is refreshed.
@@ -140,10 +143,18 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         // Set before the guard below, for the same reason the tooltip is: the
         // plate for `.failed(1)` and `.failed(127)` is one picture and the
         // words are not.
-        item.button?.title = " " + Self.title(for: activity)
+        // The words are part of the picture now — see `plate`. The button's
+        // own title stays empty, or AppKit would set the same reading twice in
+        // two different alphabets.
+        item.button?.title = ""
+        let board = Self.boardWords(for: activity)
 
         let card = ActivityCard(activity)
-        guard card != wasShowing else { return }
+        // The words change on their own — `.failed(1)` and `.failed(127)` are
+        // one card and two readings — so the guard cannot be on the card alone
+        // the way it was when the words were a separate label.
+        guard card != wasShowing || board != lastWords else { return }
+        lastWords = board
 
         // The turn owns the image while something is running, so drawing it
         // here as well would fight the timer for the same picture.
@@ -151,7 +162,7 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
             startTurning()
         } else {
             stopTurning()
-            item.button?.image = Self.glyph(card)
+            item.button?.image = Self.plate(card, words: board)
         }
     }
 
@@ -245,6 +256,28 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         // Same rule as `line`: the code is appended here, not written by a
         // theme, so a failure in the menu bar always carries its number.
         case let .failed(code): "Stopped (\(code))"
+        }
+    }
+
+    /// The same reading, in the letters the board can draw.
+    ///
+    /// The menu bar sets its words in the app's own 5x7 alphabet now, and that
+    /// alphabet is A–Z, 0–9 and a handful of marks — **no brackets**. So
+    /// `Stopped (127)` cannot be set here; it would come out with two blank
+    /// cells where the eye expects the number to start.
+    ///
+    /// Shorter than `title(for:)` as well, and deliberately. A matrix letter is
+    /// six columns at the card's own pitch — about 10 points — so every word
+    /// costs roughly three times what the system font charged for it. "Still
+    /// going" would be 110 points of menu bar to say what the card is already
+    /// saying by turning.
+    nonisolated static func boardWords(for activity: TabActivity) -> String {
+        switch activity {
+        case .idle: "READY"
+        case .running: "WORKING"
+        case .succeeded: "DONE"
+        case .needsYou: "NEEDS YOU"
+        case let .failed(code): "STOPPED \(code)"
         }
     }
 
@@ -415,6 +448,115 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         return image
     }
 
+    /// The words, set in the board's alphabet.
+    ///
+    /// Same letters as the wordmark in the sidebar and the line on the empty
+    /// state, so the one surface Ocarina owns *outside* its own window is
+    /// written in the same hand as everything inside it. That was the argument
+    /// the card was carrying alone; the words can carry it too now.
+    ///
+    /// A shade smaller than the card's lamps — `textCell` against `cell` — and
+    /// that is the one compromise in here. At the card's own pitch "STOPPED 1"
+    /// is 110 points of menu bar, and a note further down this file already
+    /// measured that and called it wider than the clock, the Wi-Fi and the
+    /// battery together. The lamps stay the size that makes a filled row read
+    /// as a bar; the letters go small enough to be affordable.
+    nonisolated static func words(_ text: String) -> NSImage {
+        let bits = Self.tightened(DotMatrixText.bitmap(for: text))
+        let columns = bits.first?.count ?? 0
+        let size = NSSize(
+            width: max(1, CGFloat(columns) * textPitch - textGap),
+            height: CGFloat(DotMatrixText.height) * textPitch - textGap
+        )
+        let image = NSImage(size: size, flipped: false) { _ in
+            NSColor(white: 0, alpha: lit).setFill()
+            for (row, line) in bits.enumerated() {
+                for (column, on) in line.enumerated() where on {
+                    let box = NSRect(
+                        x: CGFloat(column) * textPitch,
+                        // The bitmap's first row is the top; this context's
+                        // origin is the bottom left.
+                        y: size.height - CGFloat(row) * textPitch - textCell,
+                        width: textCell, height: textCell
+                    )
+                    NSBezierPath(roundedRect: box,
+                                 xRadius: textCell * 0.18,
+                                 yRadius: textCell * 0.18).fill()
+                }
+            }
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    /// The card and its words, as one picture.
+    ///
+    /// One image rather than an image and a `title`, because the title was the
+    /// only thing in the item still set in the system font — a picture in the
+    /// app's alphabet with a label in San Francisco beside it is two hands
+    /// writing one line. Composed here so the turn can redraw the plate eight
+    /// times a second without the words flickering with it.
+    static func plate(_ card: ActivityCard, words text: String, turn frameIndex: Int? = nil) -> NSImage {
+        let mark = glyph(card, turn: frameIndex)
+        let label = words(text)
+        let size = NSSize(
+            width: mark.size.width + wordGap + label.size.width,
+            height: max(mark.size.height, label.size.height)
+        )
+        let image = NSImage(size: size, flipped: false) { _ in
+            mark.draw(at: NSPoint(x: 0, y: (size.height - mark.size.height) / 2),
+                      from: .zero, operation: .sourceOver, fraction: 1)
+            // Rounded, because a half-point offset on a 1.4pt lamp is the
+            // difference between a letter and a smudge.
+            let y = ((size.height - label.size.height) / 2).rounded()
+            label.draw(at: NSPoint(x: mark.size.width + wordGap, y: y),
+                       from: .zero, operation: .sourceOver, fraction: 1)
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Ocarina"
+        return image
+    }
+
+    /// A word space, cut down to size.
+    ///
+    /// The alphabet draws a space as five blank columns, because on the board
+    /// every glyph is five wide and the grid is the point. With the gap on
+    /// either side that is seven blank columns between words — ten points of
+    /// nothing, and "NEEDS YOU" read as two separate menu bar items.
+    ///
+    /// Cut to four. Two was the first try and it went straight past the answer:
+    /// "NEEDSYOU". Four is a word space; one is the gap between letters, and it
+    /// survives untouched because a run of one is under the limit.
+    ///
+    /// It can never eat part of a letter. A blank column *inside* a glyph has
+    /// lit cells above or below it in the same column, so it is not blank.
+    private nonisolated static func tightened(_ bits: [[Bool]]) -> [[Bool]] {
+        guard let width = bits.first?.count, width > 0 else { return bits }
+        var keep: [Int] = []
+        var blankRun = 0
+        for column in 0..<width {
+            let empty = !bits.contains { $0[column] }
+            blankRun = empty ? blankRun + 1 : 0
+            if !empty || blankRun <= 4 { keep.append(column) }
+        }
+        return bits.map { row in keep.map { row[$0] } }
+    }
+
+    /// 1.3 rather than the card's 1.7, and the last tenth of that was bought
+    /// by an exit code. `STOPPED 127` is the widest reading the bar can be
+    /// asked for — 127 is "command not found" and turns up constantly — and at
+    /// 1.4 it came to 126pt, close enough to the 136 a note further down this
+    /// file already measured and rejected. The letters lose a tenth of a point
+    /// and the worst case comes in under 120.
+    private nonisolated static let textCell: CGFloat = 1.3
+    private nonisolated static let textGap: CGFloat = 0.3
+    private nonisolated static var textPitch: CGFloat { textCell + textGap }
+    /// The space between the card and its words. Wider than a letter gap, so
+    /// the two read as a plate and a caption rather than one long word.
+    private nonisolated static let wordGap: CGFloat = 6
+
     /// A menu bar is about twenty-two points tall and this has to sit in it
     /// with room above and below: seven rows at a 2.05pt pitch is 14 points,
     /// and the frame takes it to **16.6 points square**. Square because every
@@ -471,7 +613,9 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// Eight repaints a second rather than the chase's thirty, and each is five
     /// filled rows rather than sixty-five lamps of alpha arithmetic.
     private func draw() {
-        item?.button?.image = Self.glyph(.working, turn: frame)
+        item?.button?.image = Self.plate(
+            .working, words: lastWords.isEmpty ? "WORKING" : lastWords, turn: frame
+        )
         frame = (frame + 1) % ActivityCard.turn.count
     }
 

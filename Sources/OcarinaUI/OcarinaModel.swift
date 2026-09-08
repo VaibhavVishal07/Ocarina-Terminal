@@ -49,27 +49,130 @@ public final class TabItem: Identifiable {
         return needsAttention ? .needsYou : activity
     }
 
-    /// The summariser, so the strip can show the same quality of name the task
-    /// panel does. Weak and ignored: the model owns it, and it is read here,
-    /// never observed as a reference.
-    @ObservationIgnored weak var summariser: TaskSummariser?
-
-    /// The contextual task — the primary title.
+    /// The folder this tab is working in, prettied for the column — "Ocarina",
+    /// "Xstream Suite". Nil at a path that is not a project, which is where the
+    /// old name stands in.
     ///
-    /// Computed, so a better name arriving from the summariser redraws the
-    /// strip on its own. The word filter's title is what stands here until
-    /// then, and it is what stands forever on a machine with no agent
-    /// installed — this only ever replaces a title, it never waits for one.
+    /// Live rather than fixed at launch: a `cd` into another repo is a change
+    /// of project, and the shell reports its directory on every prompt.
+    public var project: String?
+    /// Set when another open tab is in the same folder, so the column does not
+    /// show the same word twice. See `OcarinaModel.renumberProjects`.
+    public var projectOrdinal: Int?
+
+    /// The tab's name: the project it is in.
+    ///
+    /// It used to be the work — the prompt, run through a word filter and then
+    /// through a model that rewrote it into a to-do item. That was the app's
+    /// cleverest feature and its least useful one. **A name that changes every
+    /// time you ask for something is not a name**, it is a status line: you
+    /// cannot learn the column, you cannot point at a tab, and the one thing
+    /// you always know about a terminal — which codebase it is in — was the one
+    /// thing it never said.
+    ///
+    /// So the folder wins. It is stable for as long as the tab is, it is what
+    /// you would call the tab out loud, and with eight open it is the reading
+    /// that makes the column scannable. What the agent is *doing* has three
+    /// other homes already: the dot, the task panel, and the menu bar.
+    ///
+    /// A hand-typed name still beats it, and where there is no project — a
+    /// shell in a home directory — the old generated title stands in.
     public var title: String {
-        guard !isManuallyNamed, isConversation, let activeTask,
-              let better = summariser?.title(for: activeTask)
-        else { return generatedTitle }
-        return better
+        guard !isManuallyNamed else { return generatedTitle }
+        guard let project else { return generatedTitle }
+        guard let ordinal = projectOrdinal else { return project }
+        return "\(project) \(ordinal)"
     }
 
     init(id: UUID, title: String) {
         self.id = id
         self.generatedTitle = title
+    }
+}
+
+/// One project folder's asks, across every tab open in it.
+///
+/// The unit the history is read in. A person with eight terminals open does not
+/// hold eight terminals in their head — they hold two or three projects, and
+/// the terminals are how they are working on them. So the heading is the
+/// folder, and the tab a line came from is a detail on the line rather than the
+/// thing you scan by.
+public struct ProjectHistory: Identifiable, Equatable, Sendable {
+    /// One ask, and the tab it can take you back to.
+    public struct Entry: Identifiable, Equatable, Sendable {
+        public let task: AgentTask
+        public let tabID: UUID
+        /// Shown only when a folder has more than one tab in it — see
+        /// `TaskHistoryView`. On its own it would repeat the heading.
+        public let tabTitle: String
+        public var id: String { "\(tabID)/\(task.id)" }
+    }
+
+    public let path: String
+    public let name: String
+    /// The folder the selected tab is in, which leads the list.
+    public let isCurrent: Bool
+    public let entries: [Entry]
+
+    public var id: String { path }
+    public var working: Int { entries.filter { $0.task.state == .working }.count }
+    /// Whether the same folder has asks from more than one tab, which is the
+    /// only case where a line needs to say which tab it came from.
+    public var isShared: Bool { Set(entries.map(\.tabID)).count > 1 }
+
+    /// What one tab contributes: where it is, and what has been asked in it.
+    public struct Reading: Sendable {
+        public let tabID: UUID
+        public let tabTitle: String
+        public let directory: URL
+        public let tasks: [AgentTask]
+
+        public init(tabID: UUID, tabTitle: String, directory: URL, tasks: [AgentTask]) {
+            self.tabID = tabID
+            self.tabTitle = tabTitle
+            self.directory = directory
+            self.tasks = tasks
+        }
+    }
+
+    /// Tabs in, folders out.
+    ///
+    /// Pulled out of the model as a plain function of its inputs, because the
+    /// ordering is the part with opinions in it and the model needs a live pty
+    /// to exist. Paths are standardised first: `/tmp` and `/private/tmp` are
+    /// the same folder, and two headings for one project is exactly the failure
+    /// this view is meant to fix.
+    public static func group(_ readings: [Reading], current: URL?) -> [ProjectHistory] {
+        let here = current?.standardizedFileURL.resolvingSymlinksInPath().path
+        var byDirectory: [String: [Entry]] = [:]
+
+        for reading in readings where !reading.tasks.isEmpty {
+            let path = reading.directory.standardizedFileURL.resolvingSymlinksInPath().path
+            byDirectory[path, default: []] += reading.tasks.map { task in
+                Entry(task: task, tabID: reading.tabID, tabTitle: reading.tabTitle)
+            }
+        }
+
+        return byDirectory.map { path, entries in
+            ProjectHistory(
+                path: path,
+                name: URL(fileURLWithPath: path).lastPathComponent,
+                isCurrent: path == here,
+                // Newest first: the ask you are waiting on is the one you came
+                // to look at, and it is always the last one you made.
+                entries: entries.sorted { $0.task.askedAt > $1.task.askedAt }
+            )
+        }.sorted { a, b in
+            // Where you are, then wherever was asked something most recently.
+            // Alphabetical would be stable and useless — the folder you touched
+            // a minute ago is the one you are coming back to.
+            if a.isCurrent != b.isCurrent { return a.isCurrent }
+            let (x, y) = (a.entries.first?.task.askedAt, b.entries.first?.task.askedAt)
+            if x != y { return (x ?? .distantPast) > (y ?? .distantPast) }
+            // A tie only happens with no tasks or identical timestamps; name
+            // keeps the order from shuffling between reads.
+            return a.name < b.name
+        }
     }
 }
 
@@ -156,6 +259,15 @@ public final class OcarinaModel {
     }
     /// What the transcript says, before Claude has renamed any of it.
     public private(set) var rawTasks: [AgentTask] = []
+
+    /// The last list read for every tab, not only the one in front.
+    ///
+    /// `rawTasks` is the selected tab's, and it is what the panel and the menu
+    /// bar have always drawn. This is what makes the history cross-session: a
+    /// tab keeps the list it was last seen with, so switching away does not
+    /// blank it, and `pollOneBackgroundTab` walks the rest so a tab working
+    /// while you are looking elsewhere still moves.
+    public private(set) var tasksByTab: [UUID: [AgentTask]] = [:]
 
     /// Tasks as the panel shows them.
     ///
@@ -365,11 +477,39 @@ public final class OcarinaModel {
         guard let directory = selectedSession?.reportedDirectory,
               RecentProjects.isProject(directory)
         else { return }
+        // The tab is named after this, so a `cd` into another repo renames it.
+        if let id = selectedTabID, let tab = tabs.first(where: { $0.id == id }) {
+            let named = TitleFormatter.humanize(directory.lastPathComponent)
+                ?? directory.lastPathComponent
+            if tab.project != named {
+                tab.project = named
+                renumberProjects()
+            }
+        }
         let agent = AgentTaskSource.isAgent(foreground) || AgentCatalog.all.contains {
             $0.executable == foreground?.lowercased()
         } ? foreground?.lowercased() : nil
         recents.note(directory, agent: agent)
         recentsRevision += 1
+    }
+
+    /// Two tabs in one folder would be two rows reading the same word, which
+    /// is the one thing a column of project names must not do. The first keeps
+    /// the bare name and the rest are numbered in the order they were opened —
+    /// so a tab's name never changes because *another* tab appeared beside it,
+    /// only because one before it went away.
+    private func renumberProjects() { Self.renumber(tabs) }
+
+    /// The numbering itself, over a plain array, so it can be tested without a
+    /// pty or a process tree.
+    static func renumber(_ tabs: [TabItem]) {
+        var seen: [String: Int] = [:]
+        for tab in tabs {
+            guard let project = tab.project else { tab.projectOrdinal = nil; continue }
+            let count = (seen[project] ?? 0) + 1
+            seen[project] = count
+            tab.projectOrdinal = count > 1 ? count : nil
+        }
     }
 
     @ObservationIgnored private let taskSource = AgentTaskSource()
@@ -429,6 +569,103 @@ public final class OcarinaModel {
     /// `agentInForeground`, which is where the cost always was.
     private func pollTasksIfWatched() {
         refreshTasks()
+        pollOneBackgroundTab()
+    }
+
+    /// Reads one tab that is not in front, and moves the cursor on.
+    ///
+    /// The history is a list of what every session is doing, so it cannot be
+    /// built only from the tab you happen to be looking at — a tab left working
+    /// while you switch away would sit on whatever it last said. But polling
+    /// all of them every two seconds multiplies the one real cost here by the
+    /// number of tabs, so it takes them one at a time: ten sessions are all
+    /// current within twenty seconds, and the tick costs what it always did.
+    ///
+    /// Everything expensive is still skipped the same way `refreshTasks` skips
+    /// it — an unchanged transcript by signature, and a tab with no agent in
+    /// front of it by `agentInForeground`.
+    private func pollOneBackgroundTab() {
+        let others = tabs.filter { $0.id != selectedTabID }
+        guard !others.isEmpty else { return }
+        backgroundCursor = (backgroundCursor + 1) % others.count
+        let tab = others[backgroundCursor]
+        guard let session = session(for: tab.id) else { return }
+
+        let id = tab.id
+        let directory = session.workingDirectory
+        let monitor = session.monitor
+        let source = taskSource
+
+        Task { [weak self] in
+            let snapshot = await monitor?.snapshot()
+            let startedAt = snapshot?.foregroundProcessStartTime
+            let agentInForeground = AgentTaskSource.isAgent(snapshot?.foregroundProcessName)
+
+            let signature = await Task.detached {
+                source.signature(
+                    for: directory, startedAt: startedAt, agentInForeground: agentInForeground
+                )
+            }.value
+
+            guard let self else { return }
+            // Still open, and still not the one in front — `refreshTasks` owns
+            // that one and would otherwise write over it with an older read.
+            guard self.tabs.contains(where: { $0.id == id }), self.selectedTabID != id else { return }
+            guard signature != self.backgroundSignatures[id] || self.tasksByTab[id] == nil else { return }
+            self.backgroundSignatures[id] = signature
+
+            let read = await Task.detached {
+                source.tasks(
+                    for: directory, startedAt: startedAt, agentInForeground: agentInForeground
+                )
+            }.value
+            guard self.tabs.contains(where: { $0.id == id }), self.selectedTabID != id else { return }
+            self.tasksByTab[id] = read
+        }
+    }
+
+    /// Every session's asks, grouped by the folder they were asked in.
+    ///
+    /// Grouped by project rather than listed flat because that is the question
+    /// being asked: not "what happened, in order" but "what is going on in the
+    /// thing I am working on". A folder with two tabs open in it is one heading
+    /// with both tabs' asks under it, which is also how you find the tab you
+    /// meant when two of them are called the same thing.
+    ///
+    /// The folder you are in leads, then the rest by their most recent ask. A
+    /// heading with nothing under it is dropped: a tab where no agent has been
+    /// asked anything is not history, it is an empty terminal.
+    public var sessionHistory: [ProjectHistory] {
+        ProjectHistory.group(
+            tabs.compactMap { tab in
+                guard let session = session(for: tab.id) else { return nil }
+                return ProjectHistory.Reading(
+                    tabID: tab.id,
+                    tabTitle: tab.title,
+                    directory: session.workingDirectory,
+                    // The selected tab reads live, so a title the summariser
+                    // has just improved is on screen in both scopes at once —
+                    // `tasksByTab` holds what the poll last stored, which is
+                    // the raw reading.
+                    tasks: tab.id == selectedTabID ? tasks : (tasksByTab[tab.id] ?? [])
+                )
+            },
+            current: selectedSession?.workingDirectory
+        )
+    }
+
+    /// Takes you to the tab an ask was made in.
+    ///
+    /// The whole point of the list: you read a line, you want the terminal it
+    /// came from. Selecting is all it does — it does not scroll the transcript
+    /// to that ask, because the pty holds the scrollback and there is no index
+    /// into it that would survive the program clearing the screen.
+    public func reveal(_ tabID: UUID) {
+        guard tabs.contains(where: { $0.id == tabID }) else { return }
+        selectedTabID = tabID
+        clearBell(tabID)
+        lastTaskSignature = nil
+        refreshTasks()
     }
 
     /// Somebody typed. Names may now cost a subprocess.
@@ -444,24 +681,8 @@ public final class OcarinaModel {
         lastTaskSignature = nil
         // Every tab already has a prompt by now; none of them were allowed to
         // be asked about until this moment.
-        summariseTabTitles()
     }
 
-    /// Puts the prompts naming the open tabs in front of the summariser.
-    ///
-    /// The task panel only ever reads the selected tab's conversation, so
-    /// without this a background tab's name would sit on the word filter's
-    /// reading of it until you clicked into the tab. The summariser holds one
-    /// queue and one cache for both, so a prompt that is also in the panel
-    /// costs nothing to ask about twice.
-    private func summariseTabTitles() {
-        guard summarisingAllowed else { return }
-        let prompts = tabs.compactMap { tab in
-            tab.isManuallyNamed || !tab.isConversation ? nil : tab.activeTask
-        }
-        guard !prompts.isEmpty else { return }
-        taskSummariser.refresh(prompts: prompts)
-    }
 
     /// Reads the transcript off the main thread.
     ///
@@ -541,6 +762,7 @@ public final class OcarinaModel {
         // The heuristic title is on screen the moment this lands; Claude's
         // replaces it through `tasks` when the summariser answers.
         rawTasks = read
+        if let id = selectedTabID { tasksByTab[id] = read }
         // The fifth place the menu bar is told. The panel redraws off
         // observation and the menu bar cannot — it is AppKit, and it holds the
         // last reading it was handed. Without this the list up there moved on
@@ -552,6 +774,13 @@ public final class OcarinaModel {
     }
 
     @ObservationIgnored private var lastTaskSignature: String?
+    /// One per tab, so a background read can skip an unchanged transcript the
+    /// same way the foreground one does. Without this the rotation would parse
+    /// a thirty-megabyte JSONL every time it came round to a quiet tab.
+    @ObservationIgnored private var backgroundSignatures: [UUID: String] = [:]
+    /// Where the rotation is up to. One tab per tick, so ten sessions cost one
+    /// `snapshot()` and one `stat` every two seconds between them — not ten.
+    @ObservationIgnored private var backgroundCursor = 0
 
     /// Draws a line under everything asked so far in this tab.
     ///
@@ -796,23 +1025,13 @@ public final class OcarinaModel {
     /// is told.
     public func applyThemeToSessions() {
         for session in sessions.values {
-            session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
+            session.apply(themes.theme)
         }
         // The menu bar is outside the environment the theme reaches through,
         // and the words up there are the theme's. Told, like the emulator is.
         refreshStatusItem()
     }
 
-    /// Turns the retint on or off, and tells every open terminal.
-    ///
-    /// What is already on screen keeps the colours it was drawn in: the
-    /// emulator holds a grid of resolved cells, not the bytes that made them.
-    /// Everything printed after this follows the theme.
-    public func setTinting(_ isOn: Bool) {
-        guard isOn != themes.tintsProgramColours else { return }
-        themes.tintsProgramColours = isOn
-        applyThemeToSessions()
-    }
 
     public func session(for id: UUID) -> TerminalSession? { sessions[id] }
 
@@ -830,7 +1049,7 @@ public final class OcarinaModel {
         session.onBell = { [weak self] in self?.noteBell(from: session.id) }
         // Styled before it is ever shown, so a new tab never flashes the
         // default palette on its way to the chosen one.
-        session.apply(themes.theme, tintingOutput: themes.tintsProgramColours)
+        session.apply(themes.theme)
         sessions[session.id] = session
 
         // Before any activity, a tab is named for where it is.
@@ -838,8 +1057,12 @@ public final class OcarinaModel {
         let fallback = TitleFormatter.humanize(directory.lastPathComponent)
             ?? directory.lastPathComponent
         let tab = TabItem(id: session.id, title: fallback)
-        tab.summariser = taskSummariser
+        // Named before anything has happened in it. The shell will report the
+        // directory again on its first prompt and `noteProject` will confirm
+        // it, but the column must never show a blank row waiting for that.
+        if RecentProjects.isProject(directory) { tab.project = fallback }
         tabs.append(tab)
+        renumberProjects()
         selectedTabID = tab.id
         noteVisit(tab.id)
 
@@ -863,6 +1086,7 @@ public final class OcarinaModel {
         sessions[id]?.close()
         sessions[id] = nil
         tabs.removeAll { $0.id == id }
+        renumberProjects()
         visitOrder.removeAll { $0 == id }
         Task { await namingService.detach(tabID: id) }
 
@@ -1046,7 +1270,6 @@ public final class OcarinaModel {
         tab.isConversation = context.contextSource == .llmSession
         tab.subtitle = context.subtitle
         tab.processName = context.processName
-        summariseTabTitles()
 
         // A fresh failure brings the banner back even if the last one was
         // dismissed: dismissing means "I have read this one", not "stop telling

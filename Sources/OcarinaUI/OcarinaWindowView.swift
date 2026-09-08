@@ -255,6 +255,11 @@ public struct OcarinaWindowView: View {
                             model.isSkillsVisible = false
                             model.startClaude()
                         },
+                        // Typed, not run. The catalogue could not answer, so
+                        // the question is handed to the thing that can — and
+                        // left at the prompt for the person to send, like
+                        // every other command this app puts in front of you.
+                        askAgent: { model.typeAtPrompt($0) },
                         close: { model.isSkillsVisible = false }
                     )
                 }
@@ -279,6 +284,11 @@ public struct OcarinaWindowView: View {
         .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         // Published once, here, so every view below reads the same theme.
         .environment(\.theme, model.themes.theme)
+        // And whether anything in the window is working, for the light on the
+        // panels — see `PanelSheen`. Set beside the theme because it is the
+        // same kind of fact: something the whole window is drawn against,
+        // which no panel should have to be handed by its parent.
+        .environment(\.isWorking, model.isAnythingRunning)
         .onAppear {
             model.start()
             model.applyThemeToSessions()
@@ -381,16 +391,63 @@ public struct OcarinaWindowView: View {
     /// from.
     static func catchesLight(_ place: PanelPlace) -> Bool { place == .top }
 
-    @ViewBuilder
-    static func panelSheen(_ theme: Theme, at place: PanelPlace) -> some View {
-        if catchesLight(place), theme.shape.sheen > 0 {
-            LinearGradient(
-                colors: [theme.chrome.textPrimary.color.opacity(theme.shape.sheen), .clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 110)
-            .frame(maxHeight: .infinity, alignment: .top)
+    /// The light on the top of the stack, in the theme's own colour, brighter
+    /// while something is working.
+    ///
+    /// ## The colour
+    ///
+    /// It was `chrome.textPrimary` — a text colour, which is near-grey in every
+    /// theme by design, so every theme's panels caught the same colourless
+    /// light. **The lamp colour is the one the theme actually means by "lit"**:
+    /// it is what the wordmark burns, what the meter fills with, and what the
+    /// board's `highlight` is a brighter version of. Phosphor's light is amber
+    /// now, Matcha's is green, and the top of the window belongs to the theme
+    /// rather than to the type.
+    ///
+    /// ## The breathing
+    ///
+    /// It rises while any tab is working and settles when they all stop. That
+    /// is the one thing the window can say about *itself* rather than about a
+    /// tab — the dots, the panel and the menu bar all speak for one session,
+    /// and this is the room they are in.
+    ///
+    /// Slow on purpose, and small: `working` multiplies the theme's own sheen
+    /// rather than replacing it, so a theme that lights its panels flat
+    /// (`sheen` 0, which Steel does) stays flat while it works. A window that
+    /// pulsed regardless of what the theme asked for would be the app
+    /// overruling the theme on the largest surface it has.
+    struct PanelSheen: View {
+        let place: PanelPlace
+        @Environment(\.theme) private var theme
+        @Environment(\.isWorking) private var isWorking
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        /// How much brighter the light gets while something is running. Enough
+        /// to notice out of the corner of the eye, not enough to read as a
+        /// different theme.
+        private static let lift: Double = 2.3
+
+        var body: some View {
+            if catchesLight(place), theme.shape.sheen > 0 {
+                LinearGradient(
+                    colors: [
+                        theme.board.lit.color
+                            .opacity(theme.shape.sheen * (isWorking ? Self.lift : 1)),
+                        .clear,
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: isWorking ? 150 : 110)
+                .frame(maxHeight: .infinity, alignment: .top)
+                // Long, because this is weather rather than a state change —
+                // something you notice has happened, not something you watch
+                // happen over a terminal you are reading.
+                .animation(
+                    reduceMotion ? nil : .easeInOut(duration: 1.1),
+                    value: isWorking
+                )
+            }
         }
     }
 
@@ -409,7 +466,7 @@ public struct OcarinaWindowView: View {
             if let motif = theme.pattern {
                 PatternView(motif: motif)
             }
-            panelSheen(theme, at: place)
+            PanelSheen(place: place)
         }
     }
 

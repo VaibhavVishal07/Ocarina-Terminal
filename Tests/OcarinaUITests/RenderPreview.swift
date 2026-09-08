@@ -135,45 +135,6 @@ struct RenderPreview {
         print("wrote \(out.path)")
     }
 
-    /// The menu bar card: all four states, and the turn frame by frame.
-    @Test(.enabled(
-        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
-        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
-    ))
-    func menuBar() throws {
-        // The three still cards, then every frame of the turn.
-        let sheet = HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 9) {
-                ForEach(Array([ActivityCard.ready, .backToYou, .stopped].enumerated()),
-                        id: \.offset) { _, card in
-                    // Tinted the way a dark menu bar tints a template image.
-                    Image(nsImage: ActivityStatusItem.glyph(card))
-                        .renderingMode(.template)
-                        .foregroundStyle(.white)
-                }
-            }
-            VStack(alignment: .leading, spacing: 9) {
-                ForEach(Array(ActivityCard.turn.indices), id: \.self) { index in
-                    Image(nsImage: ActivityStatusItem.glyph(.working, turn: index))
-                        .renderingMode(.template)
-                        .foregroundStyle(.white)
-                }
-            }
-        }
-        .padding(14)
-        .background(Color(white: 0.12))
-
-        let renderer = ImageRenderer(content: sheet)
-        renderer.scale = 4
-        let image = try #require(renderer.nsImage)
-        let data = try #require(image.tiffRepresentation)
-        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
-        let out = URL(fileURLWithPath: NSHomeDirectory())
-            .appendingPathComponent("Ocarina-Terminal/build/menubar.png")
-        try png.write(to: out)
-        print("wrote \(out.path)")
-    }
-
     /// The sidebar, with and without an agent in the tab.
     @Test(.enabled(
         if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
@@ -282,7 +243,7 @@ struct RenderPreview {
         }
     }
 
-    /// The skills browser, across a few themes.
+    /// The skills modal, across a few themes: the question, and the answer.
     @Test(.enabled(
         if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
         "A look, not a check. Set OCARINA_RENDER=1 to draw it."
@@ -292,94 +253,80 @@ struct RenderPreview {
         let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
         let decoder = JSONDecoder()
         let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
-        let themes = ["ocarina", "sakura", "matrix"].compactMap { id in all.first { $0.id == id } }
+        let themes = ["phosphor", "big-blue", "shibuya"].compactMap { id in all.first { $0.id == id } }
         let home = try #require(SkillHome.forProcess("claude"))
         let shelf = SkillShelf()
 
-        // The rows and the headings directly, not the whole view:
-        // `ImageRenderer` lays out no `ScrollView`'s content, and the shelf
-        // lives in one. This is the "Start here" page as it is drawn.
-        let picks = SkillCatalog.starting(from: SkillCatalog.load())
+        // The rows directly, not the whole view: `ImageRenderer` lays out no
+        // `ScrollView`'s content, and the results live in one.
+        let found = SkillCatalog.search(SkillCatalog.load(), for: "UI design")
+
         let sheet = HStack(alignment: .top, spacing: 16) {
             ForEach(themes) { theme in
                 let view = SkillsView(
-                    home: home, shelf: shelf, startClaude: {}, close: {}
+                    home: home, shelf: shelf, startClaude: {}, askAgent: { _ in }, close: {}
                 )
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Skills")
-                        .font(theme.uiFont(15.5, weight: .semibold))
+                    Text("What are you looking for?")
+                        .font(theme.uiFont(21, weight: .medium))
                         .foregroundStyle(theme.chrome.textPrimary.color)
-                    Text("Written instructions your agent reads when a task calls for it.")
-                        .font(theme.uiFont(11.5))
-                        .foregroundStyle(theme.chrome.textTertiary.color)
-                        .padding(.bottom, 16)
+                        .padding(.bottom, 18)
 
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(theme.uiFont(11.5, weight: .medium))
+                    // The field, with the query in it.
+                    HStack(spacing: 12) {
+                        Text("UI design")
+                            .font(theme.uiFont(17))
+                            .foregroundStyle(theme.chrome.textPrimary.color)
+                        Spacer(minLength: 8)
+                        Text("\(found.count)")
+                            .font(theme.uiFont(12, weight: .medium))
+                            .monospacedDigit()
                             .foregroundStyle(theme.chrome.textTertiary.color)
-                        Text("Search 216 skills")
-                            .font(theme.uiFont(12.5))
-                            .foregroundStyle(theme.chrome.textTertiary.color)
-                        Spacer()
                     }
-                    .padding(.horizontal, 12)
-                    .frame(height: 34)
+                    .padding(.horizontal, 16)
+                    .frame(height: 50)
                     .background {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
                             .fill(theme.chrome.rowHover.color.opacity(0.07))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .stroke(theme.chrome.border.color.opacity(0.14), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .stroke(theme.chrome.accent.color.opacity(0.5), lineWidth: 1)
                             }
                     }
-                    .padding(.bottom, 18)
-
-                    // The tab row, sitting on its rule.
-                    HStack(spacing: 20) {
-                        ForEach(Array(["Start here", "Browse all", "Installed"].enumerated()),
-                                id: \.offset) { index, label in
-                            Text(label)
-                                .font(theme.uiFont(12, weight: index == 0 ? .semibold : .medium))
-                                .foregroundStyle(index == 0 ? theme.chrome.textPrimary.color
-                                                            : theme.chrome.textTertiary.color)
-                                .padding(.top, 2)
-                                .padding(.bottom, 11)
-                                .overlay(alignment: .bottom) {
-                                    Rectangle()
-                                        .fill(theme.chrome.textPrimary.color.opacity(index == 0 ? 0.6 : 0))
-                                        .frame(height: 1.5)
-                                }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .background(alignment: .bottom) {
-                        Rectangle()
-                            .fill(theme.chrome.border.color.opacity(0.13))
-                            .frame(height: 1)
-                    }
+                    .padding(.horizontal, 26)
                     .padding(.bottom, 20)
 
-                    LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 14),
-                                  GridItem(.flexible(), spacing: 14)],
-                        spacing: 14
-                    ) {
-                        ForEach(picks, id: \.skill.id) { pick in
-                            view.card(pick.skill)
-                        }
-                    }
-                    .padding(.bottom, 22)
+                    Rectangle()
+                        .fill(theme.chrome.border.color.opacity(0.11))
+                        .frame(height: 1)
 
-                    HStack(spacing: 6) {
-                        view.pill("All", isOn: false) {}
-                        view.pill("Design", isOn: true) {}
-                        view.pill("Workflow", isOn: false) {}
-                        view.pill("Testing", isOn: false) {}
+                    // What the underlines are for: the near-word table, visible.
+                    ForEach(Array(found.prefix(4)), id: \.id) { match in
+                        view.row(match)
+                        Rectangle()
+                            .fill(theme.chrome.border.color.opacity(0.08))
+                            .frame(height: 1)
+                            .padding(.horizontal, 26)
                     }
+
+                    HStack(spacing: 8) {
+                        Text("12 installed · show them")
+                            .font(theme.uiFont(10.5, weight: .medium))
+                            .foregroundStyle(theme.chrome.textSecondary.color)
+                        Text("·")
+                            .font(theme.uiFont(10.5))
+                            .foregroundStyle(theme.chrome.border.color.opacity(0.6))
+                        Text("Installing for \(home.agent).")
+                            .font(theme.uiFont(10.5))
+                            .foregroundStyle(theme.chrome.textTertiary.color)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 13)
+                    .background(theme.chrome.rowHover.color.opacity(0.045))
                 }
-                .padding(22)
-                .frame(width: 600, alignment: .leading)
+                .padding(.top, 24)
+                .frame(width: 620, alignment: .leading)
                 .background { OcarinaWindowView.panelSurface(theme, at: .top) }
                 .clipShape(OcarinaWindowView.PanelStyle.shape)
                 .environment(\.theme, theme)
@@ -395,6 +342,299 @@ struct RenderPreview {
         let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
         let out = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Ocarina-Terminal/build/skills.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
+    /// The skills modal at rest, and its floor in both agent states.
+    ///
+    /// The results state is drawn by `skills()`. This is everything that state
+    /// does not show: the question with nothing typed, the example sentences,
+    /// and the footer on a plain shell — which is the busiest that line ever
+    /// gets, and the only place in the panel where four things compete for one
+    /// row.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func skillsAtRest() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let theme = try #require(all.first { $0.id == "ocarina" })
+        let home = try #require(SkillHome.forProcess("claude"))
+        let shelf = SkillShelf()
+
+        let withAgent = SkillsView(
+            home: home, shelf: shelf, startClaude: {}, askAgent: { _ in }, close: {}
+        )
+        // The hard case: no agent running, so the footer carries the long
+        // explanation *and* the offer to start one.
+        let noAgent = SkillsView(
+            home: nil, shelf: shelf, startClaude: {}, askAgent: { _ in }, close: {}
+        )
+
+        let sheet = HStack(alignment: .top, spacing: 16) {
+            ForEach([("agent running", withAgent), ("plain shell", noAgent)], id: \.0) { label, view in
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("What are you looking for?")
+                        .font(theme.uiFont(21, weight: .medium))
+                        .foregroundStyle(theme.chrome.textPrimary.color)
+                        .padding(.bottom, 18)
+                    view.field
+                    view.examples.padding(.top, 22)
+                    Spacer(minLength: 0)
+                    view.footer
+                }
+                .padding(.horizontal, 26)
+                .padding(.top, 24)
+                .frame(width: 620, height: 336, alignment: .topLeading)
+                .background { OcarinaWindowView.panelSurface(theme, at: .top) }
+                .clipShape(OcarinaWindowView.PanelStyle.shape)
+                .environment(\.theme, theme)
+                .overlay(alignment: .topTrailing) {
+                    Text(label)
+                        .font(theme.uiFont(9))
+                        .foregroundStyle(theme.chrome.textTertiary.color)
+                        .padding(8)
+                }
+            }
+        }
+        .padding(18)
+        .background(Color.black)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 2
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/skills-rest.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
+    /// The five new themes: palette, surface and the line each one prints.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func newThemes() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let wanted = ["phosphor", "preprint", "big-blue", "shibuya", "calibrated"]
+        let themes = wanted.compactMap { id in all.first { $0.id == id } }
+
+        let sheet = HStack(alignment: .top, spacing: 14) {
+            ForEach(themes) { theme in
+                VStack(alignment: .leading, spacing: 10) {
+                    ZStack {
+                        theme.terminal.background.color
+                        if let motif = theme.pattern { PatternView(motif: motif) }
+                        VStack(alignment: .leading, spacing: 7) {
+                            DotMatrixText(
+                                text: "OCARINA", cell: 2.2, gap: 1.0,
+                                lit: theme.board.lit.color, unlit: theme.board.unlit.color
+                            )
+                            Text(theme.name)
+                                .font(theme.uiFont(15, weight: .semibold))
+                                .foregroundStyle(theme.chrome.textPrimary.color)
+                            Text(theme.flavour ?? "")
+                                .font(.custom(BundledFonts.mono, fixedSize: 9))
+                                .tracking(1.6)
+                                .foregroundStyle(theme.chrome.accent.color)
+                            Text("$ swift build --configuration release")
+                                .font(.custom(BundledFonts.mono, fixedSize: 10))
+                                .foregroundStyle(theme.terminal.text.color)
+                            Text("warning: unused variable 'result'")
+                                .font(.custom(BundledFonts.mono, fixedSize: 10))
+                                .foregroundStyle(theme.terminal.palette[3].color)
+                            Text("error: cannot find 'ocarina' in scope")
+                                .font(.custom(BundledFonts.mono, fixedSize: 10))
+                                .foregroundStyle(theme.terminal.palette[1].color)
+                            Text("Build complete! (5.32s)")
+                                .font(.custom(BundledFonts.mono, fixedSize: 10))
+                                .foregroundStyle(theme.terminal.palette[2].color)
+                            // Selection, which is the pair the tests argue about.
+                            Text("selected text on its own wash")
+                                .font(.custom(BundledFonts.mono, fixedSize: 10))
+                                .foregroundStyle(theme.terminal.text.color)
+                                .padding(.horizontal, 3)
+                                .background(theme.terminal.selection.color)
+                            HStack(spacing: 2) {
+                                ForEach(Array(theme.terminal.palette.prefix(8).enumerated()),
+                                        id: \.offset) { _, colour in
+                                    Rectangle().fill(colour.color).frame(height: 7)
+                                }
+                            }
+                            .padding(.top, 2)
+                        }
+                        .padding(12)
+                    }
+                    .frame(width: 260, height: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+                    Text(theme.speech.blurb ?? "")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .frame(width: 260, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .environment(\.theme, theme)
+            }
+        }
+        .padding(18)
+        .background(Color.black)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 2
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/new-themes.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
+
+    /// Draws the sidebar's switch through the same environment the app gives
+    /// it, so "increase contrast" can be seen rather than trusted.
+    /// The menu bar item, in every state, on both a light and a dark bar.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func menuBar() throws {
+        BundledFonts.register()
+        let states: [TabActivity] = [.idle, .running, .succeeded, .needsYou, .failed(exitCode: 1)]
+
+        // Template images take the bar's own colour, so the strip is drawn
+        // twice — the whole point of `isTemplate` is that these are one picture.
+        func strip(dark: Bool) -> NSImage {
+            var plates: [NSImage] = []
+            for state in states {
+                let card = ActivityCard(state)
+                let words = ActivityStatusItem.boardWords(for: state)
+                plates.append(ActivityStatusItem.plate(card, words: words))
+            }
+            let gap: CGFloat = 26, pad: CGFloat = 18
+            let width = plates.reduce(0) { $0 + $1.size.width } + gap * CGFloat(plates.count - 1) + pad * 2
+            let height: CGFloat = 22 + pad * 2
+            let out = NSImage(size: NSSize(width: width, height: height), flipped: false) { _ in
+                (dark ? NSColor(white: 0.11, alpha: 1) : NSColor(white: 0.93, alpha: 1)).setFill()
+                NSRect(x: 0, y: 0, width: width, height: height).fill()
+                // The bar itself, so the 22pt it has to live in is visible.
+                (dark ? NSColor(white: 0.17, alpha: 1) : NSColor(white: 0.87, alpha: 1)).setFill()
+                NSRect(x: 0, y: pad, width: width, height: 22).fill()
+                var x = pad
+                for plate in plates {
+                    let tinted = NSImage(size: plate.size, flipped: false) { rect in
+                        (dark ? NSColor.white : NSColor.black).set()
+                        plate.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+                        rect.fill(using: .sourceAtop)
+                        return true
+                    }
+                    tinted.draw(at: NSPoint(x: x, y: pad + (22 - plate.size.height) / 2),
+                                from: .zero, operation: .sourceOver, fraction: 1)
+                    x += plate.size.width + gap
+                }
+                return true
+            }
+            return out
+        }
+
+        let light = strip(dark: false), dark = strip(dark: true)
+        let size = NSSize(width: max(light.size.width, dark.size.width),
+                          height: light.size.height + dark.size.height)
+        let sheet = NSImage(size: size, flipped: false) { _ in
+            dark.draw(at: NSPoint(x: 0, y: 0), from: .zero, operation: .sourceOver, fraction: 1)
+            light.draw(at: NSPoint(x: 0, y: dark.size.height), from: .zero,
+                       operation: .sourceOver, fraction: 1)
+            return true
+        }
+        let big = NSImage(size: NSSize(width: size.width * 3, height: size.height * 3),
+                          flipped: false) { rect in
+            NSGraphicsContext.current?.imageInterpolation = .none
+            sheet.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+            return true
+        }
+        let data = try #require(big.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/menubar.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+        for state in states {
+            let w = ActivityStatusItem.plate(
+                ActivityCard(state), words: ActivityStatusItem.boardWords(for: state)
+            ).size.width
+            print(String(format: "  %@ — %.0fpt wide",
+                         ActivityStatusItem.boardWords(for: state), w))
+        }
+    }
+
+    /// The terminal bed's wash, idle against working, across four themes.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func bedGlow() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let themes = ["ocarina", "matcha", "phosphor", "sakura"]
+            .compactMap { id in all.first { $0.id == id } }
+
+        func bed(_ theme: Theme, _ activity: TabActivity, _ label: String) -> some View {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(label)
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.35))
+                ZStack {
+                    TerminalBed(activity: activity)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("$ swift build")
+                        Text("  Compiling OcarinaUI")
+                        Text("  Build complete!")
+                    }
+                    .font(.custom(BundledFonts.mono, fixedSize: 9))
+                    .foregroundStyle(theme.terminal.text.color)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(12)
+                }
+                .frame(width: 250, height: 108)
+                .clipShape(OcarinaWindowView.PanelStyle.shape)
+                .environment(\.theme, theme)
+            }
+        }
+
+        let sheet = HStack(alignment: .top, spacing: 14) {
+            ForEach(themes) { theme in
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(theme.name)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                    bed(theme, .idle, "idle")
+                    bed(theme, .running, "working")
+                    bed(theme, .needsYou, "needs you")
+                }
+            }
+        }
+        .padding(18)
+        .background(Color.black)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 3
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/bed.png")
         try png.write(to: out)
         print("wrote \(out.path)")
     }
@@ -488,8 +728,7 @@ struct RenderPreview {
         print("wrote \(out.path)")
     }
 
-    /// The token card in both states, across a few themes: nothing spent yet,
-    /// and a window part-way through.
+    /// The token card in all four of its states, across four themes.
     @Test(.enabled(
         if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
         "A look, not a check. Set OCARINA_RENDER=1 to draw it."
@@ -499,34 +738,53 @@ struct RenderPreview {
         let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
         let decoder = JSONDecoder()
         let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
-        let themes = ["ocarina", "steel", "sakura", "matrix", "superman", "high-contrast"]
+        let themes = ["ocarina", "matcha", "phosphor", "steel"]
             .compactMap { id in all.first { $0.id == id } }
 
         let now = Date()
-        // Nothing, a window just opened, one part-way through, one nearly out.
+        func window(_ tokens: Int) -> UsageWindow {
+            UsageWindow(tokens: tokens,
+                        startedAt: now.addingTimeInterval(-3600 * 1.6),
+                        resetsAt: now.addingTimeInterval(3600 * 3.4))
+        }
+        // The four readings, in the order they turn up in a life: no reference
+        // yet, early, nearly at the mark, and past it.
+        // Time through the window is what the meter measures, so the states
+        // are hours in rather than tokens spent.
+        func at(_ hoursIn: Double, tokens: Int) -> UsageWindow {
+            UsageWindow(tokens: tokens,
+                        startedAt: now.addingTimeInterval(-3600 * hoursIn),
+                        resetsAt: now.addingTimeInterval(3600 * (5 - hoursIn)))
+        }
         let states: [(String, UsageWindow?)] = [
-            ("no window", nil),
-            ("just opened", UsageWindow(tokens: 12_400, startedAt: now.addingTimeInterval(-60), resetsAt: now.addingTimeInterval(3600 * 5 - 60))),
-            ("part way", UsageWindow(tokens: 1_432_000, startedAt: now.addingTimeInterval(-3600 * 1.6), resetsAt: now.addingTimeInterval(3600 * 3.4))),
-            ("nearly out", UsageWindow(tokens: 4_100_000, startedAt: now.addingTimeInterval(-3600 * 4.7), resetsAt: now.addingTimeInterval(3600 * 0.3))),
+            ("just opened", at(0.1, tokens: 42_000)),
+            ("an hour in", at(1.2, tokens: 510_000)),
+            ("most of the way", at(4.1, tokens: 1_800_000)),
         ]
 
-        let sheet = VStack(alignment: .leading, spacing: 10) {
+        let sheet = HStack(alignment: .top, spacing: 14) {
             ForEach(themes) { theme in
-                HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text(theme.name)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 90, alignment: .leading)
-                    ForEach(states, id: \.0) { label, usage in
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                    ForEach(Array(states.enumerated()), id: \.offset) { _, state in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(label)
-                                .font(.system(size: 8))
-                                .foregroundStyle(.white.opacity(0.45))
-                            UsageCardView(usage: usage, now: now)
+                            Text(state.0)
+                                .font(.system(size: 8.5, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.3))
+                            UsageCardView(usage: state.1, now: now, place: .top)
                                 .frame(width: OcarinaWindowView.panelWidth)
-                                .clipShape(RoundedRectangle(cornerRadius: Theme.Shape.houseCorner, style: .continuous))
+                                .clipShape(OcarinaWindowView.PanelStyle.shape)
                         }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("no window open")
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.3))
+                        UsageCardView(usage: nil, now: now, place: .top)
+                            .frame(width: OcarinaWindowView.panelWidth)
+                            .clipShape(OcarinaWindowView.PanelStyle.shape)
                     }
                 }
                 .environment(\.theme, theme)
@@ -536,12 +794,12 @@ struct RenderPreview {
         .background(Color.black)
 
         let renderer = ImageRenderer(content: sheet)
-        renderer.scale = 2
+        renderer.scale = 3
         let image = try #require(renderer.nsImage)
         let data = try #require(image.tiffRepresentation)
         let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
         let out = URL(fileURLWithPath: NSHomeDirectory())
-            .appendingPathComponent("Ocarina-Terminal/build/usage-card.png")
+            .appendingPathComponent("Ocarina-Terminal/build/usage.png")
         try png.write(to: out)
         print("wrote \(out.path)")
     }
