@@ -31,14 +31,12 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// running; the other three states are still pictures.
     private var frame = 0
 
-    /// The spinner, in braille. A terminal app has one alphabet for "this is
-    /// going" that every tool in the terminal already uses, and it is this
-    /// one — so the menu bar borrows it rather than inventing a third mark
-    /// after the tab's dot and the app's own ring.
-    private static let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    /// Ten frames at this interval is one turn a second, which reads as
-    /// working rather than as urgent.
-    private static let framerate: TimeInterval = 0.1
+    /// Thirty frames a second, and the head moves a third of a lamp in each
+    /// of them — so a dot lights every 72ms, which is the rate the mark in the
+    /// sidebar and the marks on the website all run at. One clock for the
+    /// chase wherever it appears.
+    private static let framerate: TimeInterval = 1.0 / 30
+    private static let step: Double = (1.0 / 30) / 0.072
 
     private static let clock: DateFormatter = {
         let formatter = DateFormatter()
@@ -104,17 +102,16 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         self.reading = reading
 
         let line = Self.title(for: activity)
-        item.button?.image = Self.symbol(for: activity)
         item.button?.toolTip = Self.tooltip(for: activity, reading: reading)
         guard line != wasSaying else { return }
 
-        // The spinner owns the title while something is running, so setting it
-        // here as well would fight the timer for the same string.
+        // The spinner owns the board while something is running, so drawing it
+        // here as well would fight the timer for the same image.
         if activity.isRunning {
             startSpinning(saying: line)
         } else {
             stopSpinning()
-            item.button?.title = " \(line)"
+            item.button?.image = Self.board(line, head: nil)
         }
     }
 
@@ -158,19 +155,23 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// costs them both: Steel used to put "Under load" in the menu bar, which
     /// reads as a warning about the Mac rather than a report about a build.
     ///
-    /// So the strip names the app and the state, in the same words every theme
-    /// gets. The register is not lost — it is one click down, in
-    /// `menuNeedsUpdate`, where you have already pressed something belonging
-    /// to Ocarina and know whose voice you are reading.
+    /// The words are the app's, in the same form for every theme. The
+    /// register is not lost — it is one click down, in `menuNeedsUpdate`,
+    /// where you have already pressed something belonging to Ocarina and know
+    /// whose voice you are reading.
     ///
-    /// The words answer the question somebody actually has up here, which is
-    /// not "what state is this in" but "is the thing I asked for still going,
-    /// and is it waiting on me". They were the state's own names for a
-    /// release — Working, Idle, Done — and each was wrong in the same way: a
-    /// label for a value in an enum rather than an answer to a question.
-    /// *Working* also reads as a claim about the Mac when it is glanced at
-    /// with no window and no icon beside it, which is the failure Steel's
-    /// "Under load" made obvious.
+    /// They answer the question somebody actually has up here, which is not
+    /// "what state is this in" but "is the thing I asked for still going, and
+    /// is it waiting on me". They were the state's own names for a release —
+    /// Working, Idle, Done — and each was a label for a value in an enum
+    /// rather than an answer.
+    ///
+    /// The app's name is no longer in front of them. It was there because a
+    /// strip of text beside the Wi-Fi has nothing to say whose it is — but
+    /// the strip is not text any more, it is Ocarina's own alphabet, and a
+    /// dot-matrix board saying "still going" beside a row of system glyphs is
+    /// already unmistakably from one place. Saying the name as well was the
+    /// mark and the wordmark on the same object.
     ///
     /// - **still going** — your ask has not come back yet.
     /// - **back to you** — the agent stopped and it is your move. Not "done":
@@ -180,12 +181,12 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// - **stopped (n)** — it exited, and here is the number.
     nonisolated static func title(for activity: TabActivity) -> String {
         switch activity {
-        case .idle: "Ocarina · ready"
-        case .running: "Ocarina · still going"
-        case .succeeded: "Ocarina · back to you"
+        case .idle: "READY"
+        case .running: "STILL GOING"
+        case .succeeded: "BACK TO YOU"
         // Same rule as `line`: the code is appended here, not written by a
         // theme, so a failure in the menu bar always carries its number.
-        case let .failed(code): "Ocarina · stopped (\(code))"
+        case let .failed(code): "STOPPED \(code)"
         }
     }
 
@@ -213,44 +214,135 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         return "Ocarina — \(line): \(task)"
     }
 
-    private static func symbol(for activity: TabActivity) -> NSImage? {
-        // No image at all while it runs: the braille frame in the title is the
-        // mark, and a static symbol beside a moving one reads as two things
-        // happening.
-        let name: String? = switch activity {
-        case .running: nil
-        case .succeeded: "checkmark.circle"
-        case .failed: "exclamationmark.triangle"
-        case .idle: "circle.dotted"
+    // MARK: - The board
+
+    /// The line, drawn in the app's own 5x7 alphabet.
+    ///
+    /// The menu bar used to be a system-font string with a braille spinner in
+    /// front of it and an SF Symbol beside it — three different alphabets for
+    /// one reading, none of them Ocarina's. This is one: the same grid the
+    /// wordmark, the landing screen and the token meter are built from, at the
+    /// size a menu bar has room for.
+    ///
+    /// A template image, so the menu bar tints it — which is also why the
+    /// chase is expressed as *alpha* rather than as colour. A template has no
+    /// colour of its own to vary; what it has is how much of the bar's own ink
+    /// each dot asks for, and that turns out to be the right model for a lamp
+    /// anyway.
+    ///
+    /// Unlit cells are drawn too, faintly. They are what make it a board
+    /// rather than words made of dots, and at this size they are the only
+    /// thing that says the lit ones are lit.
+    static func board(_ text: String, head: Double?) -> NSImage {
+        let bits = DotMatrixText.bitmap(for: text)
+        let columns = max(0, text.count * 6 - 1)
+        guard columns > 0 else { return NSImage(size: NSSize(width: 1, height: 1)) }
+
+        let size = NSSize(
+            width: CGFloat(columns) * pitch - gap,
+            height: CGFloat(DotMatrixText.height) * pitch - gap
+        )
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor.black.setFill()
+
+        // Ranked in the order the head travels: column by column, top to
+        // bottom, the same order the mark in the sidebar sweeps in.
+        var rank: [Int: Double] = [:]
+        var lit = 0
+        for column in 0..<columns {
+            for row in 0..<DotMatrixText.height where bits[row][column] {
+                rank[row * columns + column] = Double(lit)
+                lit += 1
+            }
         }
-        guard let name else { return nil }
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
-        // A template image, so it inverts with the menu bar the way every
-        // system item does rather than staying one colour through both.
-        image?.isTemplate = true
+        let total = Double(lit) + Self.rest
+
+        for row in 0..<DotMatrixText.height {
+            for column in 0..<columns {
+                let box = NSRect(
+                    x: CGFloat(column) * pitch,
+                    // Flipped: the bitmap's first row is the top, and this
+                    // context's origin is the bottom left.
+                    y: size.height - CGFloat(row) * pitch - cell,
+                    width: cell,
+                    height: cell
+                )
+                let alpha: Double
+                if bits[row][column] {
+                    // The head brightens; it does not dim everything else to
+                    // make room. At a base of 0.62 the running board read
+                    // fainter than the resting one, which is backwards — of
+                    // the four states it is the one you most want to catch out
+                    // of the corner of an eye.
+                    alpha = 0.84 + 0.16 * drive(rank[row * columns + column] ?? 0,
+                                                head: head, total: total)
+                } else {
+                    alpha = 0.13
+                }
+                NSColor(white: 0, alpha: alpha).setFill()
+                NSBezierPath(roundedRect: box, xRadius: cell * 0.3, yRadius: cell * 0.3).fill()
+            }
+        }
+        image.unlockFocus()
+        // Tinted by the menu bar, so it inverts with it the way every system
+        // item does rather than staying one colour through both.
+        image.isTemplate = true
         return image
     }
+
+    /// How hard one lamp is being driven, given where the head is.
+    ///
+    /// The sidebar's numbers, at the sidebar's proportions — see the chase on
+    /// `DotMatrixText`. Nil means nothing is running, and every lamp is simply
+    /// on.
+    private nonisolated static func drive(_ position: Double, head: Double?, total: Double) -> Double {
+        guard let head else { return 1 }
+        var distance = head - position
+        if distance < -lead { distance += total }
+        if distance >= 0, distance < trail { return 1 - distance / trail }
+        if distance < 0, distance > -lead { return 1 + distance / lead }
+        return 0
+    }
+
+    /// A menu bar is about twenty-two points tall and seven rows have to sit
+    /// in it with room above and below, which settles the cell and the gap.
+    private nonisolated static let cell: CGFloat = 1.4
+    private nonisolated static let gap: CGFloat = 0.7
+    private nonisolated static var pitch: CGFloat { cell + gap }
+    private nonisolated static let trail: Double = 15
+    private nonisolated static let rest: Double = 26
+    private nonisolated static let lead: Double = 1.4
 
     // MARK: - The spinner
 
     private func startSpinning(saying line: String) {
         spinner?.invalidate()
-        // Drawn once immediately: a timer that fires in 100ms would otherwise
-        // leave the previous state's title up for a frame you can see.
+        // Drawn once immediately: a timer that fires in 33ms would otherwise
+        // leave the previous state's board up for a frame you can see.
+        frame = 0
         draw(line)
         let timer = Timer(timeInterval: Self.framerate, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.draw(line) }
         }
-        // `.common`, not the default mode: a status item's title stops
-        // updating while a menu is open or a window is being dragged if the
-        // timer only runs in the default run loop mode.
+        // `.common`, not the default mode: a status item stops updating while
+        // a menu is open or a window is being dragged if the timer only runs
+        // in the default run loop mode.
         RunLoop.main.add(timer, forMode: .common)
         spinner = timer
     }
 
+    /// One frame of the chase, sweeping the head along the word.
+    ///
+    /// The braille spinner this replaced was a good answer to a different
+    /// question — every tool in a terminal turns one, so it needed no
+    /// explaining — but it sat in front of a system-font string and made the
+    /// reading three alphabets wide. The board says the same thing by lighting
+    /// its own lamps, which is what a board does and what the rest of the app
+    /// already does everywhere else.
     private func draw(_ line: String) {
-        frame = (frame + 1) % Self.frames.count
-        item?.button?.title = " \(Self.frames[frame]) \(line)"
+        frame += 1
+        item?.button?.image = Self.board(line, head: Double(frame) * Self.step)
     }
 
     private func stopSpinning() {

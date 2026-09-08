@@ -60,6 +60,7 @@ public final class OcarinaModel {
     public private(set) var tabs: [TabItem] = []
     public var selectedTabID: UUID?
     public var isCommandPaletteVisible = false
+    public var isSkillsVisible = false
 
     /// Keeps the Mac awake while Ocarina is open. On by default.
     public let sleepGuard: SleepGuard
@@ -209,6 +210,38 @@ public final class OcarinaModel {
         selectedTabID.flatMap { id in tabs.first { $0.id == id } }
     }
 
+    /// Where a skill would go for the agent in the selected tab, or nil if
+    /// what is in that tab is not an agent.
+    ///
+    /// This decides whether the way in is drawn at all, and a shell has no
+    /// answer to "install this where" — a browser offering to install into
+    /// nowhere is worse than no browser.
+    ///
+    /// The foreground process straight off the monitor, and the tab's own name
+    /// for it only as a fallback. They are usually the same string, and the
+    /// difference is that one is ground truth read from the pty and the other
+    /// has been through a naming engine that publishes on its own schedule and
+    /// compares on what is *drawn*. For something that decides which directory
+    /// in somebody's home gets written to, the pty is the honest source — and
+    /// it is also the one that cannot be a tab-old when an agent starts inside
+    /// a shell that was already open.
+    public var skillHome: SkillHome? {
+        // A foreground the poll has read is the answer whatever it says: "zsh"
+        // means there is no agent here, not "ask somebody else". Falling
+        // through on it put the row back on a tab whose agent had just exited,
+        // because the tab's own name for the process had not caught up yet.
+        // The fallback is for the gap before the first poll lands, and for
+        // nothing else.
+        if let selectedForeground { return SkillHome.forProcess(selectedForeground) }
+        return SkillHome.forProcess(selectedTab?.processName)
+    }
+
+    /// What is at the front of the selected terminal, refreshed on the poll.
+    public private(set) var selectedForeground: String?
+
+    /// Stands in for the poll, which needs a live pty. Tests only.
+    func noteForegroundForTesting(_ process: String?) { selectedForeground = process }
+
     /// Re-reads usage on a slow timer.
     ///
     /// Slower than the task panel's two seconds by a lot: a window is five
@@ -295,16 +328,20 @@ public final class OcarinaModel {
     /// shown whenever an agent is selected — so this cannot stop dead on a
     /// hidden panel the way it once did.
     ///
-    /// The menu bar reads it too, and that is not optional: what it says about
-    /// an agent tab is now decided by whether there is an unanswered ask, so a
-    /// poll that stopped with the panel would leave the strip stuck on
-    /// whatever was true when you hid it.
+    /// Runs for whoever is selected, which is now everyone.
     ///
-    /// The saving it was making is kept: with a plain shell in front of you and
-    /// the panel down, nothing is consuming this and it does not run.
+    /// It used to skip a hidden panel, then skip everything but an agent tab.
+    /// Both savings are gone and deliberately: the menu bar decides what it
+    /// says about an agent from whether there is an unanswered ask, and the
+    /// sidebar decides whether to offer skills at all from what this poll
+    /// reads off the pty. A poll that stopped would leave both of them stuck
+    /// on whatever was true when it did.
+    ///
+    /// What it costs when nothing is listening is a `snapshot()` and a `stat`
+    /// every two seconds. The expensive half — parsing a transcript that can
+    /// be tens of megabytes — is still skipped by the signature check and by
+    /// `agentInForeground`, which is where the cost always was.
     private func pollTasksIfWatched() {
-        guard isTaskPanelVisible || !NSApp.isActive || selectedTab?.isConversation == true
-        else { return }
         refreshTasks()
     }
 
@@ -348,7 +385,11 @@ public final class OcarinaModel {
     /// Now: a `stat` on the main thread, the parse on a background one, and
     /// nothing at all when the file has not changed since the last look.
     private func refreshTasks() {
-        guard let session = selectedSession else { rawTasks = []; return }
+        guard let session = selectedSession else {
+            rawTasks = []
+            selectedForeground = nil
+            return
+        }
 
         let directory = session.workingDirectory
         let monitor = session.monitor
@@ -367,13 +408,20 @@ public final class OcarinaModel {
             let snapshot = await monitor?.snapshot()
             let startedAt = snapshot?.foregroundProcessStartTime
             let agentInForeground = AgentTaskSource.isAgent(snapshot?.foregroundProcessName)
+
+            guard let self, self.selectedTabID == asking else { return }
+            // Recorded whatever else this poll decides. It is what the skills
+            // row is drawn from, and a `snapshot()` is a couple of calls into
+            // libproc — cheap enough to take on every poll rather than to
+            // arrange a second one for.
+            self.selectedForeground = snapshot?.foregroundProcessName
             let signature = await Task.detached {
                 source.signature(
                     for: directory, startedAt: startedAt, agentInForeground: agentInForeground
                 )
             }.value
 
-            guard let self, self.selectedTabID == asking else { return }
+            guard self.selectedTabID == asking else { return }
             guard signature != self.lastTaskSignature || self.rawTasks.isEmpty else { return }
             self.lastTaskSignature = signature
 
@@ -632,6 +680,11 @@ public final class OcarinaModel {
         if let monitor = session.monitor {
             Task { await namingService.attach(monitor) }
         }
+        // At once rather than on the next poll. What is at the front of this
+        // terminal is what decides whether the sidebar offers skills, and two
+        // seconds of a row that should be there and is not reads as a feature
+        // that does not work.
+        refreshTasks()
         return tab
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 import OcarinaTerminalContext
+import AppKit
 import Testing
 @testable import OcarinaUI
 
@@ -28,12 +29,51 @@ struct ActivityStatusTests {
         // talking. It is also the same words in all fourteen themes: Steel put
         // "Under load" up there, which is a sentence about a Mac in trouble
         // rather than about a build that is running.
-        #expect(ActivityStatusItem.title(for: .running) == "Ocarina · still going")
-        #expect(ActivityStatusItem.title(for: .succeeded) == "Ocarina · back to you")
-        #expect(ActivityStatusItem.title(for: .idle) == "Ocarina · ready")
-        for activity: TabActivity in [.running, .succeeded, .idle, .failed(exitCode: 1)] {
-            #expect(ActivityStatusItem.title(for: activity).hasPrefix("Ocarina · "))
+        #expect(ActivityStatusItem.title(for: .running) == "STILL GOING")
+        #expect(ActivityStatusItem.title(for: .succeeded) == "BACK TO YOU")
+        #expect(ActivityStatusItem.title(for: .idle) == "READY")
+
+        // Drawn in the board's own alphabet, which is A-Z, the digits and a
+        // handful of marks. A word with a letter the grid cannot set comes out
+        // as a blank cell, silently.
+        let alphabet = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -:./+")
+        for activity: TabActivity in [.running, .succeeded, .idle, .failed(exitCode: 127)] {
+            let line = ActivityStatusItem.title(for: activity)
+            #expect(line == line.uppercased(), "\(activity) is not set in the board's case")
+            #expect(line.allSatisfy(alphabet.contains), "\(activity) uses a letter the grid has no glyph for")
         }
+    }
+
+    @Test("The app's name is not in the menu bar")
+    func nothingUpThereIsBranding() {
+        // It was there because a strip of text beside the Wi-Fi has nothing to
+        // say whose it is. The strip is the app's own alphabet now, which says
+        // it — and a dot-matrix board wearing the wordmark as well is the mark
+        // and the name on the same object.
+        for activity: TabActivity in [.running, .succeeded, .idle, .failed(exitCode: 1)] {
+            #expect(!ActivityStatusItem.title(for: activity).localizedCaseInsensitiveContains("ocarina"))
+        }
+    }
+
+    @MainActor
+    @Test("The board draws, and the chase moves across it")
+    func boardDraws() {
+        let still = ActivityStatusItem.board("STILL GOING", head: nil)
+        #expect(still.size.width > 60, "the board came out \(still.size)")
+        #expect(still.size.height > 8 && still.size.height < 22, "too tall for a menu bar")
+        #expect(still.isTemplate, "it will not invert with the menu bar")
+
+        // Two frames of the chase are two different pictures. A spinner that
+        // renders the same image every tick is a still with a timer on it.
+        func pixels(_ image: NSImage) -> Data? {
+            guard let tiff = image.tiffRepresentation else { return nil }
+            return NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+        }
+        let first = pixels(ActivityStatusItem.board("STILL GOING", head: 2))
+        let later = pixels(ActivityStatusItem.board("STILL GOING", head: 20))
+        #expect(first != nil && later != nil)
+        #expect(first != later, "the chase does not move")
+        #expect(pixels(still) != first, "running looks the same as resting")
     }
 
     @Test("An agent is working when it owes you an answer, not when it repaints")

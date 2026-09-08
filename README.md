@@ -159,6 +159,13 @@ deleting somebody's prompts out of Claude's history to tidy a panel would be the
 worst kind of helpful. Ask for something new and it appears, being newer than
 the line.
 
+Closing the panel closes the column, not one card in it. The token reading used
+to stay behind when the task list went — a single card floating in a lane of its
+own, still taking the width off the terminal, with no way to shut it that was
+not the ⌘J that had visibly just failed to. ⌘J means "give me the room back",
+and half the room back is the wrong answer to that. The figure is not lost: it
+is in the menu bar's menu, one click from anywhere.
+
 Panels stacked one above another share a gradient rather than each running
 their own. A column used to go bright, dim, bright, dim — the light restarted
 at every card, and the pair read as two objects that happened to be near each
@@ -176,19 +183,38 @@ middle of the fall.
 
 ## It says whether the thing you asked for is still going, where you can see it
 
-In the menu bar, beside the Wi-Fi. A braille spinner and a line while an agent
-is working, a tick and a line when it stopped, a warning triangle and the exit
-code when it exited badly, and the all-clear when nothing is running.
+In the menu bar, beside the Wi-Fi, as a small departure board: `STILL GOING`
+while an agent is working, `BACK TO YOU` when it stopped, `STOPPED 127` when it
+exited badly, and `READY` when nothing has been asked.
 
-It says **still going**, **back to you**, **ready**, or **stopped (n)**. Those
-were the states' own names for a release — Working, Idle, Done — and each was
-wrong in the same way: a label for a value in an enum rather than an answer to
-the question somebody actually has up there. *Working* also reads as a claim
-about the Mac when it is glanced at with no window and no icon beside it, which
-is the failure Steel's "Under load" made obvious. And nothing up there says
-*done*: an agent stopping means it stopped talking, not that it managed what
-you asked, so the word for that state hands the turn back rather than grading
-the work.
+Drawn in the app's own 5x7 grid — the same one the wordmark, the landing screen
+and the token meter are built from. It was a system-font string with a braille
+spinner in front of it and an SF Symbol beside it, which is three alphabets for
+one reading and none of them Ocarina's. Working is the chase sweeping through
+the word at the same 72ms a lamp that the mark in the sidebar runs at, so the
+loading state and the app's own motion are one gesture rather than two.
+
+It is a template image, so the bar tints it and it inverts with light and dark
+the way every system item does — which is also why the chase is expressed as
+*alpha* rather than as colour. A template has no colour of its own to vary;
+what it has is how much of the bar's ink each dot asks for, and that turns out
+to be the right model for a lamp anyway. The head brightens rather than dimming
+everything around it: at a lower base the running board read fainter than the
+resting one, which is backwards for the state you most want to catch out of the
+corner of an eye.
+
+**The app's name is not on it.** It was there because a strip of text beside
+the Wi-Fi has nothing to say whose it is — but the strip is Ocarina's own
+alphabet now, and that says it. A dot-matrix board wearing the wordmark as well
+is the mark and the name on the same object.
+
+The words answer the question somebody has up there rather than naming a state.
+They were Working, Idle and Done for a release, and each was a label for a value
+in an enum. *Working* also reads as a claim about the Mac when it is glanced at
+with no window beside it, which is the failure Steel's "Under load" made
+obvious. And nothing up there says *done*: an agent stopping means it stopped
+talking, not that it managed what you asked, so that state hands the turn back
+rather than grading the work.
 
 **Still going** means an ask that has not come back yet, and only that.
 `.running` off the terminal means "this program drew something in the last two
@@ -285,6 +311,111 @@ Tokens are counted once each — what was sent, what was written to cache, what
 came back. Cache *reads* are left out on purpose: they are the same tokens being
 read back, already counted on the turn that wrote them, and adding them charges
 a long conversation for its whole context on every single turn.
+
+## It installs skills for whichever agent is in front of you
+
+A skill is a folder of instructions an agent loads when a task calls for it —
+a `SKILL.md` with a name and a description, and whatever scripts, references and
+assets sit beside it. That is the whole format, and it is the same format for
+every agent in the dock: Claude Code, Codex, Gemini CLI and OpenCode all read
+it. Finding one still meant knowing which of two hundred repositories to look
+in, reading a README, and copying a folder into the right place by hand.
+
+So: a **Skills** row in the sidebar, and it is only there while an agent is
+running in the tab you are looking at. Everything in the browser is answered by
+which agent that is, and on a plain shell there is no answer — the same skill
+belongs in a different directory for Claude Code than for Codex, so a browser
+offering to install into nowhere is worse than no browser. The row names the
+agent on its trailing edge, which is also the answer to the question it raises:
+skills for *what*.
+
+| Agent | Where it reads skills |
+| --- | --- |
+| Claude Code | `~/.claude/skills` |
+| Codex | `~/.agents/skills` |
+| Gemini CLI | `~/.agents/skills` |
+| OpenCode | `~/.agents/skills` |
+
+`~/.agents/skills` is the interoperable one. Codex reads only that, and Gemini
+CLI and OpenCode read it in preference to their own, so three of the four share
+what they install. Claude Code reads its own and does not read `.agents`, so
+installing the same skill for both writes it twice rather than linking — a
+symlink into another tool's directory is a thing somebody has to discover the
+hard way when they uninstall one of them.
+
+The agent is matched on the foreground process, and on the whole first word of
+it rather than on a prefix. A prefix test matches `claudette`, and writing into
+`~/.claude/skills` because a command happens to start with the same six letters
+is not a mistake worth being relaxed about.
+
+### The catalogue is bundled, and says who wrote every row
+
+Two hundred and sixteen skills from eleven publishers — Anthropic, OpenAI,
+Vercel, Microsoft, Supabase, Prisma, Neon, Firebase and others — with each row's
+description read out of that skill's own `SKILL.md`, so every row says what the
+skill says about itself.
+
+Bundled rather than fetched. A registry query is one more thing between somebody
+and a working agent, it is a third party's uptime, and the only public endpoint
+returns names and install counts with no descriptions at all — a browser built
+on it would be a list of two hundred words. This opens instantly and offline.
+The cost is that it goes out of date, which is why every row carries the
+repository it came from.
+
+**Who wrote it sits next to what it is called, on every row.** A skill is
+instructions an agent will follow, so the publisher is not a detail — it is most
+of what you are deciding when you press Install. The rows are ordered by how
+often the registry has seen each one installed, which is not a measure of
+quality but has to be something when there are two hundred of them.
+
+Filter by category or search by name; searching puts the skill you *named* above
+the ones that merely mention it, because somebody typing "pdf" wants the skill
+called pdf and not the eleven that mention PDFs in passing.
+
+### A shelf, not a list
+
+Two columns of cards rather than one column of rows, so the eye takes a pair at
+a time and the descriptions stop being the widest thing on screen. Each card
+carries its category as a mark — nine kinds, one simple glyph each, in the same
+place every time — which is what makes the grid scannable before a word of it
+has been read.
+
+A card is calm until you point at it. The first version drew a border, a fill
+and a lit Install button on all two hundred of them, so every card shouted at
+the same volume, nothing on the page had any weight, and the only way through it
+was to read all of it. The fill and the button arrive under the pointer, which
+is also the only moment either is any use.
+
+One line of description, and a line that ends where a sentence does. These are
+written for the agent, which reads all of them: they open with what the skill
+does and then spend a sentence or three on when to reach for it. Clipping the
+raw text to the card's width broke every card mid-word, which makes a page look
+faulty rather than full. The rest is on the card's tool tip.
+
+### Installing
+
+One request to GitHub's tree API to learn what the folder holds, then one fetch
+per file. A skill is a `SKILL.md` and usually a handful of things beside it, so
+that is a few hundred kilobytes at worst — and pulling a tarball of a repository
+like `microsoft/azure-skills` to extract one folder is thirty megabytes to save
+four requests.
+
+Nothing is written until every file has arrived, and then into a staging folder
+that is swapped in. A skill is a folder an agent reads as a unit, and half of
+one on disk is worse than none: the `SKILL.md` promises a script that is not
+there. A download that dies part way must also not be able to delete a skill
+that was working.
+
+Every path out of the repository is checked before it is joined onto a directory
+in your home — no absolute paths, no `~`, no `..`, no empty segments — and
+checked again against the destination after the join. There is a ceiling of
+twelve megabytes and two hundred files, so a repository that has quietly become
+a data set cannot be pulled into your home directory by one click. Installing
+replaces rather than merges, because a new version with a file deleted, merged
+over an old one, leaves the deleted file behind and the agent reads it.
+
+Removing takes the folder by name and only from the directory it was installed
+into.
 
 ## It tells you what to type
 
@@ -965,6 +1096,9 @@ Sources/OcarinaUI/       SwiftUI layer
   PackagedResources      finds the resource bundle inside a built .app
   Theme / ThemeColor     the colour model a theme file decodes into
   Recipe                 the quick-actions catalogue
+  Skill                  the skills catalogue, and where each agent reads them
+  SkillInstaller         fetches a skill's folder out of its repository
+  SkillsView             the browser: search, filter, one click to install
   ErrorBannerView        what a failed command puts on screen
   PasteReviewView        the sheet a risky paste stops at
   TactileClick           the click a switch makes

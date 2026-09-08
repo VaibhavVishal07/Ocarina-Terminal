@@ -29,6 +29,7 @@ let package = Package(
                 .process("Resources/AppIcon.png"),
                 .copy("Resources/Themes"),
                 .copy("Resources/Recipes"),
+                .copy("Resources/Skills"),
                 .copy("Resources/Fonts"),
             ]
         ),

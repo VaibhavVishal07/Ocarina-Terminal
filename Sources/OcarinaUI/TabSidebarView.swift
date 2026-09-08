@@ -76,6 +76,7 @@ struct TabSidebarView: View {
     @State private var isNewTabHovered = false
     @State private var isThemeHovered = false
     @State private var isFeedbackHovered = false
+    @State private var isSkillsHovered = false
 
     private static let space = "tabsidebar"
 
@@ -234,6 +235,33 @@ struct TabSidebarView: View {
     /// of rather than four rows to push around.
     private var settingsCard: some View {
         VStack(spacing: 1) {
+            // Only with an agent in front of you, and above Theme because it
+            // is the one row here that is about the work rather than about the
+            // app. A skill is instructions the agent reads, so the row is only
+            // true while there is an agent to read them — on a plain shell
+            // there is no directory to install into and the way in is simply
+            // not there.
+            //
+            // The trailing value names the agent, which is also the answer to
+            // the question the row raises: skills for *what*. Claude Code and
+            // Codex do not read the same directory.
+            if let home = model.skillHome {
+                Button {
+                    model.isSkillsVisible = true
+                } label: {
+                    footerRow(
+                        symbol: "square.stack",
+                        title: "Skills",
+                        trailing: home.agent,
+                        hovered: isSkillsHovered
+                    )
+                }
+                .buttonStyle(.plain)
+                .onHover { isSkillsHovered = $0 }
+                .animation(.easeOut(duration: 0.12), value: isSkillsHovered)
+                .transition(.opacity)
+            }
+
             // Opens the picker rather than a list of names: choosing a look
             // from words asks you to remember what Matcha looked like.
             Button {
@@ -299,6 +327,11 @@ struct TabSidebarView: View {
                 tip: sleepHelp
             )
         }
+        // The card grows by a row when an agent opens and loses it again when
+        // that tab closes. Eased, because a column that gains twenty-eight
+        // points instantly reads as the window having jumped rather than as a
+        // row having arrived.
+        .animation(.easeOut(duration: 0.16), value: model.skillHome?.agent)
         // The rows sit in from the card's edges by the same amount the tab
         // rows sit in from theirs, so the two cards' contents line up down the
         // column rather than each starting somewhere of its own.

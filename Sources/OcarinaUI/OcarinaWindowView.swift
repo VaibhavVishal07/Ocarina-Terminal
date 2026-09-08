@@ -168,25 +168,29 @@ public struct OcarinaWindowView: View {
             // nothing to put in either. It used to open on launch regardless
             // and sit there saying "No tasks yet" at somebody who had not yet
             // started an agent and had no way to know that was the point.
-            if !model.tabs.isEmpty, model.isAgentSelected,
-               model.isTaskPanelVisible || model.usage != nil {
+            //
+            // The switch closes the column, not one card in it. The token
+            // reading used to stay behind when the task list went — a single
+            // card floating in a lane of its own, still taking the width off
+            // the terminal, with no way to shut it that was not the ⌘J that
+            // had visibly just failed to. ⌘J says "give me the room back",
+            // and half the room back is the wrong answer to that.
+            //
+            // The figure is not lost: it is in the menu bar's menu, one click
+            // from anywhere, which is where a number you glance at on your way
+            // past belongs when the panel it lived on is closed.
+            if !model.tabs.isEmpty, model.isAgentSelected, model.isTaskPanelVisible {
                 VStack(spacing: Self.panelGap) {
-                    if model.isTaskPanelVisible {
-                        TaskPanelView(tasks: model.tasks) { model.clearTasks() }
-                            .frame(maxHeight: .infinity)
-                            .panel()
-                    }
+                    TaskPanelView(tasks: model.tasks) { model.clearTasks() }
+                        .frame(maxHeight: .infinity)
+                        .panel()
                     // Under the task list, so it carries that card's light
                     // on down rather than starting again. Drawn with no
                     // window too — the card has an empty state, and the
                     // column used to end in a blank while the first request
                     // of a session was still in flight.
-                    UsageCardView(
-                        usage: model.usage,
-                        now: now,
-                        place: model.isTaskPanelVisible ? .bottom : .top
-                    )
-                    .panel()
+                    UsageCardView(usage: model.usage, now: now, place: .bottom)
+                        .panel()
                 }
                 .frame(width: Self.panelWidth)
             }
@@ -214,6 +218,22 @@ public struct OcarinaWindowView: View {
         // click outside it, and picking a theme is a thing you do by trying
         // three and then getting on with your work.
         .overlay {
+            // Only ever opened from a tab with an agent in it, and closed
+            // the moment that stops being true: switching to a shell with the
+            // browser up would leave it offering to install into a directory
+            // belonging to a tab you are no longer looking at.
+            if model.isSkillsVisible, let home = model.skillHome {
+                ZStack {
+                    Color.black.opacity(0.42)
+                        .ignoresSafeArea()
+                        .contentShape(.rect)
+                        .onTapGesture { model.isSkillsVisible = false }
+                    SkillsView(home: home) { model.isSkillsVisible = false }
+                }
+                .environment(\.theme, model.themes.theme)
+                .transition(.opacity)
+            }
+
             if model.isThemePickerVisible {
                 ZStack {
                     Color.black.opacity(0.42)
@@ -227,6 +247,7 @@ public struct OcarinaWindowView: View {
             }
         }
         .animation(.easeOut(duration: 0.15), value: model.isThemePickerVisible)
+        .animation(.easeOut(duration: 0.15), value: model.isSkillsVisible)
         .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         // Published once, here, so every view below reads the same theme.
         .environment(\.theme, model.themes.theme)

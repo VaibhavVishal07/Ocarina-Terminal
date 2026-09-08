@@ -75,17 +75,26 @@ public actor TabNamingService {
 
     /// What a subscriber has already been told about a tab, so a poll that
     /// changes nothing visible stays silent.
+    ///
+    /// `processName` is in here because things downstream are decided by it,
+    /// not because it is drawn. It mostly rode along on `subtitle`, which is
+    /// built from it — but only mostly: with no working directory to pair it
+    /// with, the subtitle is nil whatever the process is, and a change from
+    /// one process to another under that condition published nothing. Naming
+    /// the field is cheaper than reasoning about when its proxy holds.
     private struct Published: Equatable {
         let title: String
         let subtitle: String?
         let activity: TabActivity
+        let processName: String?
     }
 
     private func publish(_ context: TabContext) {
         let latest = Published(
             title: context.displayTitle,
             subtitle: context.subtitle,
-            activity: context.activity
+            activity: context.activity,
+            processName: context.processName
         )
         guard published[context.tabID] != latest else { return }
         published[context.tabID] = latest
