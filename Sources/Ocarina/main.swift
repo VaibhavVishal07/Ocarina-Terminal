@@ -87,6 +87,8 @@ private func run() {
     window.makeKeyAndOrderFront(nil)
 
     application.activate(ignoringOtherApps: true)
+    // Does nothing unless `OCARINA_SHOT` names a file. See `WindowShot`.
+    WindowShot.arm(model)
     // menuController is referenced past this point only through the menu, whose
     // items hold their target weakly, so keep it alive for the app's lifetime.
     withExtendedLifetime(menuController) {

@@ -924,9 +924,38 @@ part of the row that never changes, and the thing that is always true should not
 be the thing that catches the eye — the same rule the frame around the menu bar's
 card is drawn to.
 
-The window above is not a screen capture. A shell whose TCC identity belongs to
-another bundle cannot read the display, so `OCARINA_RENDER=1 swift test --filter
-RenderPreview` draws it instead: the view tree hosted in an `NSHostingView` in an
+### Photographing the app
+
+`screencapture`, and everything else that reads the display, needs Screen
+Recording granted to whichever bundle the calling process is attributed to — and
+a shell running inside another app does not have it. So the app takes its own
+picture instead, which is a thing any app may do about its own windows and needs
+no permission at all:
+
+```
+OCARINA_SHOT=/tmp/shot.png OCARINA_SHOT_RUN='claude' OCARINA_SHOT_AFTER=12 \
+  build/Kazoo.app/Contents/MacOS/Kazoo
+```
+
+`OCARINA_SHOT_RUN` opens a tab in the working directory and types the command, so
+the picture has a real session in it rather than the landing screen, and the app
+quits once the file is written — it was started to be photographed. Nothing
+happens at all unless `OCARINA_SHOT` names a file. See `WindowShot`.
+
+The window's own background is painted under the shot first.
+`NSVisualEffectView` is the one thing in the hierarchy that cannot draw itself
+into a bitmap: the blur is composited by the window server out of the desktop
+behind the window, which is exactly what a self-portrait has no access to. Left
+alone it comes back transparent and every panel floats on nothing.
+
+That is the way to get a picture of the *real* thing — real SwiftTerm output,
+real agent, real theme. The render preview below is for looking at chrome that
+is hard to reach by hand.
+
+### Drawing the chrome without running it
+
+The window at the top of this file is not a screen capture either. It is
+`OCARINA_RENDER=1 swift test --filter RenderPreview`: the view tree hosted in an `NSHostingView` in an
 offscreen window, laid out, then `cacheDisplay` — the app drawing itself into a
 bitmap at exactly the size the file is checked in at.
 
