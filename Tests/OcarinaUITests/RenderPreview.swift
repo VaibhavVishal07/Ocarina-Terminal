@@ -619,4 +619,169 @@ struct RenderPreview {
         try png.write(to: out)
         print("wrote \(out.path)")
     }
+
+    /// The whole window, as close as a renderer can get to it.
+    ///
+    /// Every panel here is the app's own view drawn from a real `OcarinaModel`
+    /// — the sidebar, the task list, the token card, the terminal's bed. The
+    /// one part that is not is the terminal *text*: SwiftTerm's view is an
+    /// `NSView`, and `ImageRenderer` walks the SwiftUI tree, so an AppKit view
+    /// comes back blank. The lines are set here in the theme's own terminal
+    /// font and ANSI palette, which is what the emulator would have drawn
+    /// them in. The same limit is why the two switches in the sidebar render
+    /// as placeholders: `NSSwitch` is AppKit too.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func window() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let theme = try #require(all.first { $0.id == "ocarina" })
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-window-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let model = OcarinaModel()
+        let names = [
+            "Wire the status item to the poll",
+            "Take the marks off the tabs",
+            "Cut 0.8.0",
+            "npm run build"
+        ]
+        var made: [TabItem] = []
+        for name in names {
+            let tab = model.newTab(workingDirectory: root)
+            model.rename(tab.id, to: name)
+            made.append(tab)
+        }
+        defer { made.forEach { model.closeTab($0.id) } }
+        if let first = made.first { model.selectTab(first.id) }
+        model.noteForegroundForTesting("claude")
+
+        let now = Date()
+        func ask(_ title: String, _ state: AgentTask.State, _ minutesAgo: Int) -> AgentTask {
+            AgentTask(id: title, title: title, prompt: title,
+                      askedAt: now.addingTimeInterval(TimeInterval(-60 * minutesAgo)),
+                      state: state)
+        }
+        let tasks = [
+            ask("Read the transcript once", .finished, 34),
+            ask("Drop the notch banner", .finished, 26),
+            ask("Rename the tab on the prompt", .finished, 19),
+            ask("Take the marks off the tabs", .finished, 11),
+            ask("Wire the status item to the poll", .working, 3)
+        ]
+        let usage = UsageWindow(
+            tokens: 1_432_000,
+            startedAt: now.addingTimeInterval(-3600 * 1.6),
+            resetsAt: now.addingTimeInterval(3600 * 3.4)
+        )
+
+        // What the emulator would be showing. Set in the theme's terminal font
+        // and its own ANSI colours, at the inset the real terminal sits at.
+        let mono = Font.custom(theme.terminal.fontName, size: theme.terminal.fontSize)
+        func line(_ text: String, _ colour: ThemeColor) -> some View {
+            Text(text).font(mono).foregroundStyle(colour.color)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        let ink = theme.terminal.foreground
+        let prompt = theme.terminal.ansi.count > 6 ? theme.terminal.ansi[6] : ink
+        let quiet = theme.terminal.ansi.count > 8 ? theme.terminal.ansi[8] : ink
+        let ok = theme.terminal.ansi.count > 2 ? theme.terminal.ansi[2] : ink
+
+        let screen = VStack(alignment: .leading, spacing: 3) {
+            line("› claude", prompt)
+            line("", ink)
+            line("› wire the status item to the poll so the list is never stale", ink)
+            line("", ink)
+            line("  Read  Sources/OcarinaUI/ActivityStatusItem.swift", quiet)
+            line("  Edit  Sources/OcarinaUI/ActivityStatusItem.swift  +97 −8", quiet)
+            line("  Edit  Sources/OcarinaUI/OcarinaModel.swift  +27 −6", quiet)
+            line("  Bash  swift test", quiet)
+            line("        ✔ Test run with 275 tests in 40 suites passed", ok)
+            line("", ink)
+            line("  The menu bar's menu carries the last five asks now, marked", ink)
+            line("  the way the panel marks them. The single task row above", ink)
+            line("  them is gone — it named the newest open ask, which is the", ink)
+            line("  first row of the list under another name.", ink)
+            line("", ink)
+            line("› ▌", prompt)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 14)
+
+        let window = HStack(spacing: OcarinaWindowView.panelGap) {
+            TabSidebarView(model: model)
+
+            ZStack {
+                TerminalBed(activity: .running)
+                screen
+            }
+            .panel()
+
+            VStack(spacing: OcarinaWindowView.panelGap) {
+                TaskPanelView(tasks: tasks) {}
+                    .frame(maxHeight: .infinity)
+                    .panel()
+                UsageCardView(usage: usage, now: now, place: .bottom)
+                    .panel()
+            }
+            .frame(width: OcarinaWindowView.panelWidth)
+        }
+        .padding(OcarinaWindowView.panelGap)
+        .frame(width: 1280, height: 760)
+        .background(theme.ground.color)
+        .environment(\.theme, theme)
+
+        // Hosted and asked to draw itself, rather than run through
+        // `ImageRenderer`.
+        //
+        // The renderer walks the SwiftUI tree, and two things in this window
+        // are not in it: a `LazyVStack` only builds its rows when a real
+        // scroll view asks for them, so the tab list and the task list both
+        // came back as empty cards; and `NSSwitch` is AppKit, so the two
+        // switches came back as placeholder squares. An `NSHostingView` in an
+        // offscreen window has both — it lays out for real and `cacheDisplay`
+        // draws the layer tree the app would put on screen.
+        //
+        // No screen recording permission is involved. This is the app drawing
+        // itself into a bitmap, not anything reading the display.
+        let png = try Self.shoot(window, size: CGSize(width: 1280, height: 760))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/window.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
+
+    /// Draws a view the way the app would, at 2×.
+    static func shoot<V: View>(_ view: V, size: CGSize) throws -> Data {
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = host
+        // Laid out before it is asked for a picture: without this the hosting
+        // view hands back its bounds with nothing arranged inside them.
+        host.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        // A turn of the run loop, so the scroll views the lazy stacks live in
+        // have actually asked for their rows.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        host.layoutSubtreeIfNeeded()
+
+        let rep = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: rep)
+        return try #require(rep.representation(using: .png, properties: [:]))
+    }
 }
