@@ -64,31 +64,35 @@ Or build it yourself, which needs no permission from anyone:
 
 ---
 
-## The tabs name themselves
+## A tab is called after the project it is in
 
-The tab is not called `zsh`. It is called what the terminal is *doing*: the
-prompt you gave an agent, the command that is running, the project you are in.
+The tab is not called `zsh`. It is called **Ocarina**, or **Portfolio**, or
+whatever the folder it is working in is called — and it stays that for as long
+as the tab does.
 
-Ocarina reads that from three places, in order of how much they know — the
-transcript an agent is already writing, the foreground process on the pty, and
-the directory the shell is sitting in. A stability layer decides when a new
-answer is good enough to replace the one on screen, so a title does not flicker
-every time a command finishes.
+It used to be called after the work: your prompt, cut down by a word filter and
+then rewritten by Claude into a to-do item. That was the app's cleverest feature
+and its least useful one. **A name that changes every time you ask for something
+is not a name.** You cannot learn the column, you cannot point at a tab, and the
+one thing you always know about a terminal — which codebase it is in — was the
+one thing it never said.
 
-An agent conversation is named for the ask that opened it, not for the last
-thing typed into it. Reading the newest prompt meant a tab renamed itself on
-essentially every command, which is the opposite of what a name is for: you
-find a tab by remembering where it is and what it was called. What the agent is
-on *right now* is the subtitle, the tooltip and the task panel, all of which are
-free to move.
+So the folder wins. A `cd` into another repository renames the tab, because that
+is a change of project. Two tabs in one project are told apart with a numeral,
+and the first keeps the bare name, so a tab is never renamed because another one
+appeared beside it. A name you type yourself beats both, and a shell somewhere
+that is not a project keeps the old generated title, which is the case that rule
+was always right for.
 
-The words themselves come from the same place the task list's do. A word filter
-cuts the prompt down the moment it is read, and Claude rewrites it a beat later
-— "Toggle option near right-hand" was what the filter made of a tab, and "Move
-toggle to right side" is what it is called now. The panel had this and the tab
-strip did not, which is why the two columns beside each other read as two
-different qualities of the same sentence. One cache and one queue serve both, so
-a prompt that appears in the list and on the tab is asked about once.
+**A new tab opens where the last one was**, which is what makes this work when
+you press ⌘T. It used to open in your home directory — what a shell does with no
+instruction, and the wrong thing twice: every other terminal on the machine
+opens beside the tab you are in, and the home directory is not a project, so a
+tab opened there had nothing to be called and fell back to naming itself after
+whatever was running.
+
+What the agent is doing *right now* has three homes already, all of which are
+free to move: the dot on the row, the task panel, and the menu bar.
 
 A dot on each row says idle, running, succeeded or failed, so a column of twenty
 can be read down the edge without stopping at any of the names.
@@ -199,15 +203,27 @@ letterform built from 1.4pt lamps is under the size the grid can set — the S a
 the G came out as smudges. It was a word you could not read taking the room of a
 sentence.
 
-So the grid came off, and for a release the card went up on its own. That was one
-correction too many. The width was a fact about the *grid*, not about the words:
-the same line set in the system font is about a third of the space, and it is the
-font every other item up there is already set in. A picture alone asks somebody to
-have learned four plates before it says anything; a picture with its name beside
-it teaches them, and then goes on working once they have. The item is
-variable-width again as a result, so things to its left shift a few points when
-the state changes — which is what every variable-width item in a menu bar already
-does.
+So the grid came off, and for a release the card went up on its own, and then the
+words came back beside it in the system font. Both corrections were half right.
+A picture alone asks somebody to have learned four plates before it says
+anything; a picture with its name beside it teaches them and goes on working once
+they have — but a plate drawn in the app's own hand with a label beside it in San
+Francisco is **two hands writing one line**.
+
+The width was a fact about the *size*, not about the alphabet. The letters are
+1.3pt against the card's 1.7; a word space is cut from seven blank columns to
+four, because the grid draws a space five wide and `NEEDS YOU` was reading as two
+separate menu bar items; and the words are shorter — `READY`, `WORKING`, `DONE`,
+`NEEDS YOU`, `STOPPED 127`. The widest reading the bar can be asked for now comes
+to **102 points** rather than 136.
+
+The plate and its caption are one image, which is also what lets the spinner
+redraw eight times a second without the words flickering with it. The item is
+variable-width, so things to its left shift a few points when the state changes —
+which is what every variable-width item in a menu bar already does. And the
+alphabet has no brackets, so `Stopped (127)` cannot be set here at all: the menu
+bar keeps its own short vocabulary, with a test asserting every word in it can
+actually be drawn.
 
 **Nothing up there says Completed.** The words gained a state and did not gain a
 claim: `Back to you` is what a turn ending can support, and *completed*,
@@ -432,7 +448,7 @@ The dot takes the theme's **accent** rather than a fifth colour in
 the app already uses to mean "this is the thing", and a tab asking for you is
 the thing — the same argument `TabIcon` settled: name the slot, and let the
 theme say what colour that is. The words work the same way: `needsYou` is
-optional on a theme's `voice`, so all fourteen bundled themes and anybody's own
+optional on a theme's `voice`, so all nineteen bundled themes and anybody's own
 file still load, saying the house line until they say otherwise.
 
 ## It tells you, and only while you are elsewhere
@@ -485,11 +501,14 @@ straight out of `.build`, and the test binary, are both in exactly that state.
 
 ## It still says what the window has cost
 
-Under the task list, a small card: what this agent has spent, and how long the
-window it is spending from has left to run. Two rows and a meter, 49pt against
-the 101 it started as — it began as a dashboard tile, an icon and a caption and
-a 21pt number and a rule and a sentence, which is a great deal of card for one
-figure you glance at on your way past.
+Under the task list, a small card: what this agent has spent, how long the
+window it is spending from has left, and **the clock time it comes back**. The
+figure and the time left share the top line, the meter runs under them, and a
+hairline separates the refresh time below — how much has gone and when it returns
+are two readings, not one sentence.
+
+It carried a "This window" label for a while, which named the only thing the card
+could possibly be about. It is gone.
 
 Neither this nor the task list appears until there is an agent in front of you.
 Both are about a conversation, so a shell at a prompt has nothing to put in
@@ -506,6 +525,18 @@ continuous, which invites exactly the reading this card must not invite — that
 the fill is an allowance running down. Counted lamps read as counted units, and
 these are: the five-hour window in fifteen-minute pieces, of which some have
 gone. The app already has that alphabet in the wordmark and the landing screen.
+
+**The unlit half of it is drawn at a weight you can see.** It used to take
+`board.unlit`, which on most themes is a shade off the panel itself — so a window
+that had just opened read as one short bright bar floating in nothing, and you
+could not tell how much of the track was still to come. The unlit track is the
+other half of the reading, not the space around it.
+
+It is re-read once a minute, which is the finest reading the card can show: the
+countdown beside it is in minutes and one lamp is a quarter of an hour, so
+polling faster redrew the same picture. It was every fifteen seconds — four times
+the work, and this is the most expensive poll in the app, since it reads every
+project's transcripts rather than one.
 
 It says **used**, not **left**, and that is not a hedge. Nothing on the machine
 records the size of the allowance or when the account's quota renews: not
@@ -593,36 +624,35 @@ was. A new tab refreshes at once rather than waiting for the next tick, and a
 foreground the poll has read is the answer whatever it says: `zsh` means there
 is no agent here, not "ask somebody else".
 
-### It opens on eight, not on two hundred and sixteen
+### It asks what you are looking for
 
 Two hundred and sixteen rows is not a shelf. It is a search box with a list
 attached, and it only works if you already know what you are looking for —
-which the person this screen exists for does not. So the browser opens on
-**Starters**: a line saying what a skill even is, and eight picks. **All** is one
-press away and holds everything it used to.
+which the person this screen exists for does not.
 
-Eight, and not twenty. The point of a starting shelf is that it can be read to
-the end; a shelf you have to scroll is the wall again, shorter. They are chosen
-to be useful before you have decided what you are building — checking code,
-debugging, looking things up, handling the file formats everybody has — rather
-than to be the eight most installed, which is how you end up recommending
-Prisma to somebody who has not got a database.
+It used to answer that with three tabs, nine category pills, a search box and a
+grid of cards: **four ways of narrowing two hundred and sixteen things, offered
+to somebody who has one.** They know roughly what they want and they cannot name
+the folder.
 
-**Each pick leads with a line written for you, not for the agent.** A skill's
-own description is addressed to the reader that will follow it — "Use when
-encountering any bug, test failure, or unexpected behavior, before proposing
-fixes" is the right text for that reader and no answer at all to "what would I
-want this for". So the shelf says *Work out why something is broken*, and puts
-`systematic-debugging · obra` underneath, because who wrote the instructions
-your agent is going to follow is still most of the decision.
+So it asks. One line — *What are you looking for?* — and one field, and nothing
+else until you have typed something. The panel is 306 points tall at rest and
+grows when there is a list to hold, because a modal that opens at full height
+with one field in it is mostly empty room saying "there is more here" about
+nothing.
 
-**Installed** is the standing list: what is waiting for an agent, what is on
-disk, and a Remove on each. It reads every skills directory rather than the one
-in front of you, so closing Claude no longer takes your installed skills off the
-screen — they are still there, and the app had simply stopped looking. What a
-card says about *itself* stays per-agent: a skill in `~/.agents/skills` is not
-one Claude Code will read, and "Installed" beside Claude would be a claim about
-the wrong directory.
+**Four example sentences sit under the field**, and they are the whole
+merchandising surface of the screen now. Not pills and not category names: a
+pill teaches you that this box takes nouns, and these teach you that it takes
+the sentence you would have said out loud — *make my UI look less generic*,
+*write commit messages I'd actually read*. One of them is design, because the
+house order is.
+
+**Installed** is a line in the footer that swaps the list for your shelf. It is
+the one question on this screen with no query — you go there to see what you
+have — so no typed phrase can match it. It reads every skills directory rather
+than the one in front of you, so closing Claude no longer takes your installed
+skills off the screen.
 
 ### The catalogue is bundled, and says who wrote every row
 
@@ -652,92 +682,65 @@ design skill would be a search box that does not search. Everything after that
 is ordered by how often the registry has seen each one installed, which is not a
 measure of quality but has to be something when there are two hundred of them.
 
-Filter by category or search by name; searching puts the skill you *named* above
-the ones that merely mention it, because somebody typing "pdf" wants the skill
-called pdf and not the eleven that mention PDFs in passing.
+Typing the name of a skill puts that skill first, above the ones that merely
+mention it — somebody typing "pdf" wants the skill called pdf and not the eleven
+that mention PDFs in passing. How that is decided is the next section.
 
-### Three sections, one skeleton under all of them
+### The search had to be rebuilt before the field could be
 
-Where to begin, everything, and what you have are genuinely three questions, so
-they are three tabs. What was wrong was underneath: each opened with a different
-kind of thing, so the panel reshuffled itself every time you moved between them.
-The first led with a paragraph and ended with a link that went to the second,
-which was already a tab above it. The second led with a search field and a row
-of pills. The third led with uppercase headings over sections. Three tabs, four
-navigation idioms, and no two of them starting at the same height.
+A single field is only as good as what is behind it, and what was behind it
+could not answer the question the field invites. The old filter asked whether
+the whole query appeared inside a name, a description or an author — the right
+question for `pdf` and the wrong one for every phrase a person actually types.
+**"UI design" matched none of the two hundred and sixteen skills**, because that
+pair of words in that order is in nobody's description.
 
-**Everything above the tabs is constant now** — the title, the one line saying
-what a skill is, and the search field — and everything below them is cards. The
-search searches the catalogue whichever tab you were on, and typing moves you to
-Browse: filtering eight starters down to two is not a thing anybody wants, and
-leaving somebody typing into a list that cannot answer them reads as the search
-box being broken.
+The obvious repair — split on spaces, keep using `contains` — is worse than the
+bug. `ui` is inside *build*, *require* and *quick*; `look` is inside *lookup*;
+and "make my app look good" came back led by an Azure resource browser. So three
+things changed together.
 
-One tab carries a row of filter pills, because it is the only one holding two
-hundred things. That is a filter *inside* a list rather than a second way of
-choosing which list, and it is one level deep. The two uppercase headings that
-used to divide the third tab are gone: waiting skills sort above installed ones
-and each card's own button already says which it is.
+**Whole words.** Both sides are cut into words and compared as words, so *build*
+stops answering to `ui`. A term of three letters or more may also match the
+*start* of a word, which is what makes the list settle while you are still
+typing "desig".
 
-Small things that were making it look assembled rather than drawn: the active
-tab's underline used to float a few points above a separate divider, so the
-panel carried two nearly-parallel lines — it sits *on* the rule now, and is
-exactly as wide as the word it belongs to rather than stretching to fill the
-row. The footnote has a fill of its own, so it reads as the panel's floor.
+**Weighted by where it was found.** A hit in the name is worth six, in the
+category three, in the description two — because somebody typing `pdf` wants the
+skill called pdf, not the eleven that mention PDFs in passing. Equalling the name
+exactly is worth ten on top.
 
-And everything vertical is on **one scale** — 6, 14 or 20 points — rather than
-whatever each pair of things happened to need, which is what made the panel read
-as tight in some places and loose in others. The cards grew from 76 points to
-86, the gap between them from 12 to 14, and the panel from 620 to 660 to hold
-them.
+**A table of near-words.** `ui` also looks for *interface*, *frontend*,
+*component*, *layout*, *css*; `design` for *visual*, *aesthetic*, *brand*,
+*typography*. A near-word is always worth less than the word itself, which is
+what keeps `api-and-interface-design` behind `frontend-design` rather than tied
+with it. "UI design" returns forty-five skills now.
 
-Below the tabs, one card everywhere: **what this is** on top and one line under
-it. It carried four things — a headline, a supporting line, the author and the
-button — which is one more than a card this size can lay out without the eye
-having to decide what to read next. The author moved onto the supporting line
-rather than off the card, because a skill is instructions an agent will follow
-and the publisher is most of the decision.
+That table is a house call, like the category order — thirty-odd lines of opinion
+about this catalogue. It is not a search engine and does not need to be: a phrase
+whose useful words are all absent is the empty state's problem, and the empty
+state has an agent one pane away.
 
-On the starters shelf the plain-language line leads and the folder name joins
-the author underneath. Everywhere else the folder name leads, because that is
-what you are searching by and what the agent will call it. Same two slots either
-way, same fixed height, so a grid of them is a grid rather than a masonry of
-whatever each description happened to need.
+**Each row shows its working.** The words that earned the match are picked out in
+the description, so a search for "UI design" answering with a skill whose text
+says *frontend* reads as understanding rather than as a mistake — and the
+near-word table is visible on the page instead of hidden in a scoring function.
 
-The problem was never two columns; it was two hundred rows in them. Eight cards
-in two columns is a shelf you read to the end.
+Rows rather than cards, because "with details" is the whole request and a card
+86 points tall in a two-up grid cannot carry an author, a category, an install
+count and a description. At full width the description fits whole, including the
+"use this when" half that a person choosing actually wants.
 
-The category mark went, though. Nine glyphs at fourteen points, one on every
-card, in the same place every time — scannable in principle and in practice a
-column of small grey shapes beside the only words that carried anything.
-
-**Accent capsules, a lit board colour on every installed mark, a red wash behind
-the error line.** On a screen whose job is to be read by somebody who does not
-know what the words mean yet, colour that carries no information is noise with a
-mood. The category filters are still pills — they are controls and a control
-should look pressable — but they are drawn in the window's own greys, the
-buttons are a hairline rather than a fill, and what is left doing the work is
-the type hierarchy. The theme still comes through in the surface, the text
-colours and the window around it, without competing with the content.
-
-**Add is drawn on every card now, quietly.** It used to appear only under the
-pointer, on the reasoning that two hundred Install buttons is two hundred things
-asking to be pressed. True of a wall, and exactly wrong for somebody who has
-never seen this screen: a button that is not there until you happen to hover
-over the thing it belongs to is a button you have to already know about.
+**Add is drawn on every row, quietly.** It used to appear only under the pointer,
+on the reasoning that two hundred Install buttons is two hundred things asking to
+be pressed. True of a wall, and exactly wrong for somebody who has never seen
+this screen: a button that is not there until you hover over the thing it belongs
+to is a button you have to already know about.
 
 It has two treatments and not four: an outlined **Add**, which is the one thing
-on a card asking to be pressed, and a plain word for everything that has already
+on a row asking to be pressed, and a plain word for everything that has already
 happened — waiting, installed, and the Remove that word becomes under the
-pointer. A state that is not a call to action should not be drawn like one, and
-four differently weighted buttons for one control was most of why the page read
-as busy.
-
-The supporting line on the browse page ends where a sentence does. These
-descriptions are written for the agent, which reads all of them: they open with
-what the skill does and then spend a sentence or three on when to reach for it.
-Clipping the raw text to the card's width broke every one of them mid-word,
-which makes a page look faulty rather than full. The rest is on the tool tip.
+pointer. A state that is not a call to action should not be drawn like one.
 
 ### Installing
 
@@ -878,26 +881,30 @@ traffic lights floating on the tab list. The bar earns its place — somewhere t
 hold the window that is not the text you are reading — and the gap around the
 cards does the rest.
 
-### Two shelves, because a switch is not a door
+### One shelf, and a hairline through it
 
-Under the tab list, **what is true right now**: Tasks and Keep Awake, two
-switches. Under that, at the foot of the column, **what opens**: Skills and
-Theme, each with a chevron.
+Under the tab list: **Tasks**, a rule, then **Skills** and **Theme**. One switch
+and two doors, in one card, with the rule saying which is which.
 
-They were one card of five rows, and the five were two different kinds of thing
-wearing one shape. Three of them opened something; two of them were simply on or
-off. Nothing about a row said which — you found out by pressing it — and the
-window had already answered exactly this question one level up, when the
-settings stopped being a box nested inside the tab card and became a panel of
-their own. The same answer applies inside: two cards, with the window's ground
-between them, and the shape tells you what kind of row you are looking at before
-you have read a word.
+It has been three shapes. It began as one card of five rows, and the five were
+two kinds of thing wearing one shape: three opened something, two were simply on
+or off, and nothing about a row said which — you found out by pressing it. So it
+became two cards with the window's ground between them, which was the right
+distinction drawn at the wrong price.
 
-The readings sit next to the list because the list is what they are about — one
-says whether the panel listing that tab's asks is up, the other whether the Mac
-those asks are running on may sleep. The doors sit at the foot, which is where a
-row you press to leave the column belongs; both of them open a sheet over the
-whole window.
+Then both of the other switches left. **Notify went to the system**, which owns
+it: System Settings turns notifications off per app, alongside every other app,
+with Focus modes and scheduled summaries a sidebar row could never offer — and
+two answers to one question is a way for the two to disagree. Somebody who
+allowed notifications at the system prompt and then wondered why none arrived was
+looking at an app-level switch they had turned off months earlier. **Keep Awake
+is simply on**, with its override in the View menu where a window-scoped on/off
+belongs.
+
+That left one switch and two doors, and a card built to separate two kinds of row
+is not worth a panel gap and sixteen points of padding to hold one row of each.
+The hairline makes the same distinction for a fifth of the height, and the
+chevron on a door still says where it goes.
 
 **Share Feedback left for the app's own menu**, and that is what pays for the
 split: four rows divide cleanly into two and two, five did not. It was in the
@@ -1031,9 +1038,9 @@ went to empty.
 
 ## It looks like something you chose
 
-<img src="docs/images/themes.png" alt="The theme picker, fourteen themes">
+<img src="docs/images/themes.png" alt="The theme picker, nineteen themes">
 
-Fourteen bundled themes, applied as you pick. Each is a JSON file carrying the
+Nineteen bundled themes, applied as you pick. Each is a JSON file carrying the
 chrome colours, the terminal bed and a sixteen-colour ANSI palette. Drop your own
 in `~/.ocarina/themes/` and they appear beside the bundled ones.
 
@@ -1072,9 +1079,9 @@ floor now guards what the eye is actually reading.
 The selected tab wears the accent, fill and edge, at 11% and 34% — enough to
 say which theme you are in, not enough to be the brightest thing on screen. It
 was a white-ish wash under a white-ish border, which is the same faint grey
-rectangle in all fourteen themes, on the one row you look at most.
+rectangle in all of them, on the one row you look at most.
 
-Ten of the fourteen also shipped the *same* sixteen terminal colours, so `git
+Ten of the first fourteen also shipped the *same* sixteen terminal colours, so `git
 status` came out identical whichever you picked — which is most of why the set
 felt flat. Each ramp is now pulled towards its theme's hue, and pulled by no
 more than twelve degrees. That cap is the whole lesson of the first attempt: a
@@ -1162,7 +1169,7 @@ gets the flurry.
 
 Body text is white with a *tinge* of the theme, not the theme's colour set as
 words — and that is a ceiling rather than a rule about how much hue to add.
-Thirteen of the fourteen were already written that way, at a chroma between
+Thirteen of the first fourteen were already written that way, at a chroma between
 0.01 and 0.13; Matrix was the exception at 0.41, and its screen was the one
 where the text *was* the theme rather than wearing it. Anything above 0.14 is
 pulled towards the grey of its own luminance until it sits at the ceiling, so
@@ -1172,47 +1179,23 @@ they are the text colour in every bundled theme, and capping one without the
 other would leave a program printing in white louder than the line above it.
 Anyone's own theme gets this too, which a hand-edited palette would not have.
 
-A theme also reaches inside the programs the terminal runs. Setting the sixteen
-ANSI colours used to be the whole of a palette, and it is not how the tools
-people run colour themselves any more: Claude Code names its gold outright,
-`38;5;220`, and no theme can touch a colour named in full. Choosing Matrix and
-opening an agent gave you a green window with a gold program sitting in it.
+A theme used to reach inside the programs the terminal runs, and does not any
+more. Setting the sixteen ANSI colours is not how the tools people run colour
+themselves: Claude Code names its gold outright, `38;5;220`, and no palette can
+touch a colour named in full — so choosing Matrix and opening an agent gave you a
+green window with a gold program sitting in it.
 
-Sending every such colour to its nearest slot fixes that and breaks something
-worse. Against a theme built around one hue — Matrix, whose palette's "yellow"
-is a green — an agent's gold chrome and its added lines both came back green,
-and *added* against *removed* is the one distinction in a terminal you cannot
-afford to lose. So the rule is narrow, and it is about what a colour is for:
+The fix was a rewriting layer with a careful rule in it: red and green left
+exactly as sent because they mean *failed* and *passed*, a program's own accent
+toned down to plain text, the cool hues taking the theme's own unless the theme
+answered with a red or a green, greys untouched. It worked. It is gone anyway.
 
-- **Red and green are left exactly as the program sent them.** They are the two
-  colours that carry meaning rather than decoration — failed and passed, removed
-  and added — and a theme does not get a vote on those.
-- **A program's own accent is toned down to plain text.** The gold is branding:
-  the loudest thing on the screen, saying nothing the words beside it do not.
-  Plain text means the theme's foreground *with the hue taken out* — near-white
-  on a dark theme, near-black on a light one — and not the foreground itself,
-  which is not neutral in every theme: Matrix sets it to `#8CF5A3`, so an accent
-  handed the text colour came out bright green, which is a long way from toned
-  down. The way to stop a colour shouting is to give it no hue at all. As a
-  *background* it keeps a hue — a warm bar is a marked row, a white one is
-  nothing.
-- **The cool hues take the theme's own — unless the theme answers with a red or
-  a green.** Blue, cyan and magenta are where a TUI draws its furniture, and
-  furniture is decoration. But the colour Claude Code paints the *selected*
-  option of a yes/no prompt in is that pale blue, and Matrix answers "blue"
-  with `#8AF0A5` — so "No, exit" came up green, a negative call to action
-  wearing the colour of go. The theme's answer is checked before it is given:
-  a recolour may change how decoration looks, never what it appears to mean.
-- **Greys are left alone.** A grey is already neutral, so there is nothing in it
-  for a theme to answer, and answering anyway is how a program's quiet secondary
-  text came back faintly green, or faintly pink.
-
-The eight ANSI colours and their bright variants pass through untouched — those
-were already the theme's to answer. The ground is its own case: a program
-painting its background the colour of the terminal's is asking for the
-background, so it gets the *default* one and the window's glass shows through,
-rather than an opaque slab of the theme's black. A switch under the swatches
-turns the whole thing off.
+**A control-less version of it would silently rewrite a program's colours with
+no way out**, and the switch that turned it off had no business in a picker whose
+whole job is choosing a colour by looking at it. Removing the switch and keeping
+the behaviour would have stranded anybody who had turned it off; keeping both
+left a settings control in a room full of swatches. So the layer and its switch
+went together, and Claude Code's gold stays gold.
 
 The picker is not a sheet. A sheet on macOS is modal and will not dismiss on a
 click outside it, and picking a theme is a thing you do by trying three and then
@@ -1522,7 +1505,7 @@ was named for it. A session with no directory of its own starts at home.
 
 | | |
 |---|---|
-| ⌘T | New tab |
+| ⌘T | New tab, where the current one is |
 | ⌘W | Close tab |
 | ⇧⌘] / ⇧⌘[ | Next / previous session |
 | ⌘1 … ⌘9 | Go to the nth session |
