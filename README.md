@@ -8,7 +8,7 @@
 
 </div>
 
-<img src="docs/images/window.png" alt="The Ocarina window: tab list and settings on the left, the terminal, and the task list and token meter on the right">
+<img src="docs/images/window.png" alt="The Ocarina window: the tab list with two shelves under it on the left, the terminal, and the task list and token meter on the right">
 
 A terminal assumes you already know. It opens a blank rectangle, prints a `%`,
 and waits. If you know what to type, it is the fastest tool on the machine. If
@@ -798,6 +798,20 @@ The chevron is quieter than both the label and the value it follows. It is the
 part of the row that never changes, and the thing that is always true should not
 be the thing that catches the eye — the same rule the frame around the menu bar's
 card is drawn to.
+
+The window above is not a screen capture. A shell whose TCC identity belongs to
+another bundle cannot read the display, so `OCARINA_RENDER=1 swift test --filter
+RenderPreview` draws it instead: the view tree hosted in an `NSHostingView` in an
+offscreen window, laid out, then `cacheDisplay` — the app drawing itself into a
+bitmap at exactly the size the file is checked in at.
+
+It is hosted rather than run through `ImageRenderer` because the renderer walks
+the SwiftUI tree and two things in this window are not in it. A `LazyVStack` only
+builds its rows when a real scroll view asks for them, so the tab list and the
+task list came back as empty cards; and `NSSwitch` is AppKit, so the two switches
+came back as placeholders. The terminal text is the one part that is not the
+app's own view — SwiftTerm needs a running pty, so those lines are set in the
+theme's own terminal font and ANSI palette.
 
 ### One fall, now cut in three
 
