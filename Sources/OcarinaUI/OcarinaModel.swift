@@ -297,6 +297,57 @@ public final class OcarinaModel {
         ))
     }
 
+    // MARK: - Recent projects
+
+    /// Folders you have worked in, newest first, for the landing screen.
+    ///
+    /// Recomputed rather than stored: the list is only ever drawn when there
+    /// is not a single tab open, so it is read about as often as a window is
+    /// emptied, and each read is five `stat` calls.
+    public var recentProjects: [RecentProject] {
+        _ = recentsRevision
+        return recents.recent()
+    }
+
+    @ObservationIgnored private var recents = RecentProjects()
+    /// Bumped when the list changes, so the empty state redraws without
+    /// waiting for something else to move.
+    private var recentsRevision = 0
+
+    /// Opens a terminal already in that folder.
+    ///
+    /// A terminal and nothing else, even when the folder remembers an agent.
+    /// Which agent you used here last is worth *showing* — it tells you what
+    /// this folder is for — and is not an instruction to start it: an app that
+    /// launches Claude because you launched Claude last time has decided what
+    /// you came to do.
+    public func openProject(_ project: RecentProject) {
+        newTab(workingDirectory: project.url)
+    }
+
+    /// Drops a folder from the list. The folder itself is not touched.
+    public func forgetProject(_ project: RecentProject) {
+        recents.forget(project.url)
+        recentsRevision += 1
+    }
+
+    /// Notes where the selected session says it is, and what is in front of it.
+    ///
+    /// Called off the task poll, because that is already asking the pty what it
+    /// is running and this is one property read on the end of it. The agent is
+    /// only recorded when there is one — walking through a project in a plain
+    /// shell is not evidence that you have stopped using Claude there.
+    private func noteProject(foreground: String?) {
+        guard let directory = selectedSession?.reportedDirectory,
+              RecentProjects.isProject(directory)
+        else { return }
+        let agent = AgentTaskSource.isAgent(foreground) || AgentCatalog.all.contains {
+            $0.executable == foreground?.lowercased()
+        } ? foreground?.lowercased() : nil
+        recents.note(directory, agent: agent)
+        recentsRevision += 1
+    }
+
     @ObservationIgnored private let taskSource = AgentTaskSource()
     /// Per-project line under the list. Observed, so clearing redraws the panel
     /// without waiting for the next poll.
@@ -427,6 +478,10 @@ public final class OcarinaModel {
             // arrange a second one for.
             let wasHome = self.skillHome
             self.selectedForeground = snapshot?.foregroundProcessName
+            // Where this tab actually is, which is not where it was started:
+            // the shell reports it on every prompt, so a `cd` into a project
+            // is what puts that project on the landing screen.
+            self.noteProject(foreground: snapshot?.foregroundProcessName)
             // An agent has just appeared in front of this tab. Anything asked
             // for while there was nowhere to put it goes in now — which is the
             // whole promise the browser makes when it takes a press on a plain

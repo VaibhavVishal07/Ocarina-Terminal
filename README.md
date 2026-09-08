@@ -1148,6 +1148,45 @@ already has one.
 
 <img src="docs/images/empty.png" alt="The departure board with no tabs open, and the empty task panel">
 
+### It remembers where you work
+
+Under the button, a row of the folders you have been working in — name first,
+and the agent you last ran there in a quieter weight beside it. Pressing one
+opens a terminal already in that directory.
+
+**Nothing asks you to add a folder.** The shell reports where it is on every
+prompt — that is what OSC 7 is for, and `ShellIntegration` now emits it beside
+the command boundaries it was already sending — so the list builds itself out of
+ordinary use. A `cd` into a project is what puts that project on this screen. A
+recent list you have to curate is one that goes stale the week you stop
+curating it.
+
+Your home directory is not a project. A terminal opens there when it has nowhere
+better to be, so recording it would put the one folder you did not choose at the
+top of a list of folders you did. A folder that has since been deleted is
+dropped on the way *out* rather than on the way in: projects move, get
+unmounted, and come back, and forgetting one the moment it disappears loses it
+for good.
+
+The agent is shown and never acted on. Which one you used here last says what
+the folder is for in a single word — and it is not an instruction: an app that
+launches Claude because you launched Claude last time has decided what you came
+to do. Running a plain shell in a project does not clear it either, because
+walking through a folder in zsh is not evidence that you have stopped using an
+agent there.
+
+The row is under the four tools rather than over them, and it is not drawn at
+all on a first run. A row of your own folders is the fastest thing on this
+screen for somebody who has used the app before, and it is meaningless to
+somebody who has not — who is exactly who the tools above are for. So the screen
+answers the new user first and the returning one second.
+
+Names, not paths: at this size `~/Developer/clients/acme-rebuild` is a row you
+read rather than scan, and the whole value of the row is that it is scanned. The
+path is on the tooltip.
+
+Five of them. It is a way back to work, not a file browser.
+
 Close every tab — or launch Ocarina for the first time with nothing installed —
 and the window is given over to a landing screen: the wordmark in dot matrix, a
 row of tools under it, and a button for a plain terminal.
@@ -1442,7 +1481,8 @@ Sources/OcarinaUI/       SwiftUI layer
   QuickActionsView       recipe drawer (⇧⌘K); types, never runs
   PasteInspector         reads a paste before the terminal does
   ErrorHelp              hand a failure to an installed agent
-  EmptyStateView         no tabs open: the departure board
+  EmptyStateView         no tabs open: the departure board, and recent projects
+  RecentProjects         the folders you work in, learned from the shell's own OSC 7
   AgentDock              the row of tools on it, and their state
   AgentCatalog           what the row offers, and what is installed
   AgentMarks             the marks each tool wears, drawn as geometry

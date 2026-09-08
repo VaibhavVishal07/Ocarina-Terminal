@@ -113,6 +113,25 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
         pty?.write(Array(text.utf8))
     }
 
+    /// Where the shell says it is now, as opposed to where this session was
+    /// started.
+    ///
+    /// Read from the emulator rather than pushed to us. SwiftTerm parses OSC 7
+    /// into `hostCurrentDirectory` but its AppKit view never forwards the
+    /// delegate call that goes with it, so there is nothing to subscribe to —
+    /// and a poll is the right shape anyway: the task poll is already running
+    /// every two seconds and this is one property read on the end of it.
+    ///
+    /// Nil until the shell has drawn a prompt, and for anything that is not a
+    /// file URL.
+    public var reportedDirectory: URL? {
+        guard let reported = terminalView.getTerminal().hostCurrentDirectory,
+              let url = URL(string: reported),
+              url.isFileURL
+        else { return nil }
+        return url.standardizedFileURL
+    }
+
     /// Wipes the screen and the scrollback, and asks the shell to redraw.
     ///
     /// Three steps because a terminal's "clear" is three different things. The

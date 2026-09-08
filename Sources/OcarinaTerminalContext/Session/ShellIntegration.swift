@@ -93,16 +93,34 @@ public enum ShellIntegration {
               printf '\\e]133;C\\a'
             }
 
+            # Where the shell is, on every prompt. OSC 7 is the long-standing
+            # way a terminal is told this, and SwiftTerm already parses it —
+            # so this is what lets the landing screen offer the folders you
+            # actually work in without ever asking you to add one.
+            #
+            # Percent first, or encoding a space would go on to encode the
+            # percent it just wrote.
+            _ocarina_cwd() {
+              local encoded=${PWD//%/%25}
+              encoded=${encoded// /%20}
+              printf '\\e]7;file://%s%s\\a' "${HOST}" "$encoded"
+            }
+
             _ocarina_precmd() {
               local ret=$?
               if (( _ocarina_active )); then
                 printf '\\e]133;D;%s\\a' "$ret"
                 _ocarina_active=0
               fi
+              _ocarina_cwd
             }
 
             add-zsh-hook preexec _ocarina_preexec
             add-zsh-hook precmd _ocarina_precmd
+            # Once at startup as well: precmd fires before the first prompt in
+            # an interactive shell, but a shell that is handed a command and
+            # exits never draws one, and the folder is still worth knowing.
+            _ocarina_cwd
 
             # Hand the shell back to the user's own configuration.
             ZDOTDIR="$OCARINA_USER_ZDOTDIR"

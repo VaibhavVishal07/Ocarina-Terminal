@@ -22,6 +22,13 @@ struct EmptyStateView: View {
     let onPickAgent: (AgentTool) -> Void
     /// The "+", which hands over to the full drawer.
     let onMoreTools: () -> Void
+    /// Folders worth offering, newest first. Empty on a first run, and empty
+    /// is the point: this row is not drawn at all until the app has watched
+    /// you work somewhere.
+    let recents: [RecentProject]
+    /// Opens a terminal in one. A terminal, not an agent — see
+    /// `OcarinaModel.openProject`.
+    let onOpenProject: (RecentProject) -> Void
 
     /// Which agents are on this machine.
     ///
@@ -31,6 +38,7 @@ struct EmptyStateView: View {
     /// thing you just watched arrive is not here.
     @State private var installed: Set<String> = []
     @State private var isHovered = false
+    @State private var hoveredProject: String?
 
     /// The arrival, in three beats.
     ///
@@ -134,6 +142,7 @@ struct EmptyStateView: View {
                 // alternatives.
                 VStack(spacing: 18) {
                     callToAction
+                    recentRow
                     quickActions
                 }
                 .padding(.top, 40)
@@ -255,9 +264,76 @@ struct EmptyStateView: View {
         .animation(.easeOut(duration: 0.14), value: isHovered)
     }
 
+    /// Where you were working, so getting back takes one press.
+    ///
+    /// Under the button rather than over it, and only when there is something
+    /// to show. A row of folders is the fastest thing on this screen for
+    /// somebody who has used the app before — and it is meaningless to
+    /// somebody who has not, which is exactly who the four tools above are
+    /// for. So the screen answers the returning user second and the new user
+    /// first, and on a first run this simply is not there.
+    ///
+    /// Names, not paths. The path is on the tooltip: at this size a row of
+    /// `~/Developer/clients/acme-rebuild` is a row you read rather than scan,
+    /// and the whole value of the row is that it is scanned.
+    @ViewBuilder
+    private var recentRow: some View {
+        if !recents.isEmpty {
+            VStack(spacing: 7) {
+                Text("Recent")
+                    .font(theme.uiFont(10.5, weight: .semibold))
+                    .tracking(0.8)
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+
+                HStack(spacing: 7) {
+                    ForEach(recents) { project in
+                        projectChip(project)
+                    }
+                }
+            }
+        }
+    }
+
+    private func projectChip(_ project: RecentProject) -> some View {
+        Button { onOpenProject(project) } label: {
+            HStack(spacing: 6) {
+                Text(project.name)
+                    .font(theme.uiFont(12, weight: .medium))
+                    .foregroundStyle(theme.chrome.textSecondary.color)
+                // What you last ran here, when it was an agent. It says what
+                // the folder is for in one word, and it is the quieter half of
+                // the row because it is not what you are looking for.
+                if let agent = project.agent {
+                    Text(agent)
+                        .font(theme.uiFont(10, weight: .medium))
+                        .foregroundStyle(theme.chrome.textTertiary.color)
+                }
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 26)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.chrome.rowHover.color.opacity(hoveredProject == project.id ? 0.10 : 0.05))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(
+                                theme.chrome.border.color
+                                    .opacity(hoveredProject == project.id ? 0.22 : 0.10),
+                                lineWidth: 1
+                            )
+                    }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { hoveredProject = $0 ? project.id : nil }
+        .animation(.easeOut(duration: 0.12), value: hoveredProject)
+        .help(project.shortPath)
+    }
+
     /// The one key left that is worth naming here, and it presses too.
     private var quickActions: some View {
-        key("Quick actions", "\u{2318}K", action: onMoreTools)
+        key("Quick actions", "\u{21E7}\u{2318}K", action: onMoreTools)
     }
 
     private func key(_ title: String, _ shortcut: String, action: @escaping () -> Void) -> some View {

@@ -787,4 +787,45 @@ struct RenderPreview {
         host.cacheDisplay(in: host.bounds, to: rep)
         return try #require(rep.representation(using: .png, properties: [:]))
     }
+
+    /// The landing screen with a history behind it.
+    ///
+    /// The Recent row is the one part of this screen that cannot be seen on a
+    /// fresh machine — it is not drawn until the app has watched you work
+    /// somewhere — so this is the only way to look at it.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func landing() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+        let theme = try #require(all.first { $0.id == "ocarina" })
+
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let recents = [
+            ("Ocarina-Terminal", "claude"),
+            ("portfolio-site", "codex"),
+            ("xstream-creative-suite", String?.none),
+            ("side-project", "claude")
+        ].map { name, agent in
+            RecentProject(path: "\(home)/Developer/\(name)", lastOpened: Date(), agent: agent)
+        }
+
+        let screen = EmptyStateView(
+            onNewTab: {}, onPickAgent: { _ in }, onMoreTools: {},
+            recents: recents, onOpenProject: { _ in }
+        )
+        .environment(\.theme, theme)
+        .frame(width: 980, height: 700)
+        .background(theme.ground.color)
+
+        let png = try Self.shoot(screen, size: CGSize(width: 980, height: 700))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/landing.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
 }

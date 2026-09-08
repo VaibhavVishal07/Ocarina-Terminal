@@ -117,7 +117,9 @@ public struct OcarinaWindowView: View {
                     EmptyStateView(
                         onNewTab: { model.newTab() },
                         onPickAgent: { model.start($0) },
-                        onMoreTools: { model.isQuickActionsVisible = true }
+                        onMoreTools: { model.isQuickActionsVisible = true },
+                        recents: model.recentProjects,
+                        onOpenProject: { model.openProject($0) }
                     )
                 }
             }
