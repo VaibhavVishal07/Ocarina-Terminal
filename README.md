@@ -305,7 +305,39 @@ doing.
 The menu it drops is built on the way open rather than held: the reading behind
 it is refreshed every fifteen seconds, and assigning a freshly built `NSMenu` on
 each refresh would swap the menu out from under anybody who had it open. It
-carries the state in full, the task it is about, and the token window underneath.
+carries the state in full, **the last five asks with what became of each**, and
+the token window underneath.
+
+The five are the task list, in the same order the panel keeps it and marked with
+the same two marks — a quiet tick for an ask the agent has stopped on, an empty
+box for one still open, so the eye lands on the row still outstanding rather than
+on the ones already dealt with. It is the panel's own question — you gave the
+agent five things across twenty minutes and cannot remember which of them it got
+to — asked from where you actually have it, which is with Ocarina's window behind
+something else. The panel can only answer once you have brought the window
+forward, and that is the moment you least need to ask.
+
+Five because the cost of this menu is the screen you were reading: it drops under
+the clock over whatever is in front of you, and a list running to the twenty asks
+a long session accumulates would cover the window it exists to save you opening.
+A longer list is not dropped, it is counted — *and 2 more in the panel* under the
+fifth row, because a list that stops at five with no sign it stopped is a list
+claiming the sixth ask was never made.
+
+The single task row above them is gone. It named the newest open ask, which is
+the first row of this list under another name — and one bare line above its own
+unmarked twin reads as two different tasks. The tooltip still names it, because a
+tooltip is one line and has room for one. The marks are pictures and a picture is
+nothing to a screen reader, so each row also spells its state out: *finished*,
+never *done*, the same word the app uses everywhere else for an agent that
+stopped talking.
+
+The list is the panel's, cleared line and better titles included — drawing a line
+under the panel and then finding everything you tidied still listed in the menu
+bar would make the clear look like it had failed. It also means the menu bar is
+told on the task poll rather than only on the activity stream and the
+fifteen-second token refresh: without that, an ask finishing quietly left the
+menu saying it was still going.
 
 The wording is the theme's — see [themes](#it-looks-like-something-you-chose).
 The exit code is not: it is appended after whatever the theme wrote, so a theme
@@ -712,7 +744,7 @@ The sidebar was one card with the settings drawn as an inset box inside it — a
 card in a card, a shape used nowhere else in the window. The right-hand column
 had already answered this, with the task list and the token meter as two
 panels and the ground between them, so the left-hand side now answers it the
-same way. Four panels of one kind beats three and a nested one.
+same way. Five panels of one kind beats four and a nested one.
 
 It was one unbroken surface running up under a hidden titlebar, which meant
 every edge had to clear a bar that was not drawn: a spacer in the sidebar, an
@@ -721,20 +753,68 @@ traffic lights floating on the tab list. The bar earns its place — somewhere t
 hold the window that is not the text you are reading — and the gap around the
 cards does the rest.
 
-### The settings card
+### Two shelves, because a switch is not a door
 
-Four rows, five with an agent running: **Skills**, Theme, Share Feedback, Tasks
-and Keep Awake. Fixed height rather than a minimum — as a minimum the two rows
-carrying a switch came out taller than the two carrying a link, because a
-control has an intrinsic height of its own and the row grew to it, so a card of
-four identical rows rendered as four different ones.
+Under the tab list, **what is true right now**: Tasks and Keep Awake, two
+switches. Under that, at the foot of the column, **what opens**: Skills and
+Theme, each with a chevron.
 
-The marks on them are deliberately plain: a half-filled circle, a bubble, three
+They were one card of five rows, and the five were two different kinds of thing
+wearing one shape. Three of them opened something; two of them were simply on or
+off. Nothing about a row said which — you found out by pressing it — and the
+window had already answered exactly this question one level up, when the
+settings stopped being a box nested inside the tab card and became a panel of
+their own. The same answer applies inside: two cards, with the window's ground
+between them, and the shape tells you what kind of row you are looking at before
+you have read a word.
+
+The readings sit next to the list because the list is what they are about — one
+says whether the panel listing that tab's asks is up, the other whether the Mac
+those asks are running on may sleep. The doors sit at the foot, which is where a
+row you press to leave the column belongs; both of them open a sheet over the
+whole window.
+
+**Share Feedback left for the app's own menu**, and that is what pays for the
+split: four rows divide cleanly into two and two, five did not. It was in the
+sidebar on the reasoning that the people this app is for are the ones least
+likely to go looking for where to complain — which still holds, and the app menu
+is not going looking. It is the first menu in the bar, it is there before a tab
+is open, and it is where every Mac app has kept this for twenty years. Two cards
+of two rows come to 152 points where the one card of five came to 155.
+
+Rows are a fixed height rather than a minimum — as a minimum the rows carrying a
+switch came out taller than the rows carrying a link, because a control has an
+intrinsic height of its own and the row grew to it, so a card of identical rows
+rendered as several different ones.
+
+The marks on them are deliberately plain: a stack, a half-filled circle, three
 lines, a bolt. They were a paint palette, two speech bubbles with text in them,
 a checklist and a cup on a saucer — detail that reads as noise at ten points,
 and detail nobody needs when every row is captioned. The glyph sits eight points
 clear of its label, and that gap goes on the icon rather than on the stack's own
 spacing, because the same spacing is what sits between a label and its value.
+
+The chevron is quieter than both the label and the value it follows. It is the
+part of the row that never changes, and the thing that is always true should not
+be the thing that catches the eye — the same rule the frame around the menu bar's
+card is drawn to.
+
+### One fall, now cut in three
+
+The sidebar is three cards where the right-hand column is two, and both have to
+reach the window's ground by the same route or the two sides of the window stop
+matching. `PanelPlace` names a *slice of the fall* rather than an ordinal for
+this reason: `.bottom` is the lower half of a pair, `.middle` and `.foot` are the
+second and third of a stack of three, and the handover between them sits exactly
+halfway along the run `.bottom` crosses in one go. A single `.bottom` doing both
+jobs would have had to start at two different colours depending on what happened
+to be above it.
+
+Only the head of a stack catches light. That rule is a function of its own —
+`catchesLight` — so that adding a place to the enum is a decision about the
+light rather than an omission; a card halfway down a falling gradient has
+nothing above it for the light to come from, and putting a sheen there is what
+made the second card glow in the middle of a fall.
 
 The terminal's scroll indicator only appears while you are scrolling. SwiftTerm
 puts a bare `NSScroller` in the view rather than one inside an `NSScrollView`,
@@ -742,25 +822,44 @@ and an overlay scroller only knows to fade out because a scroll view tells it
 to — so it drew a permanent knob down the right-hand edge, over text, in a
 window with no other always-on furniture in it.
 
-## Every agent wears the theme
+## An agent tab wears nothing but its name
 
-The tab strip drew each agent in its maker's colour — Claude in Anthropic's
-orange, Gemini in Google's blue — and a brand colour is by definition the one
-colour that does not move when the window changes around it. Pick Matcha and the
-sidebar went green with an orange spark sitting in it.
+There is no icon on it. The strip drew each agent's own mark for a release —
+Claude's burst, Codex's hexagon, Gemini's spark, all in the theme's accent so
+you could scan twenty tabs for which of them were agents. Every part of that was
+true and none of it was needed.
 
-`TabIcon.Tint` names a slot instead of a colour: `.agent` or `.neutral`, and the
-theme says what those are. An agent is drawn in the theme's accent, so Matcha
-has a green Claude in it and Ember an orange one. Everything else takes the
-tertiary text colour, because a tab running vim is running vim on every theme
-and it is not what you are scanning the strip for.
+An agent tab is **named after what you asked it**, which is the only thing in
+that row you did not already know. The dot beside the name says whether it is
+still going. The menu bar says that again, from outside the window, where you
+actually have the question. The mark was a fourth copy of a fact, and it was
+sitting in the one part of the row that costs the name its width — and the name
+is the part you are reading.
 
-All four agents share the accent. Which one is running is carried by the mark,
-and the mark is the same geometry the landing screen draws — the burst, the
-spark, the hexagon — so a tool does not change shape between the screen you
-installed it from and the tab it runs in. It was a stock `sparkles` before,
-which is the symbol every app in the world reaches for the moment anything is
-called AI, and which said nothing about *which* agent was in that tab.
+It was also the only picture in the app that belonged to somebody else. Three
+vendors' logos down the side of a window make a strip that reads as a list of
+products rather than a list of your work. The marks are not gone; they are on
+the landing screen, where you are choosing between agents and the question they
+answer is a real one.
+
+Getting there took two wrong answers first. The marks began in their makers'
+colours — Claude in Anthropic's orange, Gemini in Google's blue — and a brand
+colour is by definition the one colour that does not move when the window changes
+around it: pick Matcha and the sidebar went green with an orange spark sitting in
+it. So the colour became the theme's accent and the *shape* carried which agent
+it was. That fixed the clash and left the slot itself unjustified.
+
+What survives is the case an icon was always for: a tab doing something you did
+not start on purpose in this window and would not guess from the name — vim
+holding a file open, a build, an ssh session. One symbol, at one weight, in the
+tertiary text colour, so the icons that do appear read as a set. A shell at a
+prompt still gets nothing, because every tab in a terminal app is a terminal.
+
+An agent is still *recognised* — `claude`, `codex`, `gemini`, `opencode` are
+matched on a prefix so the display name and the executable both land. What the
+match earns is the empty slot: without it they would fall through to the
+gearshape every unrecognised process gets, which is a picture, in the place this
+went to empty.
 
 ## It looks like something you chose
 
@@ -1322,10 +1421,10 @@ Sources/OcarinaUI/       SwiftUI layer
   PasteReviewView        the sheet a risky paste stops at
   TactileClick           the click a switch makes
   AppIdentity            what this build calls itself
-  TabIcon / StatusDot    a symbol and a state for each tab
+  TabIcon / StatusDot    a symbol, when one is owed, and a state for each tab
   SleepGuard             holds the Mac awake while Ocarina is open
   BundledFonts           registers Geist and JetBrains Mono before frame one
-  MainMenu               the menu bar; where ⌘T / ⌘W / ⌘K / ⇧⌘P actually live
+  MainMenu               the menu bar; ⌘T / ⌘W / ⌘K / ⇧⌘P, and Share Feedback
   ToolTip                AppKit tool tips, because .help draws none here
 Sources/Ocarina/         executable entry point
 ```
@@ -1389,8 +1488,10 @@ pins the invariant — prepared is wider than the art it was given — not the
 number.
 
 Tabs do **not** use the app icon. Every tab carrying the same picture said
-nothing; `TabIcon` gives each one a symbol for its foreground process, so Claude
-Code reads differently from a shell at a prompt across a sidebar of twenty.
+nothing; `TabIcon` gives one a symbol only when its foreground process is
+something you would not guess from the row — so a tab holding a file open in vim
+reads differently from a build across a sidebar of twenty, and an agent, which
+its own name already describes, carries none.
 
 Glass needs something behind it to blur. An `NSVisualEffectView` sits behind the
 hosting view and the window is non-opaque, so the materials in the chrome have

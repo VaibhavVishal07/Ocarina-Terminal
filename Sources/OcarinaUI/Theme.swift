@@ -59,6 +59,28 @@ public struct ThemeColor: Codable, Sendable, Equatable, Hashable {
         )
     }
 
+    /// Part of the way from this colour to another.
+    ///
+    /// Straight linear interpolation per channel, which is what a gradient
+    /// does between two stops — so a colour taken from here lands exactly
+    /// where the gradient would have drawn it. That is the whole point of it:
+    /// it exists so a stack of three cards can cut one fall into three pieces
+    /// without any piece starting somewhere the light was not.
+    public func mixed(with other: ThemeColor, by amount: Double) -> ThemeColor {
+        let t = min(max(amount, 0), 1)
+        func channel(_ from: Double, _ to: Double) -> Int {
+            Int(((from + (to - from) * t) * 255).rounded())
+        }
+        return ThemeColor(
+            hex: String(
+                format: "#%02X%02X%02X",
+                channel(red, other.red),
+                channel(green, other.green),
+                channel(blue, other.blue)
+            )
+        )
+    }
+
     /// The same colour with its hue turned down to at most `ceiling`, or
     /// unchanged if it was already quieter than that.
     ///

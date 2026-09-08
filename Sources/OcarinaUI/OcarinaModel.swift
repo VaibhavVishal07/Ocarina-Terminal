@@ -273,11 +273,13 @@ public final class OcarinaModel {
 
     /// The menu bar reading, rebuilt from whatever is true now.
     ///
-    /// Called from four places because four different things move it: the
-    /// activity arrives on the naming service's stream, the token figure on a
-    /// fifteen-second timer, the selection when you change tabs, and the
-    /// wording when somebody picks a theme. Cheap enough to call on any of
-    /// them — it sets a title and rebuilds a menu nobody has open.
+    /// Called from everywhere a piece of it moves, because they move
+    /// separately: the activity arrives on the naming service's stream, the
+    /// list on the task poll and again when somebody clears it, the token
+    /// figure on a fifteen-second timer, the selection when you change tabs,
+    /// and the wording when somebody picks a theme. Cheap enough to call on
+    /// any of them — it sets a tooltip and hands over a list the menu is only
+    /// built from once somebody opens it.
     ///
     /// No tabs is nil, which takes the item out of the menu bar rather than
     /// leaving it there saying the all-clear about an app with nothing in it.
@@ -285,6 +287,11 @@ public final class OcarinaModel {
         activityStatusItem.update(ActivityStatusItem.Reading(
             activity: tabs.isEmpty ? nil : reportedActivity,
             task: selectedTaskTitle,
+            // `tasks`, not `rawTasks`: the menu shows the list the panel shows,
+            // cleared line and better titles included. Drawing a line under the
+            // panel and then finding everything you tidied still listed in the
+            // menu bar would make the clear look like it had failed.
+            tasks: tabs.isEmpty ? [] : tasks,
             usage: usage,
             speech: themes.theme.speech
         ))
@@ -452,6 +459,12 @@ public final class OcarinaModel {
         // The heuristic title is on screen the moment this lands; Claude's
         // replaces it through `tasks` when the summariser answers.
         rawTasks = read
+        // The fifth place the menu bar is told. The panel redraws off
+        // observation and the menu bar cannot — it is AppKit, and it holds the
+        // last reading it was handed. Without this the list up there moved on
+        // the activity stream and the fifteen-second token refresh, so an ask
+        // finishing quietly left the menu saying it was still going.
+        refreshStatusItem()
         guard summarisingAllowed else { return }
         taskSummariser.refresh(read)
     }
@@ -471,6 +484,10 @@ public final class OcarinaModel {
         let newest = rawTasks.map(\.askedAt).max() ?? Date()
         cleared.clear(directory, at: max(newest, Date()))
         clearedRevision += 1
+        // The menu bar shows the same list, so it has to see the line too —
+        // otherwise a clear tidies the panel and leaves everything you tidied
+        // still listed under the clock until the next poll.
+        refreshStatusItem()
     }
 
     /// Whether there is anything to clear, so the control can say so.

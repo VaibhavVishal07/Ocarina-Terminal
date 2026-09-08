@@ -45,7 +45,7 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
 
     /// Everything the item needs, resolved by the caller.
     ///
-    /// A struct rather than five arguments because all five change together —
+    /// A struct rather than six arguments because all six change together —
     /// the state, what it is about, and the theme saying it are one reading of
     /// one moment, and an update that took them separately could draw a
     /// Matrix sentence about a task from the tab before last.
@@ -56,7 +56,24 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         public let activity: TabActivity?
         /// What is being worked on, already summarised. Nil is fine — it only
         /// ever adds detail to a line that reads without it.
+        ///
+        /// This is the *tooltip's* copy of the task. A tooltip is one line and
+        /// has room for one, and the one worth naming there is the one the
+        /// face is about. The menu underneath has room for the list.
         public let task: String?
+        /// The tab's asks, oldest first, exactly as the panel has them —
+        /// cleared line applied, better titles in.
+        ///
+        /// The menu carries them because the question the panel answers is one
+        /// you have with Ocarina's window *behind* something else: you gave the
+        /// agent five things across twenty minutes and cannot remember which of
+        /// them it got to. The panel can only answer that once you have brought
+        /// the window forward, which is the moment you least need to ask.
+        ///
+        /// The whole list, not the five that fit: `listing` decides how many a
+        /// menu is worth, and `menuNeedsUpdate` says out loud how many it left
+        /// off. A caller that trimmed first would leave the menu unable to.
+        public let tasks: [AgentTask]
         /// The token window, for the menu underneath. The figure left this
         /// button when the card took it back; it stays one click away rather
         /// than being deleted, because a menu costs nothing until it is opened.
@@ -66,11 +83,13 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         public init(
             activity: TabActivity?,
             task: String?,
+            tasks: [AgentTask],
             usage: UsageWindow?,
             speech: Theme.Speech
         ) {
             self.activity = activity
             self.task = task
+            self.tasks = tasks
             self.usage = usage
             self.speech = speech
         }
@@ -130,8 +149,20 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         guard let reading, let activity = reading.activity else { return }
         menu.addItem(Self.row(Self.line(for: activity, speech: reading.speech)))
-        if let task = reading.task, !task.isEmpty {
-            menu.addItem(Self.row(task))
+
+        // The list, and not the one task above it as well. The row that used
+        // to sit here was `selectedTaskTitle`, which is the newest open ask —
+        // the first row of this list under another name. Two lines saying the
+        // same thing with one of them unmarked reads as two different tasks.
+        let listed = Self.listing(reading.tasks)
+        if !listed.isEmpty {
+            menu.addItem(.separator())
+            for task in listed { menu.addItem(Self.taskRow(task)) }
+            // Said rather than left to be assumed. A list that stops at five
+            // with no sign it stopped is a list claiming the sixth ask was
+            // never made.
+            let rest = reading.tasks.count - listed.count
+            if rest > 0 { menu.addItem(Self.row("and \(rest) more in the panel")) }
         }
 
         guard let usage = reading.usage else { return }
@@ -224,6 +255,66 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         let line = line(for: activity, speech: reading.speech)
         guard let task = reading.task, !task.isEmpty else { return "Ocarina — \(line)" }
         return "Ocarina — \(line): \(task)"
+    }
+
+    // MARK: - The list
+
+    /// How many asks the menu carries.
+    ///
+    /// Five, and the number is about the menu bar rather than about the list.
+    /// This drops under the clock while you are looking at something else, so
+    /// what it costs is the screen you were reading — a menu that ran to the
+    /// twenty asks a long session accumulates would cover the window it is
+    /// meant to save you from opening. Five is the depth you can take in
+    /// without reading, and it is the same five the panel's own note names as
+    /// the case it exists for: five things across twenty minutes.
+    ///
+    /// The rest are not hidden, they are counted — see `menuNeedsUpdate`.
+    nonisolated static let listed = 5
+
+    /// The last few asks, newest first.
+    ///
+    /// Newest first because the menu is read from the top and the ask you are
+    /// waiting on is the last one you made. The panel reverses for the same
+    /// reason; the two surfaces show the same list in the same order, which is
+    /// what stops them reading as two different accounts of the tab.
+    nonisolated static func listing(_ tasks: [AgentTask], limit: Int = listed) -> [AgentTask] {
+        Array(tasks.suffix(limit).reversed())
+    }
+
+    /// What a row says to VoiceOver.
+    ///
+    /// The mark beside a row is a picture, and a picture is exactly nothing to
+    /// a screen reader. Spoken, the state has to be a word — and it is the
+    /// same word the state carries everywhere else in the app: an agent that
+    /// stopped is *finished*, never done. See `AgentTask.State`.
+    nonisolated static func spoken(_ task: AgentTask) -> String {
+        "\(task.title) — \(task.state == .finished ? "finished" : "still going")"
+    }
+
+    /// One ask, marked with what became of it.
+    ///
+    /// The same two marks the panel uses, for the same reason: a tick is quiet
+    /// and an open item is an empty box, so the eye lands on the row still
+    /// outstanding rather than on the ones already dealt with. A menu item's
+    /// own `state` would have drawn the tick for us and nothing at all for the
+    /// open row, which inverts that.
+    private static func taskRow(_ task: AgentTask) -> NSMenuItem {
+        let item = row(task.title)
+        let finished = task.state == .finished
+        let mark = NSImage(
+            systemSymbolName: finished ? "checkmark" : "square",
+            accessibilityDescription: nil
+        )?.withSymbolConfiguration(
+            NSImage.SymbolConfiguration(
+                pointSize: 10,
+                weight: finished ? .semibold : .regular
+            )
+        )
+        mark?.isTemplate = true
+        item.image = mark
+        item.setAccessibilityLabel(spoken(task))
+        return item
     }
 
     // MARK: - The card

@@ -26,6 +26,19 @@ public final class MainMenuController: NSObject {
         menu.addItem(submenu(named: app, items: [
             item("About \(app)", #selector(showAbout)),
             .separator(),
+            // It was a row in the sidebar, under Theme, on the reasoning that
+            // the people this app is for are the ones least likely to go
+            // looking for where to complain. That reasoning still holds and
+            // this is still a visible place: the app menu is the first menu in
+            // the bar, it is there before a tab is open, and it is where every
+            // Mac app has kept this for twenty years — so it is the one place
+            // somebody looks *without* being taught.
+            //
+            // What the move buys is the sidebar's lower card, which was five
+            // rows of two different kinds. Four rows split cleanly into a card
+            // of switches and a card of doors; five did not.
+            item("Share Feedback\u{2026}", #selector(showFeedback)),
+            .separator(),
             chainItem("Hide \(app)", #selector(NSApplication.hide(_:)), "h"),
             .separator(),
             chainItem("Quit \(app)", #selector(NSApplication.terminate(_:)), "q")
@@ -130,6 +143,8 @@ public final class MainMenuController: NSObject {
     }
 
     @objc private func toggleSleepGuard() { model.sleepGuard.isEnabled.toggle() }
+
+    @objc private func showFeedback() { model.isFeedbackVisible = true }
 
     @objc private func showAbout() { NSApp.orderFrontStandardAboutPanel(nil) }
 }

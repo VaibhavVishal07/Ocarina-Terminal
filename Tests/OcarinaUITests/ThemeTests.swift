@@ -374,3 +374,60 @@ struct ThemeTests {
         #expect(ThemeReport(theme: .fallback).isUsable)
     }
 }
+
+@Suite("The column's fall")
+@MainActor
+struct PanelFallTests {
+
+    private let theme = Theme.fallback
+
+    /// The gradient stops a place is drawn between, as hex, so a fall can be
+    /// checked without rendering anything.
+    private func run(_ place: OcarinaWindowView.PanelPlace) -> (String, String) {
+        let handover = theme.chrome.panelBottom.mixed(with: theme.ground, by: 0.5)
+        return switch place {
+        case .top:    (theme.chrome.panelTop.hex, theme.chrome.panelBottom.hex)
+        case .bottom: (theme.chrome.panelBottom.hex, theme.ground.hex)
+        case .middle: (theme.chrome.panelBottom.hex, handover.hex)
+        case .foot:   (handover.hex, theme.ground.hex)
+        }
+    }
+
+    @Test("A mix lands between the two colours it was given")
+    func mixInterpolates() {
+        let black = ThemeColor(hex: "#000000")
+        let white = ThemeColor(hex: "#FFFFFF")
+        #expect(black.mixed(with: white, by: 0).hex == "#000000")
+        #expect(black.mixed(with: white, by: 1).hex == "#FFFFFF")
+        #expect(black.mixed(with: white, by: 0.5).hex == "#808080")
+        // Out of range is clamped rather than allowed to overshoot into a
+        // colour neither stop contains.
+        #expect(black.mixed(with: white, by: 2).hex == "#FFFFFF")
+        #expect(black.mixed(with: white, by: -1).hex == "#000000")
+    }
+
+    @Test("A stack of three hands over where a stack of two crosses")
+    func threeCardsMeetTwo() {
+        // The whole point of `.middle` and `.foot`: one fall cut into three
+        // pieces rather than a second fall starting halfway down the column.
+        // Where the second card stops is where the third begins.
+        #expect(run(.middle).1 == run(.foot).0)
+        // And the ends are the same as a two-card column's ends, so the two
+        // depths of column start and finish together.
+        #expect(run(.top).0 == theme.chrome.panelTop.hex)
+        #expect(run(.foot).1 == run(.bottom).1)
+        #expect(run(.middle).0 == run(.bottom).0)
+    }
+
+    @Test("Only the head of a stack catches the light")
+    func sheenIsTopOnly() {
+        // A card halfway down a falling gradient has no reason to catch light
+        // of its own, and putting one there is what made the second card glow
+        // in the middle of a fall. Adding two places to the enum must not have
+        // lit either of them.
+        #expect(OcarinaWindowView.catchesLight(.top))
+        for place in [OcarinaWindowView.PanelPlace.bottom, .middle, .foot] {
+            #expect(!OcarinaWindowView.catchesLight(place))
+        }
+    }
+}

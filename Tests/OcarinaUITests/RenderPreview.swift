@@ -545,4 +545,78 @@ struct RenderPreview {
         try png.write(to: out)
         print("wrote \(out.path)")
     }
+
+    /// The column's fall, at both depths.
+    ///
+    /// The one thing the assertions cannot answer: three cards now carry the
+    /// gradient the sidebar used to cut in two, and the question is whether
+    /// the column still reads as one light falling once — or as a stack that
+    /// steps. The two-card column beside it is the control.
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
+        "A look, not a check. Set OCARINA_RENDER=1 to draw it."
+    ))
+    func columns() throws {
+        BundledFonts.register()
+        let urls = Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "Themes") ?? []
+        let decoder = JSONDecoder()
+        let themes = urls
+            .compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
+            .sorted { $0.name < $1.name }
+            .prefix(6)
+
+        func card(_ theme: Theme, _ place: OcarinaWindowView.PanelPlace,
+                  _ height: CGFloat, _ label: String) -> some View {
+            ZStack(alignment: .topLeading) {
+                OcarinaWindowView.panelSurface(theme, at: place)
+                Text(label)
+                    .font(theme.uiFont(10, weight: .medium))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+                    .padding(8)
+            }
+            .frame(height: height)
+            .panel()
+            .environment(\.theme, theme)
+        }
+
+        let sheet = HStack(alignment: .top, spacing: 16) {
+            ForEach(Array(themes)) { theme in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(theme.name)
+                        .font(theme.uiFont(12, weight: .semibold))
+                        .foregroundStyle(theme.chrome.textPrimary.color)
+                    HStack(alignment: .top, spacing: 10) {
+                        // The sidebar: three cards now.
+                        VStack(spacing: OcarinaWindowView.panelGap) {
+                            card(theme, .top, 300, "tabs")
+                            card(theme, .middle, 71, "state")
+                            card(theme, .foot, 71, "doors")
+                        }
+                        // The right-hand column: still two.
+                        VStack(spacing: OcarinaWindowView.panelGap) {
+                            card(theme, .top, 330, "tasks")
+                            card(theme, .bottom, 122, "window")
+                        }
+                    }
+                }
+                .frame(width: 230)
+                .padding(12)
+                .background(theme.ground.color)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Shape.houseCorner, style: .continuous))
+                .environment(\.theme, theme)
+            }
+        }
+        .padding(18)
+        .background(Color.black)
+
+        let renderer = ImageRenderer(content: sheet)
+        renderer.scale = 2
+        let image = try #require(renderer.nsImage)
+        let data = try #require(image.tiffRepresentation)
+        let png = try #require(NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]))
+        let out = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Ocarina-Terminal/build/columns.png")
+        try png.write(to: out)
+        print("wrote \(out.path)")
+    }
 }

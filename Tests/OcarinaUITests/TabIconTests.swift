@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 @testable import OcarinaUI
 
@@ -5,81 +6,56 @@ import Testing
 @MainActor
 struct TabIconTests {
 
-    @Test("A tab with nothing running shows a terminal")
-    func idleShell() {
-        #expect(TabIcon.look(for: nil).symbol == "terminal")
-        #expect(TabIcon.look(for: "zsh").symbol == "terminal")
-    }
-
-    @Test("Agents are recognised by display name and by executable")
-    func agentsAreRecognised() {
-        // The naming layer hands over a provider's display name when one
-        // matched, and the bare executable when none did.
-        #expect(TabIcon.look(for: "Claude Code").symbol == "sparkles")
-        #expect(TabIcon.look(for: "claude").symbol == "sparkles")
-        #expect(TabIcon.look(for: "Gemini CLI").symbol == TabIcon.look(for: "gemini").symbol)
-        #expect(TabIcon.look(for: "Codex").symbol == TabIcon.look(for: "codex").symbol)
-    }
-
-    @Test("Each agent gets its own symbol")
-    func agentsAreDistinct() {
-        let symbols = ["claude", "codex", "gemini", "opencode"].map {
-            TabIcon.look(for: $0).symbol
-        }
-        #expect(Set(symbols).count == symbols.count)
-    }
-
-    @Test("An agent wears the theme, and everything else stays out of the way")
-    func agentsTakeTheTheme() {
-        // A brand colour is by definition the one colour that does not move
-        // when the window changes around it: Claude in Anthropic's orange sat
-        // in a green sidebar the moment somebody picked Matcha. `TabIcon` names
-        // a slot and the theme says what colour that is.
-        for agent in ["claude", "Claude Code", "codex", "gemini", "opencode"] {
-            #expect(TabIcon.look(for: agent).tint == .agent, "\(agent) should wear the theme")
-        }
-        for other in ["zsh", "vim", "git", "some-custom-tool"] {
-            #expect(TabIcon.look(for: other).tint == .neutral)
-        }
-    }
-
-    @Test("Each agent is told apart by its mark, not by its colour")
-    func agentMarksAreDistinct() {
-        // They all share the accent now, so the shape is the whole of the
-        // distinction — two agents wearing the same mark would be two tabs
-        // that look identical in the strip.
-        let marks = ["claude", "codex", "gemini"].compactMap { TabIcon.look(for: $0).mark }
-        #expect(marks.count == 3)
-        #expect(Set(marks).count == 3)
-
-        // And it is the same mark the landing screen draws, so a tool does not
-        // change shape between the screen you installed it from and the tab it
-        // runs in.
-        #expect(TabIcon.look(for: "claude").mark == AgentCatalog.all.first { $0.id == "claude-code" }?.mark)
-        #expect(TabIcon.look(for: "gemini").mark == AgentCatalog.all.first { $0.id == "gemini-cli" }?.mark)
-        #expect(TabIcon.look(for: "codex").mark == AgentCatalog.all.first { $0.id == "codex-cli" }?.mark)
-    }
-
-    @Test("A shell's terminal symbol is not worth drawing, a program's is")
-    func plainTerminalIsDropped() {
+    @Test("A shell at a prompt is not worth a picture")
+    func idleShellIsBlank() {
         // Every tab in a terminal app is a terminal, so the sidebar leaves the
         // slot out rather than filling it with a picture of the obvious.
-        #expect(TabIcon.look(for: nil).isPlainTerminal)
-        #expect(TabIcon.look(for: "zsh").isPlainTerminal)
-        #expect(TabIcon.meaningfulLook(for: nil) == nil)
-        #expect(TabIcon.meaningfulLook(for: "fish") == nil)
+        #expect(TabIcon.symbol(for: nil) == nil)
+        #expect(TabIcon.symbol(for: "") == nil)
+        #expect(TabIcon.symbol(for: "zsh") == nil)
+        #expect(TabIcon.symbol(for: "fish") == nil)
+    }
 
-        // Anything that says more than "terminal" survives.
-        #expect(TabIcon.meaningfulLook(for: "claude")?.symbol == "sparkles")
-        #expect(TabIcon.meaningfulLook(for: "vim")?.symbol == "square.and.pencil")
-        #expect(TabIcon.meaningfulLook(for: "some-custom-tool") != nil)
+    @Test("An agent is not worth one either")
+    func agentsAreBlank() {
+        // They wore their makers' marks here and it was a fourth copy of a
+        // fact: the tab is named after what you asked, the dot says whether it
+        // is still going, and the menu bar says that again from outside the
+        // window. The name gets the width back.
+        for agent in ["claude", "Claude Code", "codex", "Codex", "gemini",
+                      "Gemini CLI", "opencode"] {
+            #expect(TabIcon.symbol(for: agent) == nil, "\(agent) should draw nothing")
+        }
+    }
+
+    @Test("An agent is still recognised, or it would draw the unknown picture")
+    func agentsAreMatchedNotMissed() {
+        // The prefix list is what earns an agent its empty slot. Dropped along
+        // with the marks, "claude" would fall through to the gearshape every
+        // unrecognised process gets — which is a picture, in the slot this went
+        // to empty. This is the test that would catch that.
+        #expect(TabIcon.symbol(for: "claude") != TabIcon.symbol(for: "some-custom-tool"))
     }
 
     @Test("A running program is distinguishable from an idle prompt")
     func unknownProcessIsNotAShell() {
-        #expect(TabIcon.look(for: "some-custom-tool").symbol != "terminal")
-        #expect(TabIcon.look(for: "vim").symbol == "square.and.pencil")
-        #expect(TabIcon.look(for: "git").symbol == "arrow.triangle.branch")
+        #expect(TabIcon.symbol(for: "some-custom-tool") == "gearshape")
+        #expect(TabIcon.symbol(for: "vim") == "square.and.pencil")
+        #expect(TabIcon.symbol(for: "git") == "arrow.triangle.branch")
+        #expect(TabIcon.symbol(for: "cargo") == "hammer")
+    }
+
+    @Test("Nothing in the strip is anybody else's logo")
+    func noVendorMarksAreLeft() {
+        // A tab strip wearing three vendors' logos reads as a list of products
+        // rather than a list of your work. The marks still exist — the landing
+        // screen installs from them — they are just not in the tab any more.
+        let drawn = ["claude", "codex", "gemini", "opencode", "zsh", "vim",
+                     "git", "node", "some-custom-tool"]
+            .compactMap { TabIcon.symbol(for: $0) }
+        #expect(!drawn.isEmpty)
+        // Every one of them is an SF Symbol, which is to say the system's.
+        #expect(drawn.allSatisfy { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil })
     }
 }
 

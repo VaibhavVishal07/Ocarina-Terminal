@@ -75,25 +75,36 @@ struct TabSidebarView: View {
     @State private var toolTip: ToolTipTarget?
     @State private var isNewTabHovered = false
     @State private var isThemeHovered = false
-    @State private var isFeedbackHovered = false
     @State private var isSkillsHovered = false
 
     private static let space = "tabsidebar"
 
 
-    /// Two cards, not one.
+    /// Three cards, and the third one is why.
     ///
     /// The tabs and the settings were a single panel with the settings drawn
     /// as an inset box inside it — a card in a card, which is a shape the rest
     /// of the window does not use anywhere. The right-hand column had already
     /// answered this: the task list and the token widget are two separate
-    /// panels with the window's ground between them. This is the same answer
-    /// on the other side, so the four panels in the window are four of the
-    /// same kind of object rather than three and a nested one.
+    /// panels with the window's ground between them. Splitting the sidebar the
+    /// same way made every panel in the window one kind of object.
+    ///
+    /// The settings card then had the same problem one level down. It held two
+    /// kinds of row wearing one shape: three that *open* something, and two
+    /// that are simply on or off. Nothing about a row said which — you found
+    /// out by pressing it — and the same answer applies again. `stateCard` is
+    /// what is true right now, and it sits directly under the list because the
+    /// list is what it is true *about*. `doorCard` is what opens, at the foot,
+    /// where a thing you press to leave the column belongs.
+    ///
+    /// Share Feedback is in neither, and that is what pays for the split: it
+    /// left for the app's own menu, so two cards of two rows come to 152pt
+    /// where the one card of five came to 155.
     var body: some View {
         VStack(spacing: OcarinaWindowView.panelGap) {
             listCard
-            settingsCard
+            stateCard
+            doorCard
         }
         .frame(width: Self.width)
         .coordinateSpace(name: Self.space)
@@ -225,83 +236,19 @@ struct TabSidebarView: View {
 
     // MARK: - Settings
 
-    /// Theme, feedback, the task panel and keep-awake, in one card.
+    /// What is true right now: the task panel, and whether the Mac is being
+    /// held awake.
     ///
-    /// They were two loose stacks with a rule between them, sitting directly
-    /// on the sidebar's own surface — so with enough tabs open the list ran
-    /// into them and there was nothing to say where the list stopped and the
-    /// settings began. One card, edged like the token widget across the
-    /// window, is that edge; and it is one object for the layout to keep hold
-    /// of rather than four rows to push around.
-    private var settingsCard: some View {
+    /// Directly under the tab list, because the list is what these two are
+    /// about — one says whether the panel listing that tab's asks is up, the
+    /// other whether the machine those asks are running on is allowed to
+    /// sleep. A reading belongs beside the thing it reads.
+    ///
+    /// Two rows and no more. A switch is not a door, and the whole reason this
+    /// card exists is that the eye should be able to tell the difference
+    /// before it reads a word.
+    private var stateCard: some View {
         VStack(spacing: 1) {
-            // Always, and above Theme because it is the one row here that is
-            // about the work rather than about the app.
-            //
-            // It used to appear only with an agent in front of you, on the
-            // reasoning that a skill installs into an agent's directory and a
-            // plain shell has none. What that produced was a row that was
-            // missing on the day somebody most needed it: you find out what a
-            // skill is by opening this, and you could not open it until you
-            // had already started the agent the skills are for. The install
-            // still needs a directory; the browser does not, and a press with
-            // nowhere to put it is held by `SkillShelf` until there is.
-            //
-            // The trailing value is how many you have, counting the ones
-            // waiting for an agent. It was the agent's name — which answered
-            // "skills for what", a question the browser now answers at its own
-            // foot, and left the row with nothing to say about whether you had
-            // any.
-            Button {
-                model.isSkillsVisible = true
-            } label: {
-                footerRow(
-                    symbol: "square.stack",
-                    title: "Skills",
-                    trailing: model.skills.total > 0 ? "\(model.skills.total)" : "",
-                    hovered: isSkillsHovered
-                )
-            }
-            .buttonStyle(.plain)
-            .onHover { isSkillsHovered = $0 }
-            .animation(.easeOut(duration: 0.12), value: isSkillsHovered)
-
-            // Opens the picker rather than a list of names: choosing a look
-            // from words asks you to remember what Matcha looked like.
-            Button {
-                model.isThemePickerVisible = true
-            } label: {
-                footerRow(
-                    symbol: "circle.lefthalf.filled",
-                    title: "Theme",
-                    // Not the theme's name. The window is *wearing* the theme —
-                    // the answer is the thing you are looking at, and printing
-                    // it as well spent the row's whole trailing edge repeating
-                    // what every other pixel already said.
-                    trailing: "",
-                    hovered: isThemeHovered
-                )
-            }
-            .buttonStyle(.plain)
-            .onHover { isThemeHovered = $0 }
-            .animation(.easeOut(duration: 0.12), value: isThemeHovered)
-
-            // Under Theme rather than buried in a menu: the people this app is
-            // for are the ones least likely to go looking for where to complain.
-            Button {
-                model.isFeedbackVisible = true
-            } label: {
-                footerRow(
-                    symbol: "bubble.left",
-                    title: "Share Feedback",
-                    trailing: "",
-                    hovered: isFeedbackHovered
-                )
-            }
-            .buttonStyle(.plain)
-            .onHover { isFeedbackHovered = $0 }
-            .animation(.easeOut(duration: 0.12), value: isFeedbackHovered)
-
             switchRow(
                 symbol: "list.bullet",
                 title: "Tasks",
@@ -331,6 +278,77 @@ struct TabSidebarView: View {
                 tip: sleepHelp
             )
         }
+        .padding(.horizontal, Self.inset)
+        .padding(.vertical, Self.inset - 2)
+        .layoutPriority(1)
+        .background(card(at: .middle))
+    }
+
+    /// What opens: the skills browser and the theme picker.
+    ///
+    /// At the foot of the column, which is where a row you press to leave the
+    /// column belongs — and both of them do leave it, each opening a sheet
+    /// over the whole window.
+    ///
+    /// Both carry a chevron. It is the smallest mark that says "this goes
+    /// somewhere", and it is the only thing separating these rows from the two
+    /// above them at a glance: same height, same glyph column, same type. The
+    /// card edge they sit in says they are a group; the chevron says what kind.
+    private var doorCard: some View {
+        VStack(spacing: 1) {
+            // First, because it is the one row in the sidebar that is about
+            // the work rather than about the app.
+            //
+            // It used to appear only with an agent in front of you, on the
+            // reasoning that a skill installs into an agent's directory and a
+            // plain shell has none. What that produced was a row that was
+            // missing on the day somebody most needed it: you find out what a
+            // skill is by opening this, and you could not open it until you
+            // had already started the agent the skills are for. The install
+            // still needs a directory; the browser does not, and a press with
+            // nowhere to put it is held by `SkillShelf` until there is.
+            //
+            // The trailing value is how many you have, counting the ones
+            // waiting for an agent. It was the agent's name — which answered
+            // "skills for what", a question the browser now answers at its own
+            // foot, and left the row with nothing to say about whether you had
+            // any.
+            Button {
+                model.isSkillsVisible = true
+            } label: {
+                footerRow(
+                    symbol: "square.stack",
+                    title: "Skills",
+                    trailing: model.skills.total > 0 ? "\(model.skills.total)" : "",
+                    hovered: isSkillsHovered,
+                    opens: true
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { isSkillsHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isSkillsHovered)
+
+            // Opens the picker rather than a list of names: choosing a look
+            // from words asks you to remember what Matcha looked like.
+            Button {
+                model.isThemePickerVisible = true
+            } label: {
+                footerRow(
+                    symbol: "circle.lefthalf.filled",
+                    title: "Theme",
+                    // Not the theme's name. The window is *wearing* the theme —
+                    // the answer is the thing you are looking at, and printing
+                    // it as well spent the row's whole trailing edge repeating
+                    // what every other pixel already said.
+                    trailing: "",
+                    hovered: isThemeHovered,
+                    opens: true
+                )
+            }
+            .buttonStyle(.plain)
+            .onHover { isThemeHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isThemeHovered)
+        }
         // The count changes as skills go in and come out. Eased, so a row
         // whose trailing edge gains a figure does not read as a flicker.
         .animation(.easeOut(duration: 0.16), value: model.skills.total)
@@ -340,7 +358,7 @@ struct TabSidebarView: View {
         .padding(.horizontal, Self.inset)
         .padding(.vertical, Self.inset - 2)
         .layoutPriority(1)
-        .background(card(at: .bottom))
+        .background(card(at: .foot))
     }
 
     /// The app's mark, in the board's own alphabet.
@@ -386,7 +404,8 @@ struct TabSidebarView: View {
         symbol: String,
         title: String,
         trailing: String,
-        hovered: Bool
+        hovered: Bool,
+        opens: Bool = false
     ) -> some View {
         HStack(spacing: 7) {
             Image(systemName: symbol)
@@ -415,6 +434,20 @@ struct TabSidebarView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .truncationMode(.tail)
+
+            // The mark that says this row goes somewhere.
+            //
+            // Quieter than the label and quieter than the value, because it is
+            // the part of the row that never changes — like the frame round
+            // the menu bar's card, the thing that is always true should not be
+            // the thing that catches the eye. It is here rather than on the
+            // tab rows above because a tab row does not *open* anything: it
+            // selects, and what it selects is already on screen beside it.
+            if opens {
+                Image(systemName: "chevron.right")
+                    .font(theme.uiFont(9, weight: .semibold))
+                    .foregroundStyle(theme.chrome.textTertiary.color)
+            }
         }
         .foregroundStyle(hovered ? theme.chrome.textPrimary.color
                                  : theme.chrome.textSecondary.color)
@@ -599,35 +632,24 @@ struct TabSidebarView: View {
         }
     }
 
-    /// What the tab is running, when that is worth a picture. A shell at a
-    /// prompt gets nothing: its symbol was a terminal, which is what every tab
-    /// in this app is, and the slot it sat in is width the name can use. The
-    /// activity dot stays a separate element beside it — badged onto the icon
-    /// it read as a smudge, and colour on its own is the signal.
+    /// What the tab is running, when that is worth a picture.
+    ///
+    /// A shell at a prompt gets nothing: its symbol was a terminal, which is
+    /// what every tab in this app is, and the slot it sat in is width the name
+    /// can use. An agent gets nothing either, and for a version of the same
+    /// reason — see `TabIcon`. What is left is one symbol at one weight in one
+    /// colour, so the icons that do appear read as a set rather than as a
+    /// scattering of logos.
+    ///
+    /// The activity dot stays a separate element beside it — badged onto the
+    /// icon it read as a smudge, and colour on its own is the signal.
     @ViewBuilder
     private func tabIcon(for tab: TabItem) -> some View {
-        if let look = TabIcon.meaningfulLook(for: tab.processName) {
-            // The tint is a slot, not a colour: `TabIcon` says *which* of the
-            // theme's colours, and the theme says what that is. See
-            // `TabIcon.Tint`.
-            let colour = look.tint == .agent
-                ? theme.chrome.accent.color
-                : theme.chrome.textTertiary.color
-
-            Group {
-                if let mark = look.mark {
-                    // An agent wears its own mark, the same one it wears on the
-                    // landing screen — drawn a touch smaller than the symbols
-                    // beside it, because a filled shape at 11pt reads heavier
-                    // than an SF Symbol at 11pt.
-                    mark.filled(with: colour).frame(width: 10, height: 10)
-                } else {
-                    Image(systemName: look.symbol)
-                        .font(theme.uiFont(11, weight: .medium))
-                        .foregroundStyle(colour)
-                }
-            }
-            .frame(width: 14, height: 14)
+        if let symbol = TabIcon.symbol(for: tab.processName) {
+            Image(systemName: symbol)
+                .font(theme.uiFont(11, weight: .medium))
+                .foregroundStyle(theme.chrome.textTertiary.color)
+                .frame(width: 14, height: 14)
         }
     }
 

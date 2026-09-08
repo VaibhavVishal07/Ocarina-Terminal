@@ -1,117 +1,89 @@
-import SwiftUI
+import Foundation
 
 /// What a tab is running, as a symbol.
 ///
 /// The app's own mark used to sit here, which told you nothing: every tab
 /// carried the same picture. The icon follows the foreground process instead,
-/// so a tab running Claude Code is distinguishable from a shell at a prompt
-/// across a strip of twenty.
+/// so a tab holding a file open in vim is distinguishable from one part-way
+/// through a build across a strip of twenty.
+///
+/// ## Agents draw nothing
+///
+/// They wore their makers' marks in this slot for a release — Claude's burst,
+/// Codex's hexagon, Gemini's spark, each in the theme's accent so the strip
+/// could be scanned for which of these is an agent. Every part of that was
+/// true and none of it was needed. An agent tab is *named after what you asked
+/// it*, which is the only thing in the strip that says anything you did not
+/// already know; the dot beside the name says whether it is still going; and
+/// the menu bar says that again from outside the window. The mark was a fourth
+/// copy of a fact, sitting in the one part of the row that costs the name its
+/// width — and the name is the part you are reading.
+///
+/// It was also the only picture in the app that belonged to somebody else. A
+/// tab strip wearing three vendors' logos reads as a list of products rather
+/// than a list of your work.
+///
+/// What is left is the case an icon was always for: a tab doing something you
+/// did not start on purpose in this window and would not guess from the name.
 ///
 /// Matching is on the naming layer's `processName`, which is a provider's
 /// display name when one recognised the process (`Claude Code`, `Gemini CLI`)
 /// and the raw executable otherwise (`zsh`, `vim`) — so both forms are handled.
 enum TabIcon {
-    struct Look {
-        let symbol: String
-        /// The agent's own mark, drawn instead of the symbol when there is one.
-        ///
-        /// So Claude wears the same burst in the tab strip as it does on the
-        /// landing screen. It was a stock `sparkles`, which is the symbol every
-        /// app in the world reaches for the moment anything is called AI, and
-        /// which said nothing about *which* agent was running in that tab.
-        let mark: AgentMark?
-        let tint: Tint
 
-        /// True when the symbol is the bare terminal — a shell at a prompt, or
-        /// a tab with nothing running yet. Every tab in a terminal app is a
-        /// terminal, so drawing one says nothing that the window does not
-        /// already say.
-        var isPlainTerminal: Bool { symbol == "terminal" && mark == nil }
-    }
-
-    /// What colour a look is, said in the theme's terms rather than in
-    /// hexadecimal.
+    /// The symbol worth drawing, or nil when there is nothing worth saying.
     ///
-    /// The agents used to carry their makers' brand colours — Claude in
-    /// Anthropic's orange, Gemini in Google's blue — and a brand colour is by
-    /// definition the one colour that does not move when the window changes
-    /// around it. Pick Matcha and the sidebar went green with an orange spark
-    /// sitting in it. The window is wearing a theme; everything in the window
-    /// wears it too.
-    enum Tint: Equatable {
-        /// An agent. Drawn in the theme's accent, so Matcha has a green Claude
-        /// in it and Ember an orange one — and the accent is the right slot
-        /// rather than a board colour because this is chrome, beside a tab
-        /// name, not a lamp on the departure board.
-        ///
-        /// All four agents share it. Which agent is running is carried by the
-        /// mark, which is a shape and readable at 11pt; what the colour says is
-        /// "this tab is an agent, and the others are not", which is the thing
-        /// you scan a strip of twenty tabs for.
-        case agent
-        /// Everything else. A tab running vim is running vim on every theme,
-        /// and it is not what you are looking for in the strip.
-        case neutral
-    }
-
-    /// The look worth drawing, or `nil` when it would only repeat that this is
-    /// a terminal. Callers that want the symbol regardless — tests, and
-    /// anywhere a slot must be filled — use `look(for:)`.
-    static func meaningfulLook(for processName: String?) -> Look? {
-        let look = look(for: processName)
-        return look.isPlainTerminal ? nil : look
-    }
-
-    static func look(for processName: String?) -> Look {
+    /// Nil covers three cases that look unrelated and are the same one: a tab
+    /// with nothing running yet, a shell at a prompt — every tab in a terminal
+    /// app is a terminal, so a picture of one says nothing the window does not
+    /// already — and an agent, for the reasons above. In all three the slot is
+    /// left out rather than filled, and the width goes to the name.
+    static func symbol(for processName: String?) -> String? {
         guard let name = processName?.lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
             // No process yet: the tab is a shell waiting at a prompt.
-            return Look(symbol: "terminal", mark: nil, tint: .neutral)
+            return nil
         }
 
-        // Agents are matched on a prefix so the display name and the executable
-        // both land: "Claude Code" and "claude".
-        if name.hasPrefix("claude") {
-            return Look(symbol: "sparkles", mark: .burst, tint: .agent)
-        }
-        if name.hasPrefix("codex") {
-            return Look(symbol: "chevron.left.forwardslash.chevron.right",
-                        mark: .hexagon, tint: .agent)
-        }
-        if name.hasPrefix("gemini") {
-            return Look(symbol: "diamond", mark: .spark, tint: .agent)
-        }
-        // No mark of its own yet, but an agent all the same: it takes the
-        // agent tint and keeps its symbol.
-        if name.hasPrefix("opencode") {
-            return Look(symbol: "curlybraces", mark: nil, tint: .agent)
-        }
+        if agents.contains(where: name.hasPrefix) { return nil }
 
         switch name {
         case "zsh", "bash", "sh", "fish", "dash", "tcsh", "ksh", "nu":
-            return Look(symbol: "terminal", mark: nil, tint: .neutral)
+            return nil
         case "vim", "nvim", "vi", "nano", "emacs", "hx", "helix", "micro":
-            return Look(symbol: "square.and.pencil", mark: nil, tint: .neutral)
+            return "square.and.pencil"
         case "git", "lazygit", "tig", "gh":
-            return Look(symbol: "arrow.triangle.branch", mark: nil, tint: .neutral)
+            return "arrow.triangle.branch"
         case "ssh", "mosh", "sftp", "scp":
-            return Look(symbol: "network", mark: nil, tint: .neutral)
+            return "network"
         case "docker", "podman", "kubectl", "k9s":
-            return Look(symbol: "shippingbox", mark: nil, tint: .neutral)
+            return "shippingbox"
         case "node", "npm", "npx", "pnpm", "yarn", "bun", "deno":
-            return Look(symbol: "hexagon", mark: nil, tint: .neutral)
+            return "hexagon"
         case "python", "python3", "ipython", "uv", "pip", "pip3", "ruby", "irb":
-            return Look(symbol: "chevron.left.forwardslash.chevron.right", mark: nil, tint: .neutral)
+            return "chevron.left.forwardslash.chevron.right"
         case "make", "cargo", "swift", "go", "gradle", "mvn", "xcodebuild", "cmake":
-            return Look(symbol: "hammer", mark: nil, tint: .neutral)
+            return "hammer"
         case "top", "htop", "btop", "btm", "glances":
-            return Look(symbol: "chart.bar", mark: nil, tint: .neutral)
+            return "chart.bar"
         case "man", "less", "more", "bat":
-            return Look(symbol: "book", mark: nil, tint: .neutral)
+            return "book"
         default:
             // Something is running that we do not recognise — which is still
             // worth distinguishing from an idle prompt.
-            return Look(symbol: "gearshape", mark: nil, tint: .neutral)
+            return "gearshape"
         }
     }
+
+    /// Prefixes that mean an agent is in front of this tab.
+    ///
+    /// Kept, rather than deleted along with the marks they used to pick. What
+    /// these names earn now is *no* icon, and an agent has to be recognised to
+    /// earn that: without this list `claude` falls through to the
+    /// unrecognised-process `gearshape`, which is a picture — in the slot this
+    /// change went to empty.
+    ///
+    /// Prefixes so the display name and the executable both land: `Claude
+    /// Code` and `claude`.
+    private static let agents = ["claude", "codex", "gemini", "opencode"]
 }

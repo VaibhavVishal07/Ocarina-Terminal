@@ -50,7 +50,7 @@ struct ActivityStatusTests {
             #expect(!ActivityStatusItem.title(for: activity).localizedCaseInsensitiveContains("ocarina"))
             let tip = ActivityStatusItem.tooltip(
                 for: activity,
-                reading: .init(activity: activity, task: nil, usage: nil, speech: speech)
+                reading: .init(activity: activity, task: nil, tasks: [], usage: nil, speech: speech)
             )
             #expect(tip.hasPrefix("Ocarina — "))
         }
@@ -211,7 +211,7 @@ struct ActivityStatusTests {
         func tooltip(task: String?) -> String {
             ActivityStatusItem.tooltip(
                 for: .running,
-                reading: .init(activity: .running, task: task, usage: nil, speech: speech)
+                reading: .init(activity: .running, task: task, tasks: [], usage: nil, speech: speech)
             )
         }
         #expect(tooltip(task: "fix the parser") == "Ocarina — Steeping: fix the parser")
@@ -219,6 +219,87 @@ struct ActivityStatusTests {
         // never arrives.
         #expect(tooltip(task: nil) == "Ocarina — Steeping")
         #expect(tooltip(task: "") == "Ocarina — Steeping")
+    }
+
+    // MARK: - The list
+
+    private func ask(_ title: String, _ state: AgentTask.State, minutesAgo: Int) -> AgentTask {
+        AgentTask(
+            id: title,
+            title: title,
+            prompt: title,
+            askedAt: Date().addingTimeInterval(TimeInterval(-60 * minutesAgo)),
+            state: state
+        )
+    }
+
+    @Test("The menu lists the last five asks, newest first")
+    func listingKeepsTheNewestFive() {
+        let asked = (1...8).map { ask("ask \($0)", .finished, minutesAgo: 9 - $0) }
+        let listed = ActivityStatusItem.listing(asked)
+
+        #expect(listed.count == ActivityStatusItem.listed)
+        // Newest at the top, because the menu is read from the top and the ask
+        // you are waiting on is the last one you made.
+        #expect(listed.map(\.title) == ["ask 8", "ask 7", "ask 6", "ask 5", "ask 4"])
+    }
+
+    @Test("A short list is shown whole")
+    func listingKeepsEverythingItCan() {
+        #expect(ActivityStatusItem.listing([]).isEmpty)
+        let two = [ask("first", .finished, minutesAgo: 2), ask("second", .working, minutesAgo: 1)]
+        #expect(ActivityStatusItem.listing(two).map(\.title) == ["second", "first"])
+    }
+
+    @Test("Every row says what became of it out loud")
+    func rowsSpeakTheirState() {
+        // A tick is nothing to a screen reader, so the state has to be a word —
+        // and the word for an agent that stopped is never "done".
+        let spoken = ActivityStatusItem.spoken(ask("fix the parser", .finished, minutesAgo: 1))
+        #expect(spoken == "fix the parser — finished")
+        #expect(!spoken.localizedCaseInsensitiveContains("done"))
+
+        #expect(ActivityStatusItem.spoken(ask("fix the parser", .working, minutesAgo: 1))
+                == "fix the parser — still going")
+    }
+
+    @Test("The menu carries the list, and says how much of it it left off")
+    func menuListsTheTasks() {
+        let item = ActivityStatusItem()
+        item.update(
+            .init(
+                activity: .running,
+                task: "ask 7",
+                tasks: (1...7).map { ask("ask \($0)", $0 == 7 ? .working : .finished,
+                                          minutesAgo: 8 - $0) },
+                usage: nil,
+                speech: speech
+            )
+        )
+        let menu = NSMenu()
+        item.menuNeedsUpdate(menu)
+        let titles = menu.items.map(\.title)
+
+        #expect(titles.first == "Steeping")
+        #expect(titles.contains("ask 7"))
+        #expect(titles.contains("ask 3"))
+        // Five rows, and the two it could not fit counted rather than dropped.
+        #expect(!titles.contains("ask 2"))
+        #expect(titles.contains("and 2 more in the panel"))
+        // The task named on the tooltip is not also a bare row above the list:
+        // one line and its own first row, unmarked, read as two tasks.
+        #expect(titles.filter { $0 == "ask 7" }.count == 1)
+    }
+
+    @Test("Nothing asked yet is no list at all")
+    func anEmptyListIsNoRows() {
+        let item = ActivityStatusItem()
+        item.update(.init(activity: .idle, task: nil, tasks: [], usage: nil, speech: speech))
+        let menu = NSMenu()
+        item.menuNeedsUpdate(menu)
+        // The state line, and no separator under it opening a section with
+        // nothing in it.
+        #expect(menu.items.map(\.title) == ["The cup is empty"])
     }
 
     @Test("The countdown reads in hours until there are none left")

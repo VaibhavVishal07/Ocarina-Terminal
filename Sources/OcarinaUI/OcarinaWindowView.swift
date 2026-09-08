@@ -315,11 +315,22 @@ public struct OcarinaWindowView: View {
     }
 
     /// Where a panel sits in a stack, which is what decides how it is lit.
+    ///
+    /// The cases name a *slice of the fall*, not an ordinal, because the two
+    /// columns are no longer the same depth: the right-hand column is two
+    /// cards and the sidebar is three. `.bottom` is the lower half of a pair;
+    /// `.middle` and `.foot` are the second and third of a stack of three. A
+    /// single `.bottom` doing both jobs would have to start at two different
+    /// colours depending on what happened to be above it.
     enum PanelPlace {
         /// The only card in its column, or the first one down.
         case top
-        /// Under another card, and carrying the light on down.
+        /// The lower half of a two-card stack.
         case bottom
+        /// The second card of three, carrying the fall on without restarting it.
+        case middle
+        /// The last card of three, and the end of the fall.
+        case foot
     }
 
     /// The fill a stacked panel is drawn in.
@@ -336,9 +347,15 @@ public struct OcarinaWindowView: View {
     /// on from that dark end down towards the window's own ground. The stack
     /// darkens all the way, once.
     static func panelFill(_ theme: Theme, at place: PanelPlace) -> LinearGradient {
+        // Where a three-card stack hands over from its second card to its
+        // third: halfway along the same run `.bottom` crosses in one go, so
+        // the two depths of column reach the ground by the same route.
+        let handover = theme.chrome.panelBottom.mixed(with: theme.ground, by: 0.5)
         let colours = switch place {
         case .top: [theme.chrome.panelTop.color, theme.chrome.panelBottom.color]
         case .bottom: [theme.chrome.panelBottom.color, theme.ground.color]
+        case .middle: [theme.chrome.panelBottom.color, handover.color]
+        case .foot: [handover.color, theme.ground.color]
         }
         return LinearGradient(colors: colours, startPoint: .top, endPoint: .bottom)
     }
@@ -353,9 +370,18 @@ public struct OcarinaWindowView: View {
     /// How hard the light lands is the theme's to say: `Theme.Shape.sheen`
     /// scales the house 0.035, and a theme that wants its panels lit flat sets
     /// it to zero.
+    /// Whether a card in this position catches light.
+    ///
+    /// The rule on its own, so it can be checked without rendering anything —
+    /// and so that adding a place to `PanelPlace` is a decision about the
+    /// light rather than an omission. Only the head of a stack: a card halfway
+    /// down a falling gradient has nothing above it for the light to come
+    /// from.
+    static func catchesLight(_ place: PanelPlace) -> Bool { place == .top }
+
     @ViewBuilder
     static func panelSheen(_ theme: Theme, at place: PanelPlace) -> some View {
-        if place == .top, theme.shape.sheen > 0 {
+        if catchesLight(place), theme.shape.sheen > 0 {
             LinearGradient(
                 colors: [theme.chrome.textPrimary.color.opacity(theme.shape.sheen), .clear],
                 startPoint: .top,
