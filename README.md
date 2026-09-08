@@ -279,6 +279,10 @@ Both are about a conversation, so a shell at a prompt has nothing to put in
 either; the column used to open on launch regardless and say "No tasks yet" to
 somebody who had not started an agent and had no way to know that was the point.
 
+They also leave together. ⌘J closes the column rather than one card in it — see
+[the task panel](#it-remembers-what-you-asked-the-agent) — and the figure is a
+click down in the menu bar's menu for as long as the column is shut.
+
 The meter is drawn as lamps on a departure board rather than as a bar, and the
 reason is not decoration. A solid bar reads as a proportion of something
 continuous, which invites exactly the reading this card must not invite — that
@@ -347,6 +351,23 @@ The agent is matched on the foreground process, and on the whole first word of
 it rather than on a prefix. A prefix test matches `claudette`, and writing into
 `~/.claude/skills` because a command happens to start with the same six letters
 is not a mistake worth being relaxed about.
+
+That process is read off the pty, not off the tab's name for it. They are
+usually the same string; the difference is that one is ground truth and the
+other has been through a naming engine that publishes on its own schedule and
+compares on what is *drawn*. For something deciding which directory in your home
+gets written to, the pty is the honest source — and it is also the one that
+cannot be a tab old when an agent starts inside a shell that was already open.
+
+The poll that reads it had learnt to skip: first a hidden task panel, then
+anything but a tab already believed to be an agent, which is circular when the
+poll is what tells you a tab *is* one. It now runs for whatever is selected.
+That costs a `snapshot()` and a `stat` every two seconds when nothing is
+listening; the expensive half — parsing a transcript that can be tens of
+megabytes — is still behind the signature check, which is where the cost always
+was. A new tab refreshes at once rather than waiting for the next tick, and a
+foreground the poll has read is the answer whatever it says: `zsh` means there
+is no agent here, not "ask somebody else".
 
 ### The catalogue is bundled, and says who wrote every row
 
@@ -519,6 +540,21 @@ inset in the terminal, thirty points of padding on the error banner, and three
 traffic lights floating on the tab list. The bar earns its place — somewhere to
 hold the window that is not the text you are reading — and the gap around the
 cards does the rest.
+
+### The settings card
+
+Four rows, five with an agent running: **Skills**, Theme, Share Feedback, Tasks
+and Keep Awake. Fixed height rather than a minimum — as a minimum the two rows
+carrying a switch came out taller than the two carrying a link, because a
+control has an intrinsic height of its own and the row grew to it, so a card of
+four identical rows rendered as four different ones.
+
+The marks on them are deliberately plain: a half-filled circle, a bubble, three
+lines, a bolt. They were a paint palette, two speech bubbles with text in them,
+a checklist and a cup on a saucer — detail that reads as noise at ten points,
+and detail nobody needs when every row is captioned. The glyph sits eight points
+clear of its label, and that gap goes on the icon rather than on the stack's own
+spacing, because the same spacing is what sits between a label and its value.
 
 The terminal's scroll indicator only appears while you are scrolling. SwiftTerm
 puts a bare `NSScroller` in the view rather than one inside an `NSScrollView`,
