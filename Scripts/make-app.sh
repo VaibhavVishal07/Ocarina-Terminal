@@ -27,11 +27,10 @@ CONFIG="${1:-release}"
 # native | universal. Universal is for what other people download; a local
 # build has no reason to spend twice the time.
 ARCHS="${2:-native}"
-# Bumped with the release, not with the build. `CFBundleVersion` below is the
-# build number and stays at 1: nothing on this machine ships incremental
-# builds to anybody, and a number that only ever means "later than the last
-# one" is a number nobody can check.
-VERSION="${OCARINA_VERSION:-0.2.0}"
+# The fallback only. `Scripts/make-release.sh <version>` passes the real one
+# through `OCARINA_VERSION`, and that script is what the version line is kept
+# in — a second copy here is a second thing to forget.
+VERSION="${OCARINA_VERSION:-0.1.0}"
 
 if [ "$CONFIG" = "debug" ]; then
   APP_NAME="Kazoo"
