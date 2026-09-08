@@ -15,11 +15,14 @@ import OcarinaTerminalContext
 /// A status item says it for as long as it is true and costs nobody a frame of
 /// what they were doing.
 ///
-/// The strip says the house line and names the app; the theme's own wording
-/// is in the menu underneath. See `title(for:)` for why they are not the same
-/// sentence. What either one *means* is fixed by the state it came from, so a
-/// theme can be as arch as it likes about a failure in the menu without being
-/// able to make one read as a success.
+/// What it shows is one cell of a departure board — see `ActivityCard` for why
+/// it is a picture and not the sentence it used to be, and why it is that
+/// picture. The words behind it are the house line, on
+/// the tooltip and the accessibility label; the theme's own wording is in the
+/// menu underneath. See `title(for:)` for why they are not the same sentence.
+/// What either one *means* is fixed by the state it came from, so a theme can
+/// be as arch as it likes about a failure in the menu without being able to
+/// make one read as a success.
 @MainActor
 public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     private var item: NSStatusItem?
@@ -27,16 +30,10 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// The last thing we were told, kept because the menu is built from it on
     /// the way open rather than rebuilt every time the reading is refreshed.
     private var reading: Reading?
-    /// Which frame of the spinner is showing. Only moves while something is
-    /// running; the other three states are still pictures.
+    /// Which frame of the turn is showing. Only moves while something is
+    /// running; the other three states are still cards.
     private var frame = 0
 
-    /// Thirty frames a second, and the head moves a third of a lamp in each
-    /// of them — so a dot lights every 72ms, which is the rate the mark in the
-    /// sidebar and the marks on the website all run at. One clock for the
-    /// chase wherever it appears.
-    private static let framerate: TimeInterval = 1.0 / 30
-    private static let step: Double = (1.0 / 30) / 0.072
 
     private static let clock: DateFormatter = {
         let formatter = DateFormatter()
@@ -87,7 +84,7 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
             // its line against this, and a stale one would leave the new item
             // in the menu bar with no title at all.
             self.reading = nil
-            stopSpinning()
+            stopTurning()
             return
         }
 
@@ -98,20 +95,27 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         // spinner is a timer that this would otherwise tear down and rebuild
         // on every fifteen-second usage refresh, which is a visible stutter in
         // something whose whole job is to turn smoothly.
-        let wasSaying = self.reading.map { Self.title(for: $0.activity ?? .idle) }
+        let wasShowing = self.reading.map { ActivityCard($0.activity ?? .idle) }
         self.reading = reading
 
-        let line = Self.title(for: activity)
-        item.button?.toolTip = Self.tooltip(for: activity, reading: reading)
-        guard line != wasSaying else { return }
+        // The words go up whatever the face is doing, and they carry the task
+        // and the exit code the face has no way to draw. Set before the guard:
+        // the face for `.failed(1)` and `.failed(127)` is the same picture, and
+        // the reading behind it is not.
+        let words = Self.tooltip(for: activity, reading: reading)
+        item.button?.toolTip = words
+        item.button?.setAccessibilityLabel(words)
 
-        // The spinner owns the board while something is running, so drawing it
-        // here as well would fight the timer for the same image.
+        let card = ActivityCard(activity)
+        guard card != wasShowing else { return }
+
+        // The turn owns the image while something is running, so drawing it
+        // here as well would fight the timer for the same picture.
         if activity.isRunning {
-            startSpinning(saying: line)
+            startTurning()
         } else {
-            stopSpinning()
-            item.button?.image = Self.board(line, head: nil)
+            stopTurning()
+            item.button?.image = Self.glyph(card)
         }
     }
 
@@ -145,7 +149,7 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
 
     // MARK: - The words
 
-    /// What the strip beside the Wi-Fi actually says.
+    /// What the item says when it is asked — on hover, and to VoiceOver.
     ///
     /// Not the theme's line, and this is the one place that difference is
     /// worth the extra function. The menu bar is the only surface Ocarina
@@ -166,27 +170,29 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
     /// Working, Idle, Done — and each was a label for a value in an enum
     /// rather than an answer.
     ///
-    /// The app's name is no longer in front of them. It was there because a
-    /// strip of text beside the Wi-Fi has nothing to say whose it is — but
-    /// the strip is not text any more, it is Ocarina's own alphabet, and a
-    /// dot-matrix board saying "still going" beside a row of system glyphs is
-    /// already unmistakably from one place. Saying the name as well was the
-    /// mark and the wordmark on the same object.
+    /// Sentence case, and set in whatever font is asking. It was uppercase in
+    /// the app's 5x7 alphabet for as long as it was painted on a board, which
+    /// is a constraint the board imposed and not one the words ever had: a
+    /// grid with no descenders wants capitals, and VoiceOver does not.
     ///
-    /// - **still going** — your ask has not come back yet.
-    /// - **back to you** — the agent stopped and it is your move. Not "done":
+    /// The app's name is not in front of them, because `tooltip(for:reading:)`
+    /// puts it there once and these are what follows the dash.
+    ///
+    /// - **Still going** — your ask has not come back yet.
+    /// - **Back to you** — the agent stopped and it is your move. Not "done":
     ///   the agent stopping does not mean it managed what you asked, and the
     ///   word up here has to be one this can support.
-    /// - **ready** — nothing has been asked in this tab yet.
-    /// - **stopped (n)** — it exited, and here is the number.
+    /// - **Ready** — nothing has been asked in this tab yet.
+    /// - **Stopped (n)** — it exited, and here is the number. The face cannot
+    ///   draw a number; this is where the number lives.
     nonisolated static func title(for activity: TabActivity) -> String {
         switch activity {
-        case .idle: "READY"
-        case .running: "STILL GOING"
-        case .succeeded: "BACK TO YOU"
+        case .idle: "Ready"
+        case .running: "Still going"
+        case .succeeded: "Back to you"
         // Same rule as `line`: the code is appended here, not written by a
         // theme, so a failure in the menu bar always carries its number.
-        case let .failed(code): "STOPPED \(code)"
+        case let .failed(code): "Stopped (\(code))"
         }
     }
 
@@ -206,124 +212,133 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         }
     }
 
-    /// The long form, for the tooltip — the sentence the line is the short
-    /// version of, with the task named when there is one.
+    /// The long form, for the tooltip and the accessibility label — the
+    /// sentence the face is the short version of, with the task named when
+    /// there is one.
+    ///
+    /// It names the app because this is the one surface Ocarina owns that is
+    /// read from outside Ocarina, and a picture of a face has nothing to say
+    /// whose it is. That was true of the board too; the board answered it by
+    /// being drawn in the app's own alphabet, which a face cannot do.
     nonisolated static func tooltip(for activity: TabActivity, reading: Reading) -> String {
         let line = line(for: activity, speech: reading.speech)
         guard let task = reading.task, !task.isEmpty else { return "Ocarina — \(line)" }
         return "Ocarina — \(line): \(task)"
     }
 
-    // MARK: - The board
+    // MARK: - The card
 
-    /// The line, drawn in the app's own 5x7 alphabet.
+    /// One card, drawn as lamps inside a frame.
     ///
     /// The menu bar used to be a system-font string with a braille spinner in
     /// front of it and an SF Symbol beside it — three different alphabets for
-    /// one reading, none of them Ocarina's. This is one: the same grid the
-    /// wordmark, the landing screen and the token meter are built from, at the
-    /// size a menu bar has room for.
+    /// one reading, none of them Ocarina's. Then it was the whole line set in
+    /// the app's own 5x7 grid, which fixed the alphabet and cost 136 points of
+    /// menu bar to say something you could not read at that size. This is the
+    /// same lamps at a size the bar has room for: a five by seven cell, twelve
+    /// and a half points by sixteen and a half, with a frame round them.
     ///
-    /// A template image, so the menu bar tints it — which is also why the
-    /// chase is expressed as *alpha* rather than as colour. A template has no
-    /// colour of its own to vary; what it has is how much of the bar's own ink
-    /// each dot asks for, and that turns out to be the right model for a lamp
-    /// anyway.
+    /// A template image, so the menu bar tints it. A template has no colour of
+    /// its own; what it has is how much of the bar's own ink each lamp asks
+    /// for, which turns out to be the right model for a lamp anyway.
     ///
-    /// Unlit cells are drawn too, faintly. They are what make it a board
-    /// rather than words made of dots, and at this size they are the only
-    /// thing that says the lit ones are lit.
-    static func board(_ text: String, head: Double?) -> NSImage {
-        let bits = DotMatrixText.bitmap(for: text)
-        let columns = max(0, text.count * 6 - 1)
-        guard columns > 0 else { return NSImage(size: NSSize(width: 1, height: 1)) }
-
+    /// Unlit cells are not painted. The face this replaced drew its whole grid
+    /// faintly, because a face made of five loose lamps needs the dark field to
+    /// read as a panel — a card does not: it has a frame, and the frame is what
+    /// says where the object stops.
+    ///
+    /// Built with a drawing handler rather than `lockFocus`, so it is
+    /// resolution-independent: AppKit re-runs the block at whatever scale it is
+    /// being drawn at. `lockFocus` rasterises once, at the deepest attached
+    /// screen's scale, and hands back a bitmap — so the 0.35pt gap between two
+    /// lamps landed wherever it landed on the pixel grid, and a filled row that
+    /// should read as a bar came out as a line of separated dots. It also made
+    /// the item's crispness depend on which display happened to be plugged in
+    /// when it was drawn.
+    static func glyph(_ card: ActivityCard, turn frameIndex: Int? = nil) -> NSImage {
+        let plate = frameIndex.map { ActivityCard.turn[$0 % ActivityCard.turn.count] }
+            ?? card.plate
         let size = NSSize(
-            width: CGFloat(columns) * pitch - gap,
-            height: CGFloat(DotMatrixText.height) * pitch - gap
+            width: CGFloat(ActivityCard.columns) * pitch - gap + inset * 2,
+            height: CGFloat(ActivityCard.rows) * pitch - gap + inset * 2
         )
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.black.setFill()
-
-        // Ranked in the order the head travels: column by column, top to
-        // bottom, the same order the mark in the sidebar sweeps in.
-        var rank: [Int: Double] = [:]
-        var lit = 0
-        for column in 0..<columns {
-            for row in 0..<DotMatrixText.height where bits[row][column] {
-                rank[row * columns + column] = Double(lit)
-                lit += 1
-            }
-        }
-        let total = Double(lit) + Self.rest
-
-        for row in 0..<DotMatrixText.height {
-            for column in 0..<columns {
-                let box = NSRect(
-                    x: CGFloat(column) * pitch,
-                    // Flipped: the bitmap's first row is the top, and this
-                    // context's origin is the bottom left.
-                    y: size.height - CGFloat(row) * pitch - cell,
-                    width: cell,
-                    height: cell
-                )
-                let alpha: Double
-                if bits[row][column] {
-                    // The head brightens; it does not dim everything else to
-                    // make room. At a base of 0.62 the running board read
-                    // fainter than the resting one, which is backwards — of
-                    // the four states it is the one you most want to catch out
-                    // of the corner of an eye.
-                    alpha = 0.84 + 0.16 * drive(rank[row * columns + column] ?? 0,
-                                                head: head, total: total)
-                } else {
-                    alpha = 0.13
+        let image = NSImage(size: size, flipped: false) { _ in
+            NSColor(white: 0, alpha: lit).setFill()
+            for (row, line) in plate.enumerated() {
+                for (column, cell) in line.enumerated() where cell == "#" {
+                    let box = NSRect(
+                        x: inset + CGFloat(column) * pitch,
+                        // The plate's first row is the top, and this context's
+                        // origin is the bottom left.
+                        y: size.height - inset - CGFloat(row) * pitch - Self.cell,
+                        width: Self.cell,
+                        height: Self.cell
+                    )
+                    // Squarer than the face's lamps were. A card is a surface,
+                    // and at a 0.3 radius this little gap left a row of
+                    // pinholes down what should read as one bar.
+                    NSBezierPath(roundedRect: box,
+                                 xRadius: Self.cell * 0.18,
+                                 yRadius: Self.cell * 0.18).fill()
                 }
-                NSColor(white: 0, alpha: alpha).setFill()
-                NSBezierPath(roundedRect: box, xRadius: cell * 0.3, yRadius: cell * 0.3).fill()
             }
+
+            // The frame, last, so it sits over anything that reaches the edge.
+            let border = NSBezierPath(
+                roundedRect: NSRect(x: stroke / 2, y: stroke / 2,
+                                    width: size.width - stroke,
+                                    height: size.height - stroke),
+                xRadius: 3, yRadius: 3
+            )
+            border.lineWidth = stroke
+            NSColor(white: 0, alpha: framing).setStroke()
+            border.stroke()
+            return true
         }
-        image.unlockFocus()
         // Tinted by the menu bar, so it inverts with it the way every system
         // item does rather than staying one colour through both.
         image.isTemplate = true
+        image.accessibilityDescription = "Ocarina"
         return image
     }
 
-    /// How hard one lamp is being driven, given where the head is.
+    /// A menu bar is about twenty-two points tall and this has to sit in it
+    /// with room above and below: seven rows at a 2.05pt pitch is 14 points,
+    /// and the frame takes it to **16.6 points square**. Square because every
+    /// other item in a menu bar is — see `ActivityCard.columns`.
     ///
-    /// The sidebar's numbers, at the sidebar's proportions — see the chase on
-    /// `DotMatrixText`. Nil means nothing is running, and every lamp is simply
-    /// on.
-    private nonisolated static func drive(_ position: Double, head: Double?, total: Double) -> Double {
-        guard let head else { return 1 }
-        var distance = head - position
-        if distance < -lead { distance += total }
-        if distance >= 0, distance < trail { return 1 - distance / trail }
-        if distance < 0, distance > -lead { return 1 + distance / lead }
-        return 0
-    }
-
-    /// A menu bar is about twenty-two points tall and seven rows have to sit
-    /// in it with room above and below, which settles the cell and the gap.
-    private nonisolated static let cell: CGFloat = 1.4
-    private nonisolated static let gap: CGFloat = 0.7
+    /// **The lamps are thick and the gaps between them are thin** — 1.7 against
+    /// 0.35, which fills 83% of the pitch where the face this replaced filled
+    /// 70%. That is the difference between a row of dots and a bar. A face is
+    /// made of separate lamps and wants the dark between them; a card is a
+    /// surface, and every state here is mostly filled rows, so a filled row has
+    /// to read as very nearly solid.
+    private nonisolated static let cell: CGFloat = 1.7
+    private nonisolated static let gap: CGFloat = 0.35
     private nonisolated static var pitch: CGFloat { cell + gap }
-    private nonisolated static let trail: Double = 15
-    private nonisolated static let rest: Double = 26
-    private nonisolated static let lead: Double = 1.4
+    /// How far the frame sits outside the lamps.
+    private nonisolated static let inset: CGFloat = 1.3
+    /// And how heavy it is drawn. A hairline read as a smudge beside lamps this
+    /// thick, which made the cell look unfinished rather than framed.
+    private nonisolated static let stroke: CGFloat = 1.15
 
-    // MARK: - The spinner
+    /// A lit lamp, and the frame around it. The frame is quieter than the
+    /// lamps: it is the thing that never changes, so it should not be the thing
+    /// that catches the eye.
+    private nonisolated static let lit: Double = 0.92
+    private nonisolated static let framing: Double = 0.55
 
-    private func startSpinning(saying line: String) {
+    // MARK: - The turn
+
+    private func startTurning() {
         spinner?.invalidate()
-        // Drawn once immediately: a timer that fires in 33ms would otherwise
-        // leave the previous state's board up for a frame you can see.
+        // Drawn once immediately: a timer that fires in 120ms would otherwise
+        // leave the previous state's card up for an eighth of a second you can
+        // see.
         frame = 0
-        draw(line)
-        let timer = Timer(timeInterval: Self.framerate, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.draw(line) }
+        draw()
+        let timer = Timer(timeInterval: ActivityCard.flipInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.draw() }
         }
         // `.common`, not the default mode: a status item stops updating while
         // a menu is open or a window is being dragged if the timer only runs
@@ -332,32 +347,34 @@ public final class ActivityStatusItem: NSObject, NSMenuDelegate {
         spinner = timer
     }
 
-    /// One frame of the chase, sweeping the head along the word.
+    /// One frame of the turn.
     ///
     /// The braille spinner this replaced was a good answer to a different
     /// question — every tool in a terminal turns one, so it needed no
     /// explaining — but it sat in front of a system-font string and made the
-    /// reading three alphabets wide. The board says the same thing by lighting
-    /// its own lamps, which is what a board does and what the rest of the app
-    /// already does everywhere else.
-    private func draw(_ line: String) {
-        frame += 1
-        item?.button?.image = Self.board(line, head: Double(frame) * Self.step)
+    /// reading three alphabets wide. The card says the same thing by turning,
+    /// which is what a departure board does and what the app is built out of.
+    ///
+    /// Eight repaints a second rather than the chase's thirty, and each is five
+    /// filled rows rather than sixty-five lamps of alpha arithmetic.
+    private func draw() {
+        item?.button?.image = Self.glyph(.working, turn: frame)
+        frame = (frame + 1) % ActivityCard.turn.count
     }
 
-    private func stopSpinning() {
+    private func stopTurning() {
         spinner?.invalidate()
         spinner = nil
     }
 
     private func make() -> NSStatusItem {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.imagePosition = .imageLeading
-        // Monospaced digits so the exit code in a failure line does not shift
-        // the item's width as it changes, and — more to the point — so the
-        // braille frames all measure the same and the spinner turns on the
-        // spot rather than nudging everything to its right ten times a second.
-        item.button?.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        // Nothing but the face. There is no title to sit beside it any more,
+        // and `.squareLength` is what keeps the item the same width through all
+        // four states — every face is the same plate, so the item no longer
+        // resizes when a run ends and nothing to its left in the menu bar
+        // shifts under it.
+        item.button?.imagePosition = .imageOnly
         // Empty, and filled by `menuNeedsUpdate` on the way open.
         let menu = NSMenu()
         menu.delegate = self

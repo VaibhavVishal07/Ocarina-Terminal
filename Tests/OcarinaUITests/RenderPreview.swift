@@ -135,23 +135,29 @@ struct RenderPreview {
         print("wrote \(out.path)")
     }
 
-    /// The menu bar board, at rest and mid-chase.
+    /// The menu bar card: all four states, and the turn frame by frame.
     @Test(.enabled(
         if: ProcessInfo.processInfo.environment["OCARINA_RENDER"] != nil,
         "A look, not a check. Set OCARINA_RENDER=1 to draw it."
     ))
     func menuBar() throws {
-        let lines: [(String, Double?)] = [
-            ("READY", nil), ("BACK TO YOU", nil), ("STOPPED 127", nil),
-            ("STILL GOING", 4), ("STILL GOING", 14), ("STILL GOING", 26),
-            ("STILL GOING", 38), ("STILL GOING", 50),
-        ]
-        let sheet = VStack(alignment: .leading, spacing: 7) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                // Tinted the way a dark menu bar tints a template image.
-                Image(nsImage: ActivityStatusItem.board(line.0, head: line.1))
-                    .renderingMode(.template)
-                    .foregroundStyle(.white)
+        // The three still cards, then every frame of the turn.
+        let sheet = HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(Array([ActivityCard.ready, .backToYou, .stopped].enumerated()),
+                        id: \.offset) { _, card in
+                    // Tinted the way a dark menu bar tints a template image.
+                    Image(nsImage: ActivityStatusItem.glyph(card))
+                        .renderingMode(.template)
+                        .foregroundStyle(.white)
+                }
+            }
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(Array(ActivityCard.turn.indices), id: \.self) { index in
+                    Image(nsImage: ActivityStatusItem.glyph(.working, turn: index))
+                        .renderingMode(.template)
+                        .foregroundStyle(.white)
+                }
             }
         }
         .padding(14)
@@ -288,38 +294,92 @@ struct RenderPreview {
         let all = urls.compactMap { try? decoder.decode(Theme.self, from: Data(contentsOf: $0)) }
         let themes = ["ocarina", "sakura", "matrix"].compactMap { id in all.first { $0.id == id } }
         let home = try #require(SkillHome.forProcess("claude"))
+        let shelf = SkillShelf()
 
-        // The rows and chips directly, not the whole view: `ImageRenderer`
-        // lays out no `ScrollView`'s content, and both of those live in one.
-        let shown = Array(SkillCatalog.load().prefix(8))
+        // The rows and the headings directly, not the whole view:
+        // `ImageRenderer` lays out no `ScrollView`'s content, and the shelf
+        // lives in one. This is the "Start here" page as it is drawn.
+        let picks = SkillCatalog.starting(from: SkillCatalog.load())
         let sheet = HStack(alignment: .top, spacing: 16) {
             ForEach(themes) { theme in
-                let view = SkillsView(home: home) {}
-                VStack(alignment: .leading, spacing: 10) {
+                let view = SkillsView(
+                    home: home, shelf: shelf, startClaude: {}, close: {}
+                )
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Skills")
+                        .font(theme.uiFont(15.5, weight: .semibold))
+                        .foregroundStyle(theme.chrome.textPrimary.color)
+                    Text("Written instructions your agent reads when a task calls for it.")
+                        .font(theme.uiFont(11.5))
+                        .foregroundStyle(theme.chrome.textTertiary.color)
+                        .padding(.bottom, 16)
+
                     HStack(spacing: 8) {
-                        Text("Skills")
-                            .font(theme.uiFont(15, weight: .semibold))
-                            .foregroundStyle(theme.chrome.textPrimary.color)
-                        Text("for \(home.agent)")
+                        Image(systemName: "magnifyingglass")
                             .font(theme.uiFont(11.5, weight: .medium))
                             .foregroundStyle(theme.chrome.textTertiary.color)
+                        Text("Search 216 skills")
+                            .font(theme.uiFont(12.5))
+                            .foregroundStyle(theme.chrome.textTertiary.color)
+                        Spacer()
                     }
-                    HStack(spacing: 6) {
-                        view.chip("All", isOn: true) {}
-                        view.chip("Design", isOn: false) {}
-                        view.chip("Testing", isOn: false) {}
-                        view.chip("Cloud", isOn: false) {}
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(theme.chrome.rowHover.color.opacity(0.07))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .stroke(theme.chrome.border.color.opacity(0.14), lineWidth: 1)
+                            }
                     }
+                    .padding(.bottom, 18)
+
+                    // The tab row, sitting on its rule.
+                    HStack(spacing: 20) {
+                        ForEach(Array(["Start here", "Browse all", "Installed"].enumerated()),
+                                id: \.offset) { index, label in
+                            Text(label)
+                                .font(theme.uiFont(12, weight: index == 0 ? .semibold : .medium))
+                                .foregroundStyle(index == 0 ? theme.chrome.textPrimary.color
+                                                            : theme.chrome.textTertiary.color)
+                                .padding(.top, 2)
+                                .padding(.bottom, 11)
+                                .overlay(alignment: .bottom) {
+                                    Rectangle()
+                                        .fill(theme.chrome.textPrimary.color.opacity(index == 0 ? 0.6 : 0))
+                                        .frame(height: 1.5)
+                                }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .background(alignment: .bottom) {
+                        Rectangle()
+                            .fill(theme.chrome.border.color.opacity(0.13))
+                            .frame(height: 1)
+                    }
+                    .padding(.bottom, 20)
+
                     LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 10),
-                                  GridItem(.flexible(), spacing: 10)],
-                        spacing: 10
+                        columns: [GridItem(.flexible(), spacing: 14),
+                                  GridItem(.flexible(), spacing: 14)],
+                        spacing: 14
                     ) {
-                        ForEach(shown) { view.card($0) }
+                        ForEach(picks, id: \.skill.id) { pick in
+                            view.card(pick.skill)
+                        }
+                    }
+                    .padding(.bottom, 22)
+
+                    HStack(spacing: 6) {
+                        view.pill("All", isOn: false) {}
+                        view.pill("Design", isOn: true) {}
+                        view.pill("Workflow", isOn: false) {}
+                        view.pill("Testing", isOn: false) {}
                     }
                 }
-                .padding(18)
-                .frame(width: 780, alignment: .leading)
+                .padding(22)
+                .frame(width: 600, alignment: .leading)
                 .background { OcarinaWindowView.panelSurface(theme, at: .top) }
                 .clipShape(OcarinaWindowView.PanelStyle.shape)
                 .environment(\.theme, theme)

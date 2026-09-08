@@ -235,32 +235,36 @@ struct TabSidebarView: View {
     /// of rather than four rows to push around.
     private var settingsCard: some View {
         VStack(spacing: 1) {
-            // Only with an agent in front of you, and above Theme because it
-            // is the one row here that is about the work rather than about the
-            // app. A skill is instructions the agent reads, so the row is only
-            // true while there is an agent to read them — on a plain shell
-            // there is no directory to install into and the way in is simply
-            // not there.
+            // Always, and above Theme because it is the one row here that is
+            // about the work rather than about the app.
             //
-            // The trailing value names the agent, which is also the answer to
-            // the question the row raises: skills for *what*. Claude Code and
-            // Codex do not read the same directory.
-            if let home = model.skillHome {
-                Button {
-                    model.isSkillsVisible = true
-                } label: {
-                    footerRow(
-                        symbol: "square.stack",
-                        title: "Skills",
-                        trailing: home.agent,
-                        hovered: isSkillsHovered
-                    )
-                }
-                .buttonStyle(.plain)
-                .onHover { isSkillsHovered = $0 }
-                .animation(.easeOut(duration: 0.12), value: isSkillsHovered)
-                .transition(.opacity)
+            // It used to appear only with an agent in front of you, on the
+            // reasoning that a skill installs into an agent's directory and a
+            // plain shell has none. What that produced was a row that was
+            // missing on the day somebody most needed it: you find out what a
+            // skill is by opening this, and you could not open it until you
+            // had already started the agent the skills are for. The install
+            // still needs a directory; the browser does not, and a press with
+            // nowhere to put it is held by `SkillShelf` until there is.
+            //
+            // The trailing value is how many you have, counting the ones
+            // waiting for an agent. It was the agent's name — which answered
+            // "skills for what", a question the browser now answers at its own
+            // foot, and left the row with nothing to say about whether you had
+            // any.
+            Button {
+                model.isSkillsVisible = true
+            } label: {
+                footerRow(
+                    symbol: "square.stack",
+                    title: "Skills",
+                    trailing: model.skills.total > 0 ? "\(model.skills.total)" : "",
+                    hovered: isSkillsHovered
+                )
             }
+            .buttonStyle(.plain)
+            .onHover { isSkillsHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isSkillsHovered)
 
             // Opens the picker rather than a list of names: choosing a look
             // from words asks you to remember what Matcha looked like.
@@ -327,11 +331,9 @@ struct TabSidebarView: View {
                 tip: sleepHelp
             )
         }
-        // The card grows by a row when an agent opens and loses it again when
-        // that tab closes. Eased, because a column that gains twenty-eight
-        // points instantly reads as the window having jumped rather than as a
-        // row having arrived.
-        .animation(.easeOut(duration: 0.16), value: model.skillHome?.agent)
+        // The count changes as skills go in and come out. Eased, so a row
+        // whose trailing edge gains a figure does not read as a flicker.
+        .animation(.easeOut(duration: 0.16), value: model.skills.total)
         // The rows sit in from the card's edges by the same amount the tab
         // rows sit in from theirs, so the two cards' contents line up down the
         // column rather than each starting somewhere of its own.

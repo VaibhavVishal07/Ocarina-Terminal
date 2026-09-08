@@ -124,6 +124,22 @@ public struct OcarinaWindowView: View {
             .overlay {
                 if model.isDropTarget { DropZoneView() }
             }
+            // Said outside the browser, because the browser is a modal you
+            // close. Everything the app knew about an install used to live
+            // inside it, so closing it took the only evidence with it and what
+            // was left was a folder quietly appearing in your home directory.
+            .overlay(alignment: .top) {
+                if let notice = model.skills.notice {
+                    SkillNoticeView(
+                        notice: notice,
+                        act: { model.skills.dismissNotice(); model.startClaude() },
+                        dismiss: { model.skills.dismissNotice() }
+                    )
+                    .padding(.top, Self.panelGap)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeOut(duration: 0.18), value: model.skills.notice)
             .overlay(alignment: .top) {
                 if let code = model.selectedFailure, model.isErrorBannerVisible {
                     ErrorBannerView(
@@ -218,17 +234,27 @@ public struct OcarinaWindowView: View {
         // click outside it, and picking a theme is a thing you do by trying
         // three and then getting on with your work.
         .overlay {
-            // Only ever opened from a tab with an agent in it, and closed
-            // the moment that stops being true: switching to a shell with the
-            // browser up would leave it offering to install into a directory
-            // belonging to a tab you are no longer looking at.
-            if model.isSkillsVisible, let home = model.skillHome {
+            // Opened from anywhere, agent or not. It used to require one, and
+            // closed itself the moment the tab in front of you stopped having
+            // one — which meant the screen that explains what a skill is could
+            // only be reached by somebody who had already worked it out. What
+            // an install needs an agent for is a directory to write into, and
+            // that is a question `SkillShelf` can hold open.
+            if model.isSkillsVisible {
                 ZStack {
                     Color.black.opacity(0.42)
                         .ignoresSafeArea()
                         .contentShape(.rect)
                         .onTapGesture { model.isSkillsVisible = false }
-                    SkillsView(home: home) { model.isSkillsVisible = false }
+                    SkillsView(
+                        home: model.skillHome,
+                        shelf: model.skills,
+                        startClaude: {
+                            model.isSkillsVisible = false
+                            model.startClaude()
+                        },
+                        close: { model.isSkillsVisible = false }
+                    )
                 }
                 .environment(\.theme, model.themes.theme)
                 .transition(.opacity)

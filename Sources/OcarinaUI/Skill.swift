@@ -99,7 +99,21 @@ public struct Skill: Codable, Identifiable, Sendable, Equatable, Hashable {
             }
         }
 
-        /// The word on the filter chip.
+        /// The order the filter pills are offered in, and the order a
+        /// catalogue with nothing else to sort by comes out in.
+        ///
+        /// **Design first.** This is a house call rather than a fact about the
+        /// catalogue: the app is opinionated about how things look, the people
+        /// who choose it are choosing it for that, and the row a shelf leads
+        /// with is the row that gets installed. The rest keep the order they
+        /// are declared in, which runs roughly from what everybody needs to
+        /// what only some do.
+        public static let ordered: [Category] = [.design] + allCases.filter { $0 != .design }
+
+        /// Whether this is the category the shelf leads with.
+        var leads: Bool { self == .design }
+
+        /// The word on the filter pill.
         public var label: String {
             switch self {
             case .workflow: "Workflow"
@@ -215,6 +229,65 @@ public enum SkillCatalog {
         return (try? JSONDecoder().decode([Skill].self, from: data)) ?? []
     }
 
+    /// The handful somebody who has never installed one should see first.
+    ///
+    /// Two hundred and sixteen rows is not a shelf, it is a search box with a
+    /// list attached, and it only works if you already know what you are
+    /// looking for. Somebody who has just found out that skills exist does not
+    /// — so the browser opens on eight of them and the other two hundred are
+    /// one press away.
+    ///
+    /// Eight and not twenty. The point of a starting shelf is that it can be
+    /// read to the end; a shelf you have to scroll is the wall again, shorter.
+    ///
+    /// They are chosen to be useful before you have decided what you are
+    /// building — checking, debugging, looking things up, handling the file
+    /// formats everyone has — rather than to be the eight most installed,
+    /// which is how you end up recommending Prisma to somebody who has not
+    /// got a database.
+    ///
+    /// The line is written here rather than taken from the skill. A skill's
+    /// own description is written *for the agent* — "Use when encountering any
+    /// bug, test failure, or unexpected behavior, before proposing fixes" is
+    /// addressed to the reader that will follow it, and it is the right text
+    /// for that reader. It is not an answer to "what would I want this for",
+    /// which is the only question somebody on this screen is asking. So each
+    /// pick carries one line in the first person, and the skill's own name and
+    /// author sit under it, because who wrote the instructions your agent will
+    /// follow is still most of the decision.
+    public static let starters: [(id: String, plainly: String)] = [
+        // First, for the same reason design leads the categories: this is the
+        // pick that says what kind of app you have opened.
+        ("anthropics/skills/frontend-design",
+         "Make a web page that looks designed"),
+        ("mattpocock/skills/code-review",
+         "Check my code before I commit it"),
+        ("obra/superpowers/systematic-debugging",
+         "Work out why something is broken"),
+        ("mattpocock/skills/research",
+         "Look something up and write down what it found"),
+        ("anthropics/skills/pdf",
+         "Read and write PDFs"),
+        ("anthropics/skills/docx",
+         "Read and write Word documents"),
+        ("mattpocock/skills/git-guardrails-claude-code",
+         "Stop me running a git command I cannot undo"),
+        ("obra/superpowers/test-driven-development",
+         "Write the test before the code"),
+    ]
+
+    /// The starters, resolved against the catalogue, in the order above.
+    ///
+    /// An id that is not in the catalogue is dropped rather than drawn as a
+    /// blank: the two lists are edited by hand and separately, and a shelf
+    /// with a hole in it is a worse failure than a shelf of seven.
+    public static func starting(from skills: [Skill]) -> [(skill: Skill, plainly: String)] {
+        let byID = Dictionary(uniqueKeysWithValues: skills.map { ($0.id, $0) })
+        return starters.compactMap { pick in
+            byID[pick.id].map { (skill: $0, plainly: pick.plainly) }
+        }
+    }
+
     /// Rows matching a search and a category, in the order they should be read.
     ///
     /// Name before description: somebody typing "pdf" wants the skill called
@@ -226,16 +299,28 @@ public enum SkillCatalog {
     ) -> [Skill] {
         let needle = search.trimmingCharacters(in: .whitespaces).lowercased()
         let pool = category.map { wanted in skills.filter { $0.category == wanted } } ?? skills
-        guard !needle.isEmpty else { return pool }
+
+        // Nothing typed: the house order, which puts design at the front. See
+        // `Category.ordered`.
+        guard !needle.isEmpty else {
+            return pool.sorted { a, b in
+                if a.category.leads != b.category.leads { return a.category.leads }
+                return a.installs > b.installs
+            }
+        }
 
         return pool.filter {
             $0.name.lowercased().contains(needle)
                 || $0.description.lowercased().contains(needle)
                 || $0.author.lowercased().contains(needle)
         }.sorted { a, b in
+            // What you typed wins over everything. A shelf that answered
+            // "pdf" with a design skill because design leads the house order
+            // would be a search box that does not search.
             let (first, second) = (a.name.lowercased().contains(needle),
                                    b.name.lowercased().contains(needle))
             if first != second { return first }
+            if a.category.leads != b.category.leads { return a.category.leads }
             return a.installs > b.installs
         }
     }

@@ -215,3 +215,163 @@ struct SkillIngressTests {
         #expect(model.skillHome == nil)
     }
 }
+
+@MainActor
+@Suite("The starting shelf")
+struct SkillStarterTests {
+
+    @Test("Every pick on the starting shelf is a real skill")
+    func startersResolve() {
+        // The two lists are edited by hand and separately: the picks live in
+        // Swift, the catalogue in JSON, and a skill renamed upstream takes its
+        // id with it. `starting(from:)` drops what it cannot find, so a hole is
+        // silent — this is what makes it loud.
+        let picks = SkillCatalog.starting(from: SkillCatalog.load())
+        #expect(picks.count == SkillCatalog.starters.count,
+                "\(SkillCatalog.starters.count - picks.count) starter(s) are not in the catalogue")
+    }
+
+    @Test("A starter says what you would want it for, not what the agent reads")
+    func startersSpeakPlainly() {
+        for pick in SkillCatalog.starting(from: SkillCatalog.load()) {
+            // Not the skill's own description, which is addressed to the agent
+            // that will follow it. If a pick's line ever becomes that text,
+            // the shelf has quietly turned back into the catalogue.
+            #expect(pick.plainly != pick.skill.description)
+            #expect(pick.plainly != pick.skill.headline)
+            // First person, and short enough to read in a glance down a list.
+            #expect(pick.plainly.count <= 52, "\(pick.plainly) is a paragraph")
+            #expect(pick.plainly.first?.isUppercase == true)
+        }
+    }
+
+    @Test("Eight, and few enough to read to the end")
+    func theShelfIsShort() {
+        // The whole point of it. A starting shelf you have to scroll is the
+        // two-hundred-row wall again, shorter.
+        #expect(SkillCatalog.starters.count <= 10)
+        #expect(Set(SkillCatalog.starters.map(\.id)).count == SkillCatalog.starters.count)
+    }
+}
+
+@MainActor
+@Suite("Installing without an agent")
+struct SkillShelfTests {
+
+    private func skill(_ name: String) -> Skill {
+        Skill(
+            id: "test/\(name)", name: name, description: "A test skill.",
+            category: .workflow, author: "Nobody", repo: "test/repo",
+            path: name, branch: "main", license: "MIT", installs: 0
+        )
+    }
+
+    @Test("A press with no agent is kept, not dropped")
+    func addingWithNoAgentQueues() {
+        let shelf = SkillShelf()
+        let one = skill("alpha")
+        shelf.add(one, into: nil)
+
+        #expect(shelf.queued == [one])
+        // And it says so somewhere the browser being closed cannot take away.
+        #expect(shelf.notice?.kind == .waiting)
+        #expect(shelf.notice?.text.contains("alpha") == true)
+        // The strip offers the one press that resolves it.
+        #expect(shelf.notice?.action == "Start Claude")
+    }
+
+    @Test("Pressing twice is not two installs")
+    func askingTwiceIsOneAsk() {
+        let shelf = SkillShelf()
+        let one = skill("alpha")
+        shelf.add(one, into: nil)
+        shelf.add(one, into: nil)
+        #expect(shelf.queued.count == 1)
+    }
+
+    @Test("A queued skill can be taken back")
+    func queuedCanBeCancelled() {
+        let shelf = SkillShelf()
+        let one = skill("alpha")
+        shelf.add(one, into: nil)
+        shelf.cancel(one)
+        #expect(shelf.queued.isEmpty)
+        // The strip goes with the last thing it was about. A "waiting for an
+        // agent" line with nothing waiting is a lie the app tells itself.
+        #expect(shelf.notice == nil)
+    }
+
+    @Test("The count includes what is only waiting")
+    func waitingCounts() {
+        // What the sidebar row is drawn from. Somebody who has asked for three
+        // skills on a plain shell has three skills coming, and a row reading
+        // nothing at all would say their presses went nowhere.
+        let shelf = SkillShelf()
+        shelf.add(skill("alpha"), into: nil)
+        shelf.add(skill("beta"), into: nil)
+        #expect(shelf.total >= 2)
+    }
+
+    @Test("Installed means installed where this agent reads, when there is one")
+    func installedIsPerAgentWhenItCanBe() throws {
+        // A skill in `~/.agents/skills` is not one Claude Code will read, and a
+        // row saying "Installed" while Claude is in front of you is a claim
+        // about the wrong directory. With no agent there is no such directory,
+        // so the honest answer is the global one.
+        let shelf = SkillShelf()
+        let claude = try #require(SkillHome.forProcess("claude"))
+        let codex = try #require(SkillHome.forProcess("codex"))
+        let one = skill("gamma")
+
+        #expect(shelf.has(one, in: claude) == false)
+        #expect(shelf.has(one, in: nil) == false)
+        #expect(claude.directory != codex.directory)
+    }
+}
+
+@Suite("Design leads")
+struct SkillPriorityTests {
+
+    private var catalogue: [Skill] { SkillCatalog.load() }
+
+    @Test("Design is the category the shelf leads with")
+    func designLeadsTheCategories() {
+        #expect(Skill.Category.ordered.first == .design)
+        // And no category is dropped or repeated on the way to putting it
+        // first — the pills are built from this list.
+        #expect(Set(Skill.Category.ordered) == Set(Skill.Category.allCases))
+        #expect(Skill.Category.ordered.count == Skill.Category.allCases.count)
+    }
+
+    @Test("An unsearched catalogue opens on design")
+    func designLeadsTheCatalogue() {
+        let rows = SkillCatalog.filter(catalogue, search: "", category: nil)
+        #expect(rows.first?.category == .design, "got \(rows.first?.name ?? "nothing")")
+        // Every design skill before every other one, not just the first.
+        let lastDesign = rows.lastIndex { $0.category == .design }
+        let firstOther = rows.firstIndex { $0.category != .design }
+        #expect(lastDesign != nil && firstOther != nil)
+        if let lastDesign, let firstOther { #expect(lastDesign < firstOther) }
+    }
+
+    @Test("What you typed still outranks the house order")
+    func searchBeatsTheHouseOrder() {
+        // A shelf that answered "pdf" with a design skill because design leads
+        // the house order would be a search box that does not search.
+        let hits = SkillCatalog.filter(catalogue, search: "pdf", category: nil)
+        #expect(hits.first?.name.lowercased().contains("pdf") == true,
+                "got \(hits.first?.name ?? "nothing")")
+    }
+
+    @Test("The starting shelf leads with design too")
+    func designLeadsTheStarters() {
+        // Pinned by id rather than by category, because the catalogue files
+        // `frontend-design` under `web` — the registry's `design` category is
+        // mostly software design (deep modules, design docs, brainstorming)
+        // rather than the visual kind. This is the pick that says what sort of
+        // app you have opened, whichever bucket its publisher put it in.
+        let picks = SkillCatalog.starting(from: catalogue)
+        #expect(picks.first?.skill.id == "anthropics/skills/frontend-design",
+                "got \(picks.first?.skill.name ?? "nothing")")
+    }
+}

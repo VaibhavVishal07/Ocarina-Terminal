@@ -193,6 +193,10 @@ public final class OcarinaModel {
     /// `ActivityStatusItem`.
     @ObservationIgnored private let activityStatusItem = ActivityStatusItem()
 
+    /// What has been installed, what is going in, and what is waiting for an
+    /// agent. See `SkillShelf` for why a queue exists at all.
+    public let skills = SkillShelf()
+
     /// Whether the tab in front is running a coding agent.
     ///
     /// Matched the way the tab icon matches: on the naming layer's
@@ -414,7 +418,16 @@ public final class OcarinaModel {
             // row is drawn from, and a `snapshot()` is a couple of calls into
             // libproc — cheap enough to take on every poll rather than to
             // arrange a second one for.
+            let wasHome = self.skillHome
             self.selectedForeground = snapshot?.foregroundProcessName
+            // An agent has just appeared in front of this tab. Anything asked
+            // for while there was nowhere to put it goes in now — which is the
+            // whole promise the browser makes when it takes a press on a plain
+            // shell. Only on the edge, so a poll that finds the same agent it
+            // found two seconds ago does not rescan the directory.
+            if let home = self.skillHome, wasHome?.directory != home.directory {
+                self.skills.drain(into: home)
+            }
             let signature = await Task.detached {
                 source.signature(
                     for: directory, startedAt: startedAt, agentInForeground: agentInForeground
@@ -521,6 +534,26 @@ public final class OcarinaModel {
         }
         let tab = newTab()
         sessions[tab.id]?.runWhenReady(command)
+    }
+
+    /// Starts Claude Code, for the strip that says a skill is waiting for one.
+    ///
+    /// Claude by name and not "an agent of your choosing". The strip appears
+    /// because somebody pressed Add with no agent running, and the useful
+    /// thing to hand them is the one press that fixes it — a picker at that
+    /// moment is another decision between them and the skill they already
+    /// chose. The other three are still on the landing screen and in the
+    /// drawer, and a skill installed for Claude is one `~/.claude/skills`
+    /// folder, not a commitment.
+    ///
+    /// It reuses the first-run board's own route, so an agent that is not
+    /// installed yet gets its recipe rather than a command not found.
+    public func startClaude() {
+        guard let claude = AgentCatalog.all.first(where: { $0.executable == "claude" }) else {
+            isQuickActionsVisible = true
+            return
+        }
+        start(claude)
     }
 
     /// What the tab in front of you is doing, for the rail across the top of
@@ -758,6 +791,10 @@ public final class OcarinaModel {
     public func start() {
         Task { await namingService.start() }
         sleepGuard.start()
+        // Before anything is opened. The count on the sidebar's Skills row is
+        // read from this, and a row that says nothing until you have opened
+        // the browser once is a row that is wrong on every launch.
+        skills.refresh()
         let firstLaunch = !defaults.bool(forKey: Self.hasLaunchedKey)
         defaults.set(true, forKey: Self.hasLaunchedKey)
         if tabs.isEmpty,

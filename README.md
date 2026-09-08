@@ -183,30 +183,90 @@ middle of the fall.
 
 ## It says whether the thing you asked for is still going, where you can see it
 
-In the menu bar, beside the Wi-Fi, as a small departure board: `STILL GOING`
-while an agent is working, `BACK TO YOU` when it stopped, `STOPPED 127` when it
-exited badly, and `READY` when nothing has been asked.
+In the menu bar, beside the Wi-Fi, as **one cell of a departure board**: blank
+while nothing has been asked, turning while an agent works, landed on a ring
+when it comes back to you, and showing a cross when it exited badly. Sixteen and
+a half points square, in the app's own lamps.
 
-Drawn in the app's own 5x7 grid — the same one the wordmark, the landing screen
-and the token meter are built from. It was a system-font string with a braille
-spinner in front of it and an SF Symbol beside it, which is three alphabets for
-one reading and none of them Ocarina's. Working is the chase sweeping through
-the word at the same 72ms a lamp that the mark in the sidebar runs at, so the
-loading state and the app's own motion are one gesture rather than two.
+It was the whole line, set in the 5x7 grid the wordmark and the landing screen
+are built from — `STILL GOING`, `BACK TO YOU`, `STOPPED 127`. That was right
+about the alphabet and wrong about everything it cost. Eleven characters at six
+columns each is **136 points** of menu bar: wider than the clock, the Wi-Fi and
+the battery together, for a reading you take in a fifth of a second. And a
+letterform built from 1.4pt lamps is under the size the grid can set — the S and
+the G came out as smudges. It was a word you could not read taking the room of a
+sentence.
+
+A pictogram survives that size where a letterform does not, and every other item
+in a menu bar is one glyph wide for the same reason. It was a little face on a
+plate of lamps for a release, which was legible and was a character from
+nowhere: it had no more to do with this app than with any other. A split-flap
+cell has both — it is the object the rest of the app is already made of, and it
+says the four states by doing what a board does.
+
+**The seam is the whole idea.** A split-flap card is cut across its middle, and
+that line has to be visible in every state or this is a box that fills up. So it
+is drawn as a *lit line when the cell is empty* and a *dark gap when the cell is
+full* — the same hinge, taking whichever value contrasts with what is round it.
+One row of the seven is the seam and nothing else is ever drawn there.
+
+**Seven by seven, and square.** A real split-flap card is taller than it is
+wide, and this was five by seven for a while on exactly that reasoning. In a
+menu bar it is wrong: every other item up there sits in a square, and a tall
+narrow one reads as something squeezed rather than as something drawn to fit.
+The proportion of the real object is worth less than sitting properly in the row
+it lives in.
+
+Widening rather than shortening, because the two states that are marks rather
+than fills need the room. It was five by five once, and there a cross has its
+crossing point *on* the seam — the one row nothing may be drawn on — so it came
+out as eight loose dots, and a ring sat one lamp inside the frame the whole way
+round and read as a second border. Seven by seven gives each half three rows and
+the mark a proper diagonal.
+
+**The lamps are thick and the gaps between them thin** — 1.7pt against 0.35,
+filling 83% of the pitch where the face filled 70%, and squarer at the corners.
+That is the difference between a row of dots and a bar. A face is made of
+separate lamps and wants the dark between them; a card is a surface, and every
+state here is mostly filled rows.
+
+The turn is **five frames at 120ms**, not a chase: the card stands, folds through
+the seam, passes edge-on, comes down the other side and lands. Frames rather
+than a chase because a chase is a lamp brightening and dimming — right for a
+mark that is *lit*, wrong for a card, which does not glow, it moves. A departure
+board clacks. Five frames and not the six it takes to come back round to the
+seam: a sixth would show the resting card once a pass, and the resting card is
+what *ready* looks like.
+
+**It lands on a ring, not a tick.** A tick was the most readable of the seven
+things tried in that slot and the only one that grades the work. An agent
+stopping means it stopped talking, not that it managed what you asked — which is
+why the words up here say *back to you* and never *done*, and a tick makes
+exactly the claim that wording was written to avoid. A ring claims nothing, and
+it is the app's own O, so the one state you most want to catch is also the one
+place the menu bar says whose it is.
+
+The image is built from a drawing handler rather than `lockFocus`, so it is
+resolution-independent and AppKit redraws it at whatever scale it is being shown
+at. `lockFocus` rasterises once at the deepest attached screen's scale: a 0.35pt
+gap then landed wherever it landed on the pixel grid, and a filled row that
+should read as one bar came out as a line of separated dots.
 
 It is a template image, so the bar tints it and it inverts with light and dark
 the way every system item does — which is also why the chase is expressed as
 *alpha* rather than as colour. A template has no colour of its own to vary;
 what it has is how much of the bar's ink each dot asks for, and that turns out
-to be the right model for a lamp anyway. The head brightens rather than dimming
-everything around it: at a lower base the running board read fainter than the
-resting one, which is backwards for the state you most want to catch out of the
-corner of an eye.
+to be the right model for a lamp anyway. The dark cells of the plate are painted
+too, faintly: they are what make it a panel of lamps rather than a face floating
+in the menu bar, and at this size they are the only thing that says the lit ones
+are lit.
 
-**The app's name is not on it.** It was there because a strip of text beside
-the Wi-Fi has nothing to say whose it is — but the strip is Ocarina's own
-alphabet now, and that says it. A dot-matrix board wearing the wordmark as well
-is the mark and the name on the same object.
+**The words did not go anywhere.** A face has nothing to say whose it is, and
+nothing to say about an exit code — so the tooltip and the accessibility label
+carry the house line with the app's name in front of it, and the theme's own
+wording is one click down in the menu. They are sentence case now: they were
+uppercase for as long as they were painted on a grid with no descenders, which
+is a constraint the board imposed and not one the words ever had.
 
 The words answer the question somebody has up there rather than naming a state.
 They were Working, Idle and Done for a release, and each was a label for a value
@@ -325,13 +385,20 @@ every agent in the dock: Claude Code, Codex, Gemini CLI and OpenCode all read
 it. Finding one still meant knowing which of two hundred repositories to look
 in, reading a README, and copying a folder into the right place by hand.
 
-So: a **Skills** row in the sidebar, and it is only there while an agent is
-running in the tab you are looking at. Everything in the browser is answered by
-which agent that is, and on a plain shell there is no answer — the same skill
-belongs in a different directory for Claude Code than for Codex, so a browser
-offering to install into nowhere is worse than no browser. The row names the
-agent on its trailing edge, which is also the answer to the question it raises:
-skills for *what*.
+So: a **Skills** row in the sidebar, always. It was there only while an agent
+was running in the tab you were looking at, on the reasoning that the same skill
+belongs in a different directory for Claude Code than for Codex and a plain
+shell has no answer to "install this where". That reasoning is right about the
+install and wrong about the browser, and it produced a row that was missing on
+the day somebody most needed it: you find out what a skill *is* by opening this,
+and you could not open it until you had already started the agent the skills are
+for. The row now carries a count of what you have on its trailing edge.
+
+**A press with no agent running is kept, not refused.** It goes in a queue, a
+strip across the window says which skill is waiting and offers to start Claude,
+and the moment an agent appears in front of any tab the queue drains into its
+directory. The queue lasts as long as the app does and no longer — one restored
+three days later would install something you have forgotten asking for.
 
 | Agent | Where it reads skills |
 | --- | --- |
@@ -369,6 +436,37 @@ was. A new tab refreshes at once rather than waiting for the next tick, and a
 foreground the poll has read is the answer whatever it says: `zsh` means there
 is no agent here, not "ask somebody else".
 
+### It opens on eight, not on two hundred and sixteen
+
+Two hundred and sixteen rows is not a shelf. It is a search box with a list
+attached, and it only works if you already know what you are looking for —
+which the person this screen exists for does not. So the browser opens on
+**Starters**: a line saying what a skill even is, and eight picks. **All** is one
+press away and holds everything it used to.
+
+Eight, and not twenty. The point of a starting shelf is that it can be read to
+the end; a shelf you have to scroll is the wall again, shorter. They are chosen
+to be useful before you have decided what you are building — checking code,
+debugging, looking things up, handling the file formats everybody has — rather
+than to be the eight most installed, which is how you end up recommending
+Prisma to somebody who has not got a database.
+
+**Each pick leads with a line written for you, not for the agent.** A skill's
+own description is addressed to the reader that will follow it — "Use when
+encountering any bug, test failure, or unexpected behavior, before proposing
+fixes" is the right text for that reader and no answer at all to "what would I
+want this for". So the shelf says *Work out why something is broken*, and puts
+`systematic-debugging · obra` underneath, because who wrote the instructions
+your agent is going to follow is still most of the decision.
+
+**Installed** is the standing list: what is waiting for an agent, what is on
+disk, and a Remove on each. It reads every skills directory rather than the one
+in front of you, so closing Claude no longer takes your installed skills off the
+screen — they are still there, and the app had simply stopped looking. What a
+card says about *itself* stays per-agent: a skill in `~/.agents/skills` is not
+one Claude Code will read, and "Installed" beside Claude would be a claim about
+the wrong directory.
+
 ### The catalogue is bundled, and says who wrote every row
 
 Two hundred and sixteen skills from eleven publishers — Anthropic, OpenAI,
@@ -383,35 +481,106 @@ on it would be a list of two hundred words. This opens instantly and offline.
 The cost is that it goes out of date, which is why every row carries the
 repository it came from.
 
-**Who wrote it sits next to what it is called, on every row.** A skill is
+**Who wrote it sits next to what it is called, on every card.** A skill is
 instructions an agent will follow, so the publisher is not a detail — it is most
-of what you are deciding when you press Install. The rows are ordered by how
-often the registry has seen each one installed, which is not a measure of
-quality but has to be something when there are two hundred of them.
+of what you are deciding when you press Add.
+
+**Design leads.** The design category comes first in the filter pills, design
+skills sort above everything else in an unsearched catalogue, and the starting
+shelf opens on one. That is a house call rather than a fact about the registry:
+this app is opinionated about how things look, the people who choose it are
+choosing it for that, and the row a shelf leads with is the row that gets
+installed. What you type still outranks it — a shelf that answered "pdf" with a
+design skill would be a search box that does not search. Everything after that
+is ordered by how often the registry has seen each one installed, which is not a
+measure of quality but has to be something when there are two hundred of them.
 
 Filter by category or search by name; searching puts the skill you *named* above
 the ones that merely mention it, because somebody typing "pdf" wants the skill
 called pdf and not the eleven that mention PDFs in passing.
 
-### A shelf, not a list
+### Three sections, one skeleton under all of them
 
-Two columns of cards rather than one column of rows, so the eye takes a pair at
-a time and the descriptions stop being the widest thing on screen. Each card
-carries its category as a mark — nine kinds, one simple glyph each, in the same
-place every time — which is what makes the grid scannable before a word of it
-has been read.
+Where to begin, everything, and what you have are genuinely three questions, so
+they are three tabs. What was wrong was underneath: each opened with a different
+kind of thing, so the panel reshuffled itself every time you moved between them.
+The first led with a paragraph and ended with a link that went to the second,
+which was already a tab above it. The second led with a search field and a row
+of pills. The third led with uppercase headings over sections. Three tabs, four
+navigation idioms, and no two of them starting at the same height.
 
-A card is calm until you point at it. The first version drew a border, a fill
-and a lit Install button on all two hundred of them, so every card shouted at
-the same volume, nothing on the page had any weight, and the only way through it
-was to read all of it. The fill and the button arrive under the pointer, which
-is also the only moment either is any use.
+**Everything above the tabs is constant now** — the title, the one line saying
+what a skill is, and the search field — and everything below them is cards. The
+search searches the catalogue whichever tab you were on, and typing moves you to
+Browse: filtering eight starters down to two is not a thing anybody wants, and
+leaving somebody typing into a list that cannot answer them reads as the search
+box being broken.
 
-One line of description, and a line that ends where a sentence does. These are
-written for the agent, which reads all of them: they open with what the skill
-does and then spend a sentence or three on when to reach for it. Clipping the
-raw text to the card's width broke every card mid-word, which makes a page look
-faulty rather than full. The rest is on the card's tool tip.
+One tab carries a row of filter pills, because it is the only one holding two
+hundred things. That is a filter *inside* a list rather than a second way of
+choosing which list, and it is one level deep. The two uppercase headings that
+used to divide the third tab are gone: waiting skills sort above installed ones
+and each card's own button already says which it is.
+
+Small things that were making it look assembled rather than drawn: the active
+tab's underline used to float a few points above a separate divider, so the
+panel carried two nearly-parallel lines — it sits *on* the rule now, and is
+exactly as wide as the word it belongs to rather than stretching to fill the
+row. The footnote has a fill of its own, so it reads as the panel's floor.
+
+And everything vertical is on **one scale** — 6, 14 or 20 points — rather than
+whatever each pair of things happened to need, which is what made the panel read
+as tight in some places and loose in others. The cards grew from 76 points to
+86, the gap between them from 12 to 14, and the panel from 620 to 660 to hold
+them.
+
+Below the tabs, one card everywhere: **what this is** on top and one line under
+it. It carried four things — a headline, a supporting line, the author and the
+button — which is one more than a card this size can lay out without the eye
+having to decide what to read next. The author moved onto the supporting line
+rather than off the card, because a skill is instructions an agent will follow
+and the publisher is most of the decision.
+
+On the starters shelf the plain-language line leads and the folder name joins
+the author underneath. Everywhere else the folder name leads, because that is
+what you are searching by and what the agent will call it. Same two slots either
+way, same fixed height, so a grid of them is a grid rather than a masonry of
+whatever each description happened to need.
+
+The problem was never two columns; it was two hundred rows in them. Eight cards
+in two columns is a shelf you read to the end.
+
+The category mark went, though. Nine glyphs at fourteen points, one on every
+card, in the same place every time — scannable in principle and in practice a
+column of small grey shapes beside the only words that carried anything.
+
+**Accent capsules, a lit board colour on every installed mark, a red wash behind
+the error line.** On a screen whose job is to be read by somebody who does not
+know what the words mean yet, colour that carries no information is noise with a
+mood. The category filters are still pills — they are controls and a control
+should look pressable — but they are drawn in the window's own greys, the
+buttons are a hairline rather than a fill, and what is left doing the work is
+the type hierarchy. The theme still comes through in the surface, the text
+colours and the window around it, without competing with the content.
+
+**Add is drawn on every card now, quietly.** It used to appear only under the
+pointer, on the reasoning that two hundred Install buttons is two hundred things
+asking to be pressed. True of a wall, and exactly wrong for somebody who has
+never seen this screen: a button that is not there until you happen to hover
+over the thing it belongs to is a button you have to already know about.
+
+It has two treatments and not four: an outlined **Add**, which is the one thing
+on a card asking to be pressed, and a plain word for everything that has already
+happened — waiting, installed, and the Remove that word becomes under the
+pointer. A state that is not a call to action should not be drawn like one, and
+four differently weighted buttons for one control was most of why the page read
+as busy.
+
+The supporting line on the browse page ends where a sentence does. These
+descriptions are written for the agent, which reads all of them: they open with
+what the skill does and then spend a sentence or three on when to reach for it.
+Clipping the raw text to the card's width broke every one of them mid-word,
+which makes a page look faulty rather than full. The rest is on the tool tip.
 
 ### Installing
 
@@ -426,6 +595,17 @@ that is swapped in. A skill is a folder an agent reads as a unit, and half of
 one on disk is worse than none: the `SKILL.md` promises a script that is not
 there. A download that dies part way must also not be able to delete a skill
 that was working.
+
+**And it says so outside the browser.** Everything the app knew about an install
+used to be drawn inside a modal you close — the spinner on the row, the
+"Installed" label — so closing it took the only evidence with it, and what was
+left was a folder quietly appearing in a directory nobody looks at. A strip
+across the top of the window now says what happened: installed, waiting for an
+agent, or what went wrong. The success line names when it takes effect —
+*Claude Code reads it the next time it starts* — because an agent reads its
+skills directory on startup, and a skill installed into a conversation already
+running is not in that conversation. Saying "installed" and stopping there is
+how somebody comes to believe the feature is broken.
 
 Every path out of the repository is checked before it is joined onto a directory
 in your home — no absolute paths, no `~`, no `..`, no empty segments — and
@@ -1126,6 +1306,7 @@ Sources/OcarinaUI/       SwiftUI layer
   Trinket / TrinketField each theme's own small thing on the landing screen
   Pattern                the geometric lattice each theme's panels are ruled in
   DotMatrix              5x7 dot-matrix panel, the board is built from it
+  ActivityCard           the departure-board cell the menu bar item wears
   OcarinaIcon            the bundled app mark, prepared for the dock
   FeedbackView           the report sheet, and the issue URL it builds
   ClearedTasks           the per-project line under the task list
@@ -1133,6 +1314,8 @@ Sources/OcarinaUI/       SwiftUI layer
   Theme / ThemeColor     the colour model a theme file decodes into
   Recipe                 the quick-actions catalogue
   Skill                  the skills catalogue, and where each agent reads them
+  SkillShelf             what is installed, going in, or waiting for an agent
+  SkillNoticeView        the strip that says an install landed, or is waiting
   SkillInstaller         fetches a skill's folder out of its repository
   SkillsView             the browser: search, filter, one click to install
   ErrorBannerView        what a failed command puts on screen

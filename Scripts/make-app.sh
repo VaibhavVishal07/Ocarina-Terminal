@@ -27,7 +27,11 @@ CONFIG="${1:-release}"
 # native | universal. Universal is for what other people download; a local
 # build has no reason to spend twice the time.
 ARCHS="${2:-native}"
-VERSION="${OCARINA_VERSION:-0.1.0}"
+# Bumped with the release, not with the build. `CFBundleVersion` below is the
+# build number and stays at 1: nothing on this machine ships incremental
+# builds to anybody, and a number that only ever means "later than the last
+# one" is a number nobody can check.
+VERSION="${OCARINA_VERSION:-0.2.0}"
 
 if [ "$CONFIG" = "debug" ]; then
   APP_NAME="Kazoo"
