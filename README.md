@@ -989,6 +989,23 @@ OCARINA_SHOT=/tmp/shot.png OCARINA_SHOT_RUN='claude' OCARINA_SHOT_AFTER=12 \
   build/Kazoo.app/Contents/MacOS/Kazoo
 ```
 
+`OCARINA_SHOT_STATE` opens one of the surfaces a launch cannot reach on its own:
+`themes` for the picker, `skills` for the shelf, `quick` for the quick actions
+drawer, and `empty` to close every tab and leave the landing board. It sets the
+model's own flags rather than sending keystrokes, because a shortcut has to
+travel the responder chain and nobody has clicked into the window yet.
+
+```
+OCARINA_SHOT=docs/images/themes.png OCARINA_SHOT_STATE=themes \
+  build/Kazoo.app/Contents/MacOS/Kazoo
+```
+
+The picker and the shelf draw inside the window, so the window's own bitmap
+holds them. The drawer is a sheet, which macOS gives a window of its own, and
+`write` photographs that instead when one is attached. A sheet also holds the
+app open through `terminate`, so the shot puts the surface away before it asks
+to quit, with a hard exit behind that.
+
 `OCARINA_SHOT_RUN` opens a tab in the working directory and types the command, so
 the picture has a real session in it rather than the landing screen, and the app
 quits once the file is written — it was started to be photographed. Nothing
@@ -1328,7 +1345,7 @@ already has one.
 
 ## And when there is nothing open
 
-<img src="docs/images/empty.png" alt="The departure board with no tabs open, and the empty task panel">
+<img src="docs/images/empty.png" alt="The landing board with no tabs open: the wordmark, the theme's own line under it, and the agents you can open">
 
 ### It remembers where you work
 
