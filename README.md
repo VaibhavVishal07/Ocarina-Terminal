@@ -41,23 +41,17 @@ New to this entirely? [Start here](docs/first-terminal.md).
 
 Unzip it and drag `Ocarina.app` into Applications.
 
-**The first launch needs one extra step.** The app is signed ad-hoc rather than
-notarised — notarising requires a paid Apple Developer account — so macOS will
-refuse to open it and say it cannot check it for malicious software. That is
-Gatekeeper telling you the truth: nobody has vouched for this binary but the
-person who built it. To open it anyway:
+It opens on a double-click. The build is signed with a Developer ID
+certificate and notarised, and the notary's ticket is stapled into the bundle,
+so the check happens on your Mac rather than over the network — a machine with
+no connection opens it exactly as one with.
 
-1. Right-click (or Control-click) `Ocarina.app` and choose **Open**.
-2. Click **Open** again in the dialog.
-3. If macOS still refuses, go to **System Settings → Privacy & Security**, scroll
-   to the message about Ocarina, and click **Open Anyway**.
-
-Only the first launch asks. If you would rather do it in one line — in whatever
-terminal you have now, since this is the one you are trying to install:
-
-```
-xattr -dr com.apple.quarantine /Applications/Ocarina.app
-```
+Releases before 0.9.1 were signed ad-hoc, which macOS refuses with a message
+about being unable to check the app for malicious software. That message was
+Gatekeeper telling the truth: nobody had vouched for those binaries but the
+person who built them. If you are opening one of them, right-click
+`Ocarina.app`, choose **Open**, and click **Open** again in the dialog — or
+take a later build instead.
 
 Or build it yourself, which needs no permission from anyone:
 [Running it](#running-it).
@@ -1539,13 +1533,33 @@ under the same icon, and a grant toggled on one is indistinguishable from a
 grant on the other. A test build has to be unmistakable in that list, which
 means a name sharing no prefix with the real one.
 
-Both are signed against a designated requirement naming the bundle identifier,
-rather than the one macOS derives on its own. Left to itself an ad-hoc
-signature has no certificate to point at, so the requirement it derives is the
-hash of that exact binary — which the next build changes. Anything granted
-under Privacy & Security, Screen Recording most of all, is granted against the
-requirement stored at the time, so every build read as an app the Mac had
-never seen and asked again. Pinned to the identifier, one grant holds.
+A local build is signed against a designated requirement naming the bundle
+identifier, rather than the one macOS derives on its own. Left to itself an
+ad-hoc signature has no certificate to point at, so the requirement it derives
+is the hash of that exact binary — which the next build changes. Anything
+granted under Privacy & Security, Screen Recording most of all, is granted
+against the requirement stored at the time, so every build read as an app the
+Mac had never seen and asked again. Pinned to the identifier, one grant holds.
+
+What ships needs no such override, and does not get one. A Developer ID
+signature's derived requirement already names the identifier *and* the team,
+neither of which a rebuild changes, so the grant holds for the same reason. It
+is also the stronger of the two claims: the pinned requirement is satisfied by
+anything ad-hoc signed under that identifier, this one only by builds carrying
+the certificate.
+
+```
+OCARINA_SIGN_IDENTITY="Developer ID Application: NAME (TEAMID)" \
+OCARINA_NOTARY_PROFILE=ocarina-notary Scripts/make-release.sh 0.9.1
+```
+
+Both variables unset, `make-release.sh` builds and signs ad-hoc as before, so
+nothing about a local build depends on holding a certificate. Set, it adds the
+Hardened Runtime — which notarisation will not proceed without, and which does
+not come between `forkpty` and the login shell — submits the result to Apple,
+staples the ticket it returns into the bundle, and only then makes the zip. The
+notary profile is a keychain item written once by `xcrun notarytool
+store-credentials`.
 
 One behaviour differs between bundled and not. A binary run from a shell
 inherits that shell's directory, so tabs opened where you were; an app launched
@@ -1748,8 +1762,9 @@ from and falls back to the generic Unix-executable picture. Setting
 `applicationIconImage` is the only lever without a bundle and it does not reach
 Finder, the app switcher or Get Info — which is why `swift run Ocarina` still
 looks generic. The script assembles a real `Ocarina.app`: an `Info.plist`, an
-`AppIcon.icns` generated from the PNG, the SwiftPM resource bundles, and an
-ad-hoc signature.
+`AppIcon.icns` generated from the PNG, the SwiftPM resource bundles, and a
+signature — ad-hoc, or a Developer ID one when `OCARINA_SIGN_IDENTITY` names a
+certificate.
 
 `OcarinaIcon` trims the art to its drawn content, clips the corners to
 transparency and lays it on a clear canvas at the ~80% the macOS icon grid
