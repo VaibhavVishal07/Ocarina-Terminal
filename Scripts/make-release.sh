@@ -110,6 +110,11 @@ ditto -c -k --sequesterRsrc --keepParent "build/Ocarina.app" "$ZIP"
 # their Downloads folder six months later, and this one is what the button
 # points at.
 STABLE="dist/Ocarina-macOS-universal.zip"
+# Removed rather than overwritten. This name is the same in every version,
+# so a copy left behind by the last build is indistinguishable from this
+# one's until someone opens it — and the failure that causes is uploading
+# the previous release under the name the Download button reads.
+rm -f "$STABLE"
 cp "$ZIP" "$STABLE"
 
 echo
