@@ -1815,3 +1815,14 @@ coordinate space — outside the scroller, and above the terminal by `zIndex`.
 Tab titles are capped at 24 characters for display, ellipsis included, so one
 long name cannot push the sidebar around. The tab keeps its full name for
 renaming, for the hover subtitle and for the command palette.
+
+## Licence
+
+MIT. Use it, fork it, ship it, sell it — the only condition is that the
+copyright line comes with you. The full text is in [LICENSE](LICENSE).
+
+Two things in this repository are not covered by it, because they were not
+mine to license. Geist and JetBrains Mono are bundled under the SIL Open Font
+License and carry their own copyright lines in
+`Sources/OcarinaUI/Resources/Fonts/`, and SwiftTerm, which does the terminal
+emulation, is MIT with its own notice in its own repository.
