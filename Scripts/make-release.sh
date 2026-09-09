@@ -100,7 +100,22 @@ mkdir -p dist
 rm -f "$ZIP"
 ditto -c -k --sequesterRsrc --keepParent "build/Ocarina.app" "$ZIP"
 
+# The same bytes under a name with no version in them.
+#
+# The site's Download button has to be a URL that never goes stale, and
+# GitHub only offers one: /releases/latest/download/<asset>. It resolves to
+# whichever release is newest, but the asset name has to be identical in every
+# release for that to work, and the versioned name is not. So both go up: the
+# versioned one is what a person picks off the releases page and finds in
+# their Downloads folder six months later, and this one is what the button
+# points at.
+STABLE="dist/Ocarina-macOS-universal.zip"
+cp "$ZIP" "$STABLE"
+
 echo
 echo "$ZIP"
 echo "  size   $(du -h "$ZIP" | cut -f1)"
 echo "  sha256 $(shasum -a 256 "$ZIP" | cut -d' ' -f1)"
+echo
+echo "Upload BOTH, or the site's Download button keeps serving the old build:"
+echo "  gh release create v$VERSION $ZIP $STABLE --title \"Ocarina $VERSION\" --notes ..."
