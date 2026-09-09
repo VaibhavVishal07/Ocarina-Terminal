@@ -32,19 +32,17 @@ struct OcarinaModelTests {
         return false
     }
 
-    @Test("The task panel starts open and the switch closes it")
-    func taskPanelToggles() {
+    /// There is no switch any more, and no ⌘J. The panel is shown whenever an
+    /// agent is in front of the selected tab, which is the only condition
+    /// left — a list of outstanding work you can turn off is a list you turn
+    /// off and then do not have when it matters.
+    @Test("Tasks poll from the moment the model starts, with nothing to turn on")
+    func taskPollingIsUnconditional() {
         let model = OcarinaModel()
-        // Open is the resting state: the panel is part of the window, and a
-        // list you have to go and find is a list nobody reads.
-        #expect(model.isTaskPanelVisible)
-
-        model.setTaskPanel(visible: false)
-        #expect(!model.isTaskPanelVisible)
-
-        model.setTaskPanel(visible: true)
-        #expect(model.isTaskPanelVisible)
-        model.setTaskPanel(visible: false)
+        model.startWatchingTasks()
+        // Nothing to assert about a switch: what matters is that asking for
+        // the list never depends on one.
+        #expect(model.tasks.isEmpty)
     }
 
     @Test("Nothing shells out for names until the terminal is used")

@@ -187,17 +187,18 @@ public struct OcarinaWindowView: View {
             // and sit there saying "No tasks yet" at somebody who had not yet
             // started an agent and had no way to know that was the point.
             //
-            // The switch closes the column, not one card in it. The token
-            // reading used to stay behind when the task list went — a single
-            // card floating in a lane of its own, still taking the width off
-            // the terminal, with no way to shut it that was not the ⌘J that
-            // had visibly just failed to. ⌘J says "give me the room back",
-            // and half the room back is the wrong answer to that.
+            // An agent in front of a tab is the whole condition. There was a
+            // switch and a shortcut as well, and they are gone: the column is what
+            // the app is for. A terminal tells you what is running; this is the
+            // part that tells you what you asked for and what is still
+            // outstanding, and a list of outstanding work that you can turn off
+            // is a list you will turn off and then not have when it matters.
             //
-            // The figure is not lost: it is in the menu bar's menu, one click
-            // from anywhere, which is where a number you glance at on your way
-            // past belongs when the panel it lived on is closed.
-            if !model.tabs.isEmpty, model.isAgentSelected, model.isTaskPanelVisible {
+            // The room it takes is the argument for a switch, and it is
+            // answered by the column only being there with an agent in the
+            // tab: a plain shell has nothing to list and gives the width back
+            // on its own.
+            if !model.tabs.isEmpty, model.isAgentSelected {
                 VStack(spacing: Self.panelGap) {
                     TaskPanelView(tasks: model.tasks) { model.clearTasks() }
                         .frame(maxHeight: .infinity)

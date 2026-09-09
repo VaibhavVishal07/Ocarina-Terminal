@@ -153,8 +153,9 @@ to be present. Never depend on them.
 
 ### Layout
 
-Collapsible right pane, ⌘J, per tab, remembering its width. Empty state says
-what it is waiting for rather than sitting blank.
+Right pane, per tab. Not collapsible: it is there whenever an agent is in front
+of the tab, and away when one is not. Empty state says what it is waiting for
+rather than sitting blank.
 
 ---
 

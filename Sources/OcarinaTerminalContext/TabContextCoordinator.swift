@@ -49,7 +49,8 @@ public actor TabContextCoordinator {
         var context = contexts[session.tabID] ?? TabContext(
             tabID: session.tabID,
             fallbackTitle: session.projectName ?? session.shellName ?? "Terminal",
-            workingDirectory: session.workingDirectory
+            workingDirectory: session.workingDirectory,
+            projectRoot: session.projectRoot
         )
 
         var best: ContextObservation?
@@ -80,6 +81,19 @@ public actor TabContextCoordinator {
         context.processName = displayName(for: session)
         context.workingDirectory = session.workingDirectory ?? context.workingDirectory
         context.projectName = session.projectName ?? context.projectName
+        // Straight from the snapshot and never merged from an observation: a
+        // provider names what a tab is *doing*, and moving between projects is
+        // a fact about the pty that no provider is a better witness to.
+        //
+        // Nil is load-bearing here in a way it is not on the lines above: a
+        // `cd` out of a checkout and into the home directory must take the
+        // project name off the tab rather than leave the last one on it. Which
+        // is why it is gated on the directory — a snapshot that could not read
+        // the pty at all reports nil for both, and *that* nil means "no
+        // reading", not "no project".
+        if session.workingDirectory != nil {
+            context.projectRoot = session.projectRoot
+        }
         if let fallback = session.projectName ?? session.shellName {
             context.fallbackTitle = TitleFormatter.humanize(fallback) ?? fallback
         }

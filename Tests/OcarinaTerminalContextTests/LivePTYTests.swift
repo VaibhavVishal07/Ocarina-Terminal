@@ -29,6 +29,47 @@ struct LivePTYTests {
         return nil
     }
 
+    /// The whole naming chain against a real process: the pty is standing
+    /// three directories inside a checkout, and what the tab must say is the
+    /// checkout. It read the folder it was standing in before, so a terminal in
+    /// `Sources/OcarinaUI` was a tab called "Ocarina UI" — the codebase, the one
+    /// thing you always know about a terminal, was the one thing it never said.
+    @Test("A pty inside a repository reports the repository as its project")
+    func projectOfLiveProcess() async throws {
+        let repository = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-repo-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: repository.appendingPathComponent(".git", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: repository) }
+
+        let inside = repository.appendingPathComponent("Sources/OcarinaUI", isDirectory: true)
+        try FileManager.default.createDirectory(at: inside, withIntermediateDirectories: true)
+        let script = inside.appendingPathComponent("generate_report.py")
+        try "import time\ntime.sleep(30)\n".write(to: script, atomically: true, encoding: .utf8)
+
+        let pty = try makePTY(command: "cd \(inside.path) && exec python3 generate_report.py")
+        defer { pty.terminate() }
+        let monitor = TerminalSessionMonitor(ptyDescriptor: pty.primaryDescriptor, shellName: "zsh")
+
+        let snapshot = try #require(
+            await waitForForegroundProcess(monitor: monitor, named: "generate_report"),
+            "the child never became the foreground process"
+        )
+
+        #expect(
+            snapshot.projectRoot?.resolvingSymlinksInPath()
+                == repository.resolvingSymlinksInPath()
+        )
+        #expect(snapshot.projectName == repository.lastPathComponent)
+
+        // And it reaches the tab, which is the part the user sees.
+        let coordinator = TabContextCoordinator.standard()
+        let context = await coordinator.refresh(snapshot)
+        #expect(context.projectTitle == TitleFormatter.humanize(repository.lastPathComponent))
+    }
+
     @Test("A snapshot reports the real foreground process, argv and cwd")
     func snapshotOfLiveProcess() async throws {
         let directory = FileManager.default.temporaryDirectory

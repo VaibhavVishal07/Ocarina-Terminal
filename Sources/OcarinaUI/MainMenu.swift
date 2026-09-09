@@ -75,8 +75,7 @@ public final class MainMenuController: NSObject {
         // its own. Terminal.app and Safari keep tab navigation under Window —
         // but they also keep Minimize and Zoom there, and a Window menu
         // holding nothing but "Next Session" is more surprising than no Window
-        // menu at all. This is beside ⌘J, which is the other thing in the app
-        // that changes what you are looking at.
+        // menu at all.
         menu.addItem(submenu(named: "View", items: [
             item("Command Palette…", #selector(toggleCommandPalette), "p",
                  modifiers: [.command, .shift]),
@@ -94,8 +93,6 @@ public final class MainMenuController: NSObject {
             // key equivalents work the same either way, and this is a list
             // nobody opens — it is here so ⌘4 has somewhere to be registered.
             goToSubmenu(),
-            .separator(),
-            item("Tasks", #selector(toggleTaskPanel), "j"),
             .separator(),
             item("Clear Terminal", #selector(clearTerminal), "k"),
             .separator(),
@@ -171,10 +168,6 @@ public final class MainMenuController: NSObject {
 
     @objc private func toggleQuickActions() { model.isQuickActionsVisible.toggle() }
 
-
-    @objc private func toggleTaskPanel() {
-        model.setTaskPanel(visible: !model.isTaskPanelVisible)
-    }
 
     @objc private func nextSession() { model.selectNextTab() }
 

@@ -84,6 +84,29 @@ appeared beside it. A name you type yourself beats both, and a shell somewhere
 that is not a project keeps the old generated title, which is the case that rule
 was always right for.
 
+**"The project" means the codebase, not the folder you happen to be standing
+in.** A terminal in `Ocarina-Terminal/Sources/OcarinaUI` is a tab called
+*Ocarina Terminal*. The walk goes up from the working directory to the nearest
+ancestor under version control — nearest, so a repository checked out inside
+another is its own project — and failing that to the nearest one holding a build
+manifest: `Package.swift`, `package.json`, `Cargo.toml`, `go.mod`, an
+`.xcodeproj`, and the rest. Failing both, the folder itself, which is the right
+answer for a directory of scratch files. The walk stops at your home directory:
+home and the root of the disk are places rather than projects, and a tab in one
+has no project name to take.
+
+**Where the tab is comes from the kernel, not from the shell.** The naming poll
+reads the foreground process's own working directory, which means it is right
+for bash and fish as well as zsh, for a tab you are not looking at, and for a
+`cd` that happened inside an agent. It used to come from OSC 7 and only for the
+selected tab — three conditions on the name in the column, and a tab that failed
+any of them fell back to naming itself after whatever was running.
+
+The same reading is what finds a tab's transcript. A tab opened at home and then
+`cd`-ed into a repository used to look for its agent's work in the home folder,
+find none, and show an empty task panel for a conversation happening in front of
+you.
+
 **A new tab opens where the last one was**, which is what makes this work when
 you press ⌘T. It used to open in your home directory — what a shell does with no
 instruction, and the wrong thing twice: every other terminal on the machine
@@ -125,6 +148,31 @@ again. All three are read. What is not read is anything the app said on your
 behalf: injected prompts, follow-ups you accepted from a suggestion, background
 work reporting back through the same queue, and a subagent talking to itself.
 
+**One message is one row per thing you asked for, not one row per message.**
+"Fix the naming, then add tests, and update the docs" is three jobs sent as one
+sentence, and a panel that exists to say what is outstanding has to say three.
+
+The cut is only ever made where you made it yourself, in two shapes: a list you
+wrote as a list — `1.`, `2)`, `-`, `*`, `•`, with a wrapped item staying one
+item — and a sentence that opens by announcing another one, "Also…", "One more
+thing…", "Second…". Nothing else splits. An ordinary following sentence stays
+attached to the one before it, because splitting prose on "and" turns a single
+request into two half-requests and neither of them is true.
+
+The guards are the part that took the work, and two of them came from running
+this over real transcripts rather than from imagining what a prompt looks like.
+A pasted diff is line after line opening with `-`; a block of pasted CSS is line
+after line opening with `-webkit-`, which is why a bullet now needs the space
+after it. A long sentence ending in a colon is the request the whole message is
+about, not a lead-in to be dropped — dropping it left the panel listing four
+sub-points of a job it had thrown away. Fenced blocks are skipped entirely, and
+a list of more than a dozen items is data somebody pasted rather than a day's
+work.
+
+All the rows from one message open together and close on the same `end_turn`.
+The transcript records the turn ending, not which of your three things got done,
+and a row claiming otherwise would be inventing it.
+
 The list belongs to the tab, not to the folder. Two agents open on one project
 write two transcripts side by side, and each tab is bound to the one that
 appeared after its own agent started. A terminal with no agent in front of it is
@@ -150,11 +198,15 @@ Three rules follow from where that work happens.
   but open a terminal. The first keystroke cannot happen at launch, and it means
   the session is genuinely in use.
 
-The panel is on by default and turns off from a switch in the left column, with
-⌘J written beside it. It is a column, not a drawer: showing or hiding it resizes
-the terminal once. It was a sliding drawer for a while, and that animated the
-terminal's *width* — a `TIOCSWINSZ` and a SIGWINCH per frame, with the shell
-repainting its prompt through the whole slide.
+The panel has no switch. It had one, in the left column with ⌘J beside it, and
+both are gone: a list of outstanding work you can turn off is a list you turn
+off and then do not have on the day it matters. It is there whenever an agent is
+in front of the tab, which is the whole condition — a plain shell has nothing to
+list and gives the width back on its own.
+
+It is a column, not a drawer. It was a sliding drawer for a while, and that
+animated the terminal's *width* — a `TIOCSWINSZ` and a SIGWINCH per frame, with
+the shell repainting its prompt through the whole slide.
 
 Starting something new? The header carries an eraser when there is anything to
 erase. It records a line under the list for that project and hides what came
@@ -163,12 +215,11 @@ deleting somebody's prompts out of Claude's history to tidy a panel would be the
 worst kind of helpful. Ask for something new and it appears, being newer than
 the line.
 
-Closing the panel closes the column, not one card in it. The token reading used
-to stay behind when the task list went — a single card floating in a lane of its
-own, still taking the width off the terminal, with no way to shut it that was
-not the ⌘J that had visibly just failed to. ⌘J means "give me the room back",
-and half the room back is the wrong answer to that. The figure is not lost: it
-is in the menu bar's menu, one click from anywhere.
+The column arrives and leaves whole, not one card at a time: the task list and
+the token reading are both about the conversation in front of you, and a single
+card floating in a lane of its own — still taking the width off the terminal —
+was the wrong half to keep. The figure is also in the menu bar's menu, one click
+from anywhere.
 
 Panels stacked one above another share a gradient rather than each running
 their own. A column used to go bright, dim, bright, dim — the light restarted
@@ -515,9 +566,9 @@ Both are about a conversation, so a shell at a prompt has nothing to put in
 either; the column used to open on launch regardless and say "No tasks yet" to
 somebody who had not started an agent and had no way to know that was the point.
 
-They also leave together. ⌘J closes the column rather than one card in it — see
+They also leave together, when the tab has no agent in front of it — see
 [the task panel](#it-remembers-what-you-asked-the-agent) — and the figure is a
-click down in the menu bar's menu for as long as the column is shut.
+click down in the menu bar's menu for as long as the column is away.
 
 The meter is drawn as lamps on a departure board rather than as a bar, and the
 reason is not decoration. A solid bar reads as a proportion of something
@@ -1510,7 +1561,6 @@ was named for it. A session with no directory of its own starts at home.
 | ⇧⌘] / ⇧⌘[ | Next / previous session |
 | ⌘1 … ⌘9 | Go to the nth session |
 | ⇧⌘P | Command palette |
-| ⌘J | Show or hide the task panel |
 | ⌘K | Clear the terminal |
 | ⇧⌘K | Quick actions |
 | ⌘V | Paste, through the inspector |
@@ -1572,11 +1622,13 @@ Sources/OcarinaTerminalContext/
   TabNamingEngine.swift          the stability rules (dwell, margin, no demotion)
   TabContextCoordinator.swift    actor that runs the provider chain per tab
   TitleFormatter.swift           local text -> 2-4 word title. No model, no network.
+  ProjectLocator.swift           cwd -> the repository or package it is inside
   Providers/
     LLMSessionContextProvider    shared agent provider: Claude / Codex / Gemini / OpenCode
     ClaudeTranscriptSource       ~/.claude/projects/<slug>/*.jsonl
     CodexTranscriptSource        ~/.codex/sessions/**/rollout-*.jsonl
-    AgentTaskSource              the same transcripts, read as a to-do list
+    AgentTaskSource              the same transcripts, read as a to-do list;
+                                 one row per thing asked for, not per message
     GenericProcessContextProvider foreground argv -> title
   Session/
     ProcessInspector             tcgetpgrp + sysctl: what owns the pty right now
@@ -1608,7 +1660,7 @@ Sources/OcarinaUI/       SwiftUI layer
   OcarinaWindowView      the window: sidebar, terminal, task panel
   OcarinaModel           open tabs, selection, renames, title updates
   TerminalSession        one tab: pty + SwiftTerm view + naming monitor
-  TabSidebarView         tabs as tasks, with the theme and keep-awake footer
+  TabSidebarView         tabs as tasks, with the skills and theme doors at the foot
   TaskPanelView          what you have asked the agent in this tab
   TaskSummariser         better names for those tasks, via the `claude` binary
   StatusCardView         working, done or stopped, under the task list

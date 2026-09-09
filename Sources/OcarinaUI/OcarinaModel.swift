@@ -214,14 +214,6 @@ public final class OcarinaModel {
     /// again, because the next one is a new thing the user does not understand.
     public var isErrorBannerVisible = true
 
-    /// Whether the task panel is showing.
-    ///
-    /// A toggle again, but a plain one. What had to go was the notch and its
-    /// slide: as a drawer it animated the terminal's width, and every frame of
-    /// that was an `ioctl(TIOCSWINSZ)` and a SIGWINCH. Showing and hiding a
-    /// column resizes the terminal exactly once, which is what any window does.
-    public var isTaskPanelVisible = true
-
     /// Whether the summariser may shell out yet.
     ///
     /// `TaskSummariser` runs the `claude` binary, and a subprocess inherits the
@@ -278,7 +270,7 @@ public final class OcarinaModel {
     public var tasks: [AgentTask] {
         _ = clearedRevision
         let visible: [AgentTask]
-        if let directory = selectedSession?.workingDirectory,
+        if let directory = selectedSession?.currentDirectory,
            let mark = cleared.mark(for: directory) {
             visible = rawTasks.filter { $0.askedAt > mark }
         } else {
@@ -480,18 +472,16 @@ public final class OcarinaModel {
     /// only recorded when there is one — walking through a project in a plain
     /// shell is not evidence that you have stopped using Claude there.
     private func noteProject(foreground: String?) {
-        guard let directory = selectedSession?.reportedDirectory,
-              RecentProjects.isProject(directory)
-        else { return }
-        // The tab is named after this, so a `cd` into another repo renames it.
-        if let id = selectedTabID, let tab = tabs.first(where: { $0.id == id }) {
-            let named = TitleFormatter.humanize(directory.lastPathComponent)
-                ?? directory.lastPathComponent
-            if tab.project != named {
-                tab.project = named
-                renumberProjects()
-            }
-        }
+        // The recents list only. Naming the tab used to happen here too and no
+        // longer does: this runs for the selected tab and reads OSC 7, and a
+        // name that arrives only for zsh and only for the tab you are looking
+        // at is not a name. `apply(_:)` does it for every tab, off the kernel.
+        guard let reported = selectedSession?.reportedDirectory else { return }
+        // The repository, not whichever folder inside it you happen to be in —
+        // so the landing screen offers you `Ocarina Terminal` once rather than
+        // a row for every directory you have walked through today.
+        let directory = ProjectLocator.root(of: reported) ?? reported
+        guard RecentProjects.isProject(directory) else { return }
         let agent = AgentTaskSource.isAgent(foreground) || AgentCatalog.all.contains {
             $0.executable == foreground?.lowercased()
         } ? foreground?.lowercased() : nil
@@ -505,6 +495,17 @@ public final class OcarinaModel {
     /// so a tab's name never changes because *another* tab appeared beside it,
     /// only because one before it went away.
     private func renumberProjects() { Self.renumber(tabs) }
+
+    /// Moves a tab to a project, renumbering only when something changed.
+    ///
+    /// Nil clears it, which is the `cd ~` case: the home directory is not a
+    /// project and a tab sitting in it must not keep wearing the name of the
+    /// repository it left.
+    private func applyProject(_ project: String?, to tab: TabItem) {
+        guard tab.project != project else { return }
+        tab.project = project
+        renumberProjects()
+    }
 
     /// The numbering itself, over a plain array, so it can be tested without a
     /// pty or a process tree.
@@ -528,19 +529,11 @@ public final class OcarinaModel {
     public let taskSummariser = TaskSummariser()
     @ObservationIgnored private var taskRefresh: Task<Void, Never>?
 
-    /// Re-reads the transcript on a timer while the panel is open.
+    /// Re-reads the transcript on a timer.
     ///
     /// Polling rather than watching: the file is appended to constantly by a
     /// process we do not own, and a two-second read of one file costs less than
     /// keeping a file descriptor and a coalescing timer correct.
-    public func setTaskPanel(visible: Bool) {
-        guard visible != isTaskPanelVisible else { return }
-        isTaskPanelVisible = visible
-        startWatchingTasks()
-    }
-
-    /// Polls while the panel is up, and not at all while it is not: the list is
-    /// read for the panel and nothing else looks at it.
     public func startWatchingTasks() {
         taskRefresh?.cancel()
         taskRefresh = nil
@@ -598,7 +591,7 @@ public final class OcarinaModel {
         guard let session = session(for: tab.id) else { return }
 
         let id = tab.id
-        let directory = session.workingDirectory
+        let directory = session.currentDirectory
         let monitor = session.monitor
         let source = taskSource
 
@@ -648,7 +641,11 @@ public final class OcarinaModel {
                 return ProjectHistory.Reading(
                     tabID: tab.id,
                     tabTitle: tab.title,
-                    directory: session.workingDirectory,
+                    // The project, not the folder inside it: two tabs open on
+                    // one repository — one in `Sources`, one in `Tests` — are
+                    // one thing you are working on, and the heading has to be
+                    // the thing rather than the two directories.
+                    directory: self.project(of: session),
                     // The selected tab reads live, so a title the summariser
                     // has just improved is on screen in both scopes at once —
                     // `tasksByTab` holds what the poll last stored, which is
@@ -656,8 +653,14 @@ public final class OcarinaModel {
                     tasks: tab.id == selectedTabID ? tasks : (tasksByTab[tab.id] ?? [])
                 )
             },
-            current: selectedSession?.workingDirectory
+            current: selectedSession.map(project(of:))
         )
+    }
+
+    /// The folder a tab's history is filed under.
+    private func project(of session: TerminalSession) -> URL {
+        let directory = session.currentDirectory
+        return ProjectLocator.root(of: directory) ?? directory
     }
 
     /// Takes you to the tab an ask was made in.
@@ -707,7 +710,7 @@ public final class OcarinaModel {
             return
         }
 
-        let directory = session.workingDirectory
+        let directory = session.currentDirectory
         let monitor = session.monitor
         let source = taskSource
         // Which tab asked. Every step below can suspend, and a tab switch in
@@ -794,7 +797,7 @@ public final class OcarinaModel {
     /// somebody's prompts out of Claude's history to tidy a panel would be the
     /// worst kind of helpful.
     public func clearTasks() {
-        guard let directory = selectedSession?.workingDirectory else { return }
+        guard let directory = selectedSession?.currentDirectory else { return }
         // The newest task's own timestamp, not `now`: a prompt sent while the
         // panel was open but not yet polled would otherwise survive the clear
         // and reappear two seconds later.
@@ -1062,13 +1065,11 @@ public final class OcarinaModel {
     /// brought in to replace. Every tab opened with ⌘T looked like the change
     /// had not landed.
     ///
-    /// `reportedDirectory` before `workingDirectory`: the first is where the
-    /// shell says it is *now*, which is where you have `cd`-ed to, and the
-    /// second is only where it started.
+    /// `currentDirectory` rather than `workingDirectory`: the first is where
+    /// the tab is *now*, which is where you have `cd`-ed to, and the second is
+    /// only where it started.
     public func newTab(workingDirectory: URL? = nil) -> TabItem {
-        let inherited = workingDirectory
-            ?? selectedSession?.reportedDirectory
-            ?? selectedSession?.workingDirectory
+        let inherited = workingDirectory ?? selectedSession?.currentDirectory
         let session = TerminalSession(workingDirectory: inherited)
         session.onInput = { [weak self] in self?.noteUserInput() }
         session.onDragStateChange = { [weak self] isOver in self?.isDropTarget = isOver }
@@ -1083,10 +1084,12 @@ public final class OcarinaModel {
         let fallback = TitleFormatter.humanize(directory.lastPathComponent)
             ?? directory.lastPathComponent
         let tab = TabItem(id: session.id, title: fallback)
-        // Named before anything has happened in it. The shell will report the
-        // directory again on its first prompt and `noteProject` will confirm
-        // it, but the column must never show a blank row waiting for that.
-        if RecentProjects.isProject(directory) { tab.project = fallback }
+        // Named before anything has happened in it. The naming poll will say
+        // the same thing two seconds later, but the column must never show a
+        // row waiting for that — and it is the project the tab opens *into*,
+        // so a terminal opened at `~/Ocarina-Terminal/Sources` says the
+        // repository from its first frame rather than saying `Sources`.
+        tab.project = ProjectLocator.projectName(for: directory)
         tabs.append(tab)
         renumberProjects()
         selectedTabID = tab.id
@@ -1312,6 +1315,22 @@ public final class OcarinaModel {
 
     private func apply(_ context: TabContext) {
         guard let tab = tabs.first(where: { $0.id == context.tabID }) else { return }
+        // The tab's name, and the one thing here that is read from the kernel
+        // rather than from the shell.
+        //
+        // It used to come off `noteProject`, which is fed by OSC 7 and runs on
+        // the selected tab only — so a tab was named for its project when the
+        // shell was zsh, when it had sourced our snippet, and when you were
+        // looking at that tab. Three conditions on the name in the column. The
+        // naming poll already asks every pty where it is, every two seconds, by
+        // asking the kernel; this is that answer arriving.
+        applyProject(context.projectTitle, to: tab)
+        // And the folder itself, which is how everything else finds this tab's
+        // work — the transcript, the history, the cleared line. See
+        // `TerminalSession.currentDirectory`.
+        if let directory = context.workingDirectory {
+            sessions[context.tabID]?.observedDirectory = directory
+        }
         tab.generatedTitle = context.displayTitle
         tab.activeTask = context.activeTask
         tab.isConversation = context.contextSource == .llmSession

@@ -120,6 +120,42 @@ struct NewTabPlacementTests {
         #expect(first.title != second.title)
     }
 
+    /// The other half of the same complaint: a terminal opened *inside* a
+    /// repository was named for whichever folder it landed in, so `Sources`
+    /// and `Tests` were two tabs that said nothing about the codebase they
+    /// were both in.
+    @Test("A tab opened inside a repository is named for the repository")
+    func namedForTheRepository() throws {
+        let repository = try projectDirectory()
+        defer { try? FileManager.default.removeItem(at: repository) }
+        try FileManager.default.createDirectory(
+            at: repository.appendingPathComponent(".git", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let inside = repository.appendingPathComponent("Sources/OcarinaUI", isDirectory: true)
+        try FileManager.default.createDirectory(at: inside, withIntermediateDirectories: true)
+
+        let model = OcarinaModel()
+        let tab = model.newTab(workingDirectory: inside)
+        defer { model.closeTab(tab.id) }
+
+        let expected = TitleFormatter.humanize(repository.lastPathComponent)
+        #expect(tab.project == expected)
+        #expect(tab.title == expected)
+    }
+
+    /// Home is a place, not a project. A tab there has no project name to take
+    /// and falls back to what it is running — the behaviour project naming was
+    /// brought in to replace, kept for the one case it is still right for.
+    @Test("A tab in the home directory has no project")
+    func homeIsNotAProject() throws {
+        let model = OcarinaModel()
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let tab = model.newTab(workingDirectory: home)
+        defer { model.closeTab(tab.id) }
+        #expect(tab.project == nil)
+    }
+
     @Test("An explicit directory still wins")
     func explicitDirectoryWins() throws {
         let a = try projectDirectory(), b = try projectDirectory()
@@ -132,5 +168,46 @@ struct NewTabPlacementTests {
         defer { model.closeTab(second.id) }
 
         #expect(model.session(for: second.id)?.workingDirectory == b)
+    }
+}
+
+/// Where a tab's work is looked for.
+///
+/// Agents write their transcripts per project directory, so the folder a tab
+/// reports is what finds its conversation. Reading the *launch* directory meant
+/// a tab opened at home and then `cd`-ed into a repository looked for its
+/// agent's work in the home folder and found none — an empty task panel for a
+/// conversation happening in front of you.
+@MainActor
+@Suite("A tab's current folder")
+struct CurrentDirectoryTests {
+
+    private func directory(_ name: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocarina-cwd-\(name)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    @Test("Before anything is observed, the launch directory stands")
+    func fallsBackToLaunchDirectory() throws {
+        let launched = try directory("launched")
+        defer { try? FileManager.default.removeItem(at: launched) }
+        let session = TerminalSession(workingDirectory: launched)
+        defer { session.close() }
+        #expect(session.currentDirectory == launched)
+    }
+
+    @Test("What the kernel reports wins over where the pty started")
+    func observedWins() throws {
+        let launched = try directory("launched"), moved = try directory("moved")
+        defer {
+            try? FileManager.default.removeItem(at: launched)
+            try? FileManager.default.removeItem(at: moved)
+        }
+        let session = TerminalSession(workingDirectory: launched)
+        defer { session.close() }
+        session.observedDirectory = moved
+        #expect(session.currentDirectory == moved)
     }
 }

@@ -82,11 +82,19 @@ public actor TabNamingService {
     /// with, the subtitle is nil whatever the process is, and a change from
     /// one process to another under that condition published nothing. Naming
     /// the field is cheaper than reasoning about when its proxy holds.
+    ///
+    /// `projectTitle` for the same reason, one step further on: the tab's name
+    /// is the project, so a poll that finds a different project is the most
+    /// important thing this stream can carry. It rode along on the subtitle
+    /// too, and would have gone on doing so — but only while the subtitle is
+    /// built from the working directory, which is a fact about a different
+    /// feature that nothing was holding still.
     private struct Published: Equatable {
         let title: String
         let subtitle: String?
         let activity: TabActivity
         let processName: String?
+        let projectTitle: String?
     }
 
     private func publish(_ context: TabContext) {
@@ -94,7 +102,8 @@ public actor TabNamingService {
             title: context.displayTitle,
             subtitle: context.subtitle,
             activity: context.activity,
-            processName: context.processName
+            processName: context.processName,
+            projectTitle: context.projectTitle
         )
         guard published[context.tabID] != latest else { return }
         published[context.tabID] = latest

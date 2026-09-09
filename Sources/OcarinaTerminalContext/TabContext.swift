@@ -15,6 +15,11 @@ public struct TabContext: Sendable, Equatable {
     public var activeTask: String?
     public var projectName: String?
     public var workingDirectory: URL?
+    /// The project's own folder, when the tab is inside one. Nil is the answer
+    /// to "is this tab in a project at all" — a shell in a home directory has a
+    /// working directory and no project — so the tab strip reads this rather
+    /// than second-guessing `projectName`.
+    public var projectRoot: URL?
 
     /// Busy or idle, and how the last command ended. Set from the snapshot,
     /// never through `TabNamingEngine` — activity and identity move apart.
@@ -37,6 +42,7 @@ public struct TabContext: Sendable, Equatable {
         activeTask: String? = nil,
         projectName: String? = nil,
         workingDirectory: URL? = nil,
+        projectRoot: URL? = nil,
         contextSource: ContextSource = .shell,
         contextConfidence: Double = 0,
         lastContextUpdate: Date = .distantPast,
@@ -50,6 +56,7 @@ public struct TabContext: Sendable, Equatable {
         self.activeTask = activeTask
         self.projectName = projectName
         self.workingDirectory = workingDirectory
+        self.projectRoot = projectRoot
         self.contextSource = contextSource
         self.contextConfidence = contextConfidence
         self.lastContextUpdate = lastContextUpdate
@@ -59,6 +66,13 @@ public struct TabContext: Sendable, Equatable {
     /// What the tab strip renders.
     public var displayTitle: String {
         manualTitle ?? generatedTitle ?? fallbackTitle
+    }
+
+    /// What the tab strip calls the project, or nil when this tab is not in
+    /// one. Humanized here so every caller shows the same words.
+    public var projectTitle: String? {
+        guard projectRoot != nil, let projectName else { return nil }
+        return TitleFormatter.humanize(projectName) ?? projectName
     }
 
     /// Secondary line for hover and the command palette, e.g.

@@ -101,6 +101,33 @@ re-enables it.
 
 ---
 
+## What "the project" means
+
+A tab is named after the project it is working in, so the word has to mean the
+codebase and not the folder the shell happens to be standing in. `ProjectLocator`
+walks up from the working directory and takes:
+
+1. the nearest ancestor under version control (`.git`, `.hg`, `.svn`, `.jj`,
+   `.bzr`) — nearest, so a repository checked out inside another is its own
+   project;
+2. failing that, the nearest ancestor holding a build manifest (`Package.swift`,
+   `package.json`, `Cargo.toml`, `go.mod`, `*.xcodeproj`, …);
+3. failing both, the directory itself.
+
+The walk stops at the home directory. Home and the root of the disk are places
+rather than projects: a tab in one has no project name, and falls back to what
+it is running.
+
+**The working directory is read from the kernel**, via the foreground process's
+`PROC_PIDVNODEPATHINFO`, on the naming poll that is already running. Not from
+OSC 7 — that needs zsh, needs Ocarina's own snippet to have been sourced, and
+only ever describes the shell. The kernel answers for every tab, every shell,
+and for a `cd` that happened inside an agent. The same reading is what finds a
+tab's transcript, so the task panel follows a tab into a repository instead of
+looking where the tab was launched.
+
+---
+
 ## Dynamic updates and stability
 
 The title is allowed to evolve as the session's work changes:

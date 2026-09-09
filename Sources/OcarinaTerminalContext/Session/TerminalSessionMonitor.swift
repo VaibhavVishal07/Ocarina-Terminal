@@ -17,6 +17,11 @@ public actor TerminalSessionMonitor {
     private var lastExitCode: Int?
     private var lastOutputAt: Date?
     private var hasProducedOutput = false
+    /// The last directory a project root was looked up for, and what came
+    /// back. The walk is a handful of `stat`s, but it is a handful per tab
+    /// every two seconds and a terminal changes directory rarely — so it is
+    /// done on the `cd` rather than on the poll.
+    private var projectRootCache: (directory: URL, root: URL?)?
 
     /// How long after the last byte a program still counts as working.
     ///
@@ -106,6 +111,15 @@ public actor TerminalSessionMonitor {
         return lastExitCode == 0 ? .succeeded : .failed(exitCode: lastExitCode)
     }
 
+    /// The project a directory belongs to, remembered until it changes.
+    private func projectRoot(of directory: URL?) -> URL? {
+        guard let directory else { return nil }
+        if let cached = projectRootCache, cached.directory == directory { return cached.root }
+        let root = ProjectLocator.root(of: directory)
+        projectRootCache = (directory, root)
+        return root
+    }
+
     /// Current reading of the terminal.
     public func snapshot() -> TerminalSessionSnapshot {
         guard let group = ProcessInspector.foregroundProcessGroup(ofPTY: descriptor),
@@ -126,13 +140,21 @@ public actor TerminalSessionMonitor {
             arguments: arguments
         )
 
+        // Read from the kernel, not from the shell. OSC 7 says where a *zsh*
+        // that ran our snippet is; this says where anything is — bash, fish, a
+        // shell somebody configured themselves, and every tab rather than only
+        // the one on screen. Project naming rides on this so that it works in
+        // all four cases.
+        let directory = ProcessInspector.workingDirectory(of: pid)
+
         return TerminalSessionSnapshot(
             tabID: tabID,
             shellName: shellName,
             foregroundProcessName: name,
             foregroundCommandLine: arguments,
             foregroundProcessStartTime: ProcessInspector.startTime(of: pid),
-            workingDirectory: ProcessInspector.workingDirectory(of: pid),
+            workingDirectory: directory,
+            projectRoot: projectRoot(of: directory),
             escapeSequenceTitle: escapeSequenceTitle,
             activity: activity(foregroundProcessName: name)
         )

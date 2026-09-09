@@ -136,18 +136,28 @@ public struct AgentTaskSource: Sendable {
         var tasks: [AgentTask] = []
         var openIndices: [Int] = []
 
-        /// A prompt, and the task it opens.
+        /// A prompt, and the task or tasks it opens.
+        ///
+        /// One row per thing asked for, not per message sent: see
+        /// `AgentTaskSource.asks(in:)`. All of them open together and all of
+        /// them close on the same `end_turn`, because the turn is what the
+        /// transcript records ending — the agent does not say which of the
+        /// three things in your message it has finished, and a row claiming
+        /// otherwise would be inventing it.
         func ask(_ prompt: String, id: String, at askedAt: Date?) {
-            tasks.append(
-                AgentTask(
-                    id: id,
-                    title: Self.title(from: prompt),
-                    prompt: prompt,
-                    askedAt: askedAt ?? Date(),
-                    state: .working
+            let asks = Self.asks(in: prompt)
+            for (index, ask) in asks.enumerated() {
+                tasks.append(
+                    AgentTask(
+                        id: asks.count == 1 ? id : "\(id)#\(index)",
+                        title: Self.title(from: ask),
+                        prompt: ask,
+                        askedAt: askedAt ?? Date(),
+                        state: .working
+                    )
                 )
-            )
-            openIndices.append(tasks.count - 1)
+                openIndices.append(tasks.count - 1)
+            }
         }
 
         // Only a few kinds of line matter, and a transcript is mostly none of
@@ -315,6 +325,187 @@ public struct AgentTaskSource: Sendable {
         // Sentence case: the first word was mid-sentence once the filler went.
         guard let first = title.first else { return flat }
         return first.uppercased() + title.dropFirst()
+    }
+
+
+    // MARK: - One prompt, several asks
+
+    /// The separate things asked for in one prompt.
+    ///
+    /// A prompt is one message and it is very often not one job: "fix the
+    /// naming, then add tests for it, and update the docs" is three rows'
+    /// worth of work listed as one, and the panel exists to say what is
+    /// outstanding. So the prompt is cut where the user cut it themselves.
+    ///
+    /// Only where they cut it themselves, though. Two signals are read, both
+    /// deliberate: a list they wrote as a list, and a sentence that opens by
+    /// announcing another item — "Also…", "Second…", "One more thing…". No
+    /// attempt is made to find tasks inside a sentence. A prompt that is one
+    /// paragraph of prose is one ask, because splitting prose on "and" turns a
+    /// single request into two half-requests and neither of them is true.
+    ///
+    /// Returns the whole prompt as a single ask whenever it cannot do better,
+    /// which is the common case and the safe one.
+    static func asks(in prompt: String) -> [String] {
+        // Fences first: a pasted diff is full of lines that open with `-`, and
+        // a pasted shell session is full of lines that open with a number.
+        // Neither is a to-do list, and both are inside a fence when it matters.
+        let body = withoutFencedBlocks(prompt)
+        if let listed = listItems(in: body), listed.count > 1 { return listed }
+        if let announced = announcedItems(in: body), announced.count > 1 { return announced }
+        return [prompt.trimmed]
+    }
+
+    /// More than this and it is data that was pasted, not a list that was
+    /// written. Nobody hands a terminal twenty jobs in one message.
+    static let maximumAsks = 12
+
+    static func withoutFencedBlocks(_ prompt: String) -> String {
+        guard prompt.contains("```") else { return prompt }
+        var kept: [Substring] = []
+        var inside = false
+        for line in prompt.split(separator: "\n", omittingEmptySubsequences: false) {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                inside.toggle()
+                continue
+            }
+            if !inside { kept.append(line) }
+        }
+        return kept.joined(separator: "\n")
+    }
+
+    /// A list the user wrote as a list: `1.`, `2)`, `-`, `*`, `•`.
+    ///
+    /// Unmarked lines belong to the item above them, so an item that runs onto
+    /// a second line stays one item. Text before the first marker is the
+    /// preamble: dropped when it is a lead-in — "do the following:" — and kept
+    /// as an ask of its own when it is a sentence that asked for something.
+    static func listItems(in body: String) -> [String]? {
+        let lines = body.split(separator: "\n", omittingEmptySubsequences: false)
+        // A bullet is only a bullet in a prompt that is not carrying a diff.
+        // `--- a/file` and `- let x = 1` both open the way a bullet does.
+        let bulletsAreSafe = !lines.contains { line in
+            let text = line.trimmingCharacters(in: .whitespaces)
+            return text.hasPrefix("+++") || text.hasPrefix("---") || text.hasPrefix("@@")
+        }
+
+        var preamble: [String] = []
+        var items: [[String]] = []
+        for line in lines {
+            if let content = itemContent(of: line, allowingBullets: bulletsAreSafe) {
+                items.append([content])
+            } else if items.isEmpty {
+                preamble.append(String(line))
+            } else {
+                let continuation = line.trimmingCharacters(in: .whitespaces)
+                if !continuation.isEmpty { items[items.count - 1].append(continuation) }
+            }
+        }
+
+        guard items.count > 1, items.count <= maximumAsks else { return nil }
+        var asks = items.map { $0.joined(separator: " ").trimmed }
+        // An item nobody could act on is a bullet in a paragraph, not a task.
+        guard asks.allSatisfy({ $0.split(separator: " ").count >= 2 }) else { return nil }
+
+        let lead = preamble.joined(separator: " ").trimmed
+        if isAnAsk(lead) { asks.insert(lead, at: 0) }
+        return asks
+    }
+
+    /// The text of a list item, or nil for a line that is not one.
+    static func itemContent(of line: Substring, allowingBullets: Bool) -> String? {
+        let text = line.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+
+        if allowingBullets, let first = text.first, "-*\u{2022}".contains(first) {
+            // The space is not decoration, it is the whole test. Without it
+            // `-webkit-mask: …` is a bullet, and a prompt with a block of
+            // pasted CSS in it becomes a to-do list of CSS properties.
+            let rest = text.dropFirst()
+            guard let next = rest.first, next == " " || next == "\t" else { return nil }
+            let content = String(rest).trimmed
+            return content.isEmpty ? nil : content
+        }
+
+        // `1.` or `1)`, up to two digits — a longer run is a number, a year or
+        // a line from a paste.
+        let digits = text.prefix(while: \.isNumber)
+        guard !digits.isEmpty, digits.count <= 2 else { return nil }
+        let afterDigits = text.dropFirst(digits.count)
+        guard let separator = afterDigits.first, separator == "." || separator == ")" else { return nil }
+        let rest = String(afterDigits.dropFirst()).trimmed
+        return rest.isEmpty ? nil : rest
+    }
+
+    /// A lead-in is not a task: "do the following:", "two things", "hey".
+    ///
+    /// The colon alone does not settle it. "Here is what I need:" is a lead-in;
+    /// "Build me a landing page. It should answer these questions:" is the
+    /// request the whole message is about, and dropping it because of its last
+    /// character left the panel listing four sub-points of a job it had thrown
+    /// away. So a colon disqualifies only a short one.
+    static func isAnAsk(_ lead: String) -> Bool {
+        let words = lead.split(separator: " ").count
+        guard words >= 4 else { return false }
+        return !lead.hasSuffix(":") || words >= 10
+    }
+
+    /// Sentences that open by announcing another item.
+    ///
+    /// "Also", "Second", "One more thing" — words whose whole job is to say
+    /// that what follows is a separate request. Anything else keeps the
+    /// sentence attached to the one before it.
+    static func announcedItems(in body: String) -> [String]? {
+        let sentences = self.sentences(in: body)
+        guard sentences.count > 1 else { return nil }
+
+        var asks: [String] = []
+        for sentence in sentences {
+            if asks.isEmpty || announcesAnItem(sentence) {
+                asks.append(sentence)
+            } else {
+                asks[asks.count - 1] += " " + sentence
+            }
+        }
+        guard asks.count > 1, asks.count <= maximumAsks else { return nil }
+        // A three-word afterthought — "Also, thanks." — is not a job.
+        guard asks.allSatisfy({ $0.split(separator: " ").count >= 3 }) else { return nil }
+        return asks
+    }
+
+    /// Splits on `.`, `?` and `!`, keeping the mark with its sentence.
+    static func sentences(in body: String) -> [String] {
+        var sentences: [String] = []
+        var current = ""
+        for character in body.replacingOccurrences(of: "\n", with: " ") {
+            current.append(character)
+            if ".?!".contains(character) {
+                let done = current.trimmed
+                if !done.isEmpty { sentences.append(done) }
+                current = ""
+            }
+        }
+        let last = current.trimmed
+        if !last.isEmpty { sentences.append(last) }
+        return sentences
+    }
+
+    /// Openers that exist to say "and another thing".
+    static let announcements: [String] = [
+        "also", "additionally", "and also", "plus", "next", "then also",
+        "finally", "lastly", "second", "secondly", "third", "thirdly",
+        "one more thing", "another thing", "one more", "after that",
+        "as well as that", "separately", "on top of that"
+    ]
+
+    static func announcesAnItem(_ sentence: String) -> Bool {
+        let lowered = sentence.lowercased()
+        return announcements.contains { opener in
+            guard lowered.hasPrefix(opener) else { return false }
+            // "Also fix…" and "Also, fix…" announce; "Alsatian" does not.
+            let next = lowered.dropFirst(opener.count).first
+            return next == nil || next == " " || next == "," || next == ":"
+        }
     }
 
     /// Words that carry no information in a four-word summary. Negations are

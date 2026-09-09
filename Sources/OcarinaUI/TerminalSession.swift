@@ -14,10 +14,12 @@ import SwiftTerm
 public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelegate {
     public let id: UUID
     public let terminalView: DroppableTerminalView
-    /// Where this tab's shell started. The task panel needs it to find the
-    /// right transcript — agents write per project directory, so reading the
-    /// home folder's would show another tab's work.
+    /// Where this tab's shell started. Only ever the starting point — what
+    /// the rest of the app wants is `currentDirectory`.
     public let workingDirectory: URL
+    /// Where the pty actually is, as the kernel reports it, written by the
+    /// naming poll. See `currentDirectory`.
+    public var observedDirectory: URL?
     public private(set) var monitor: TerminalSessionMonitor?
 
     private var pty: PTYProcess?
@@ -129,6 +131,23 @@ public final class TerminalSession: NSObject, @preconcurrency TerminalViewDelega
               url.isFileURL
         else { return nil }
         return url.standardizedFileURL
+    }
+
+    /// Where this terminal is *now*.
+    ///
+    /// Everything that finds a tab's work by its folder reads this: agents
+    /// write their transcripts per project directory, and the task panel, the
+    /// history and the cleared-line all look a folder up. They read
+    /// `workingDirectory` before, which is where the pty was *launched* — so a
+    /// tab opened at home and then `cd`-ed into a repository looked for its
+    /// agent's work in the home folder, found none, and showed an empty panel
+    /// for a conversation that was going on in front of you.
+    ///
+    /// The kernel's answer leads because it is the one that always exists:
+    /// OSC 7 needs zsh and our snippet, and the launch directory is only ever
+    /// a starting guess.
+    public var currentDirectory: URL {
+        observedDirectory ?? reportedDirectory ?? workingDirectory
     }
 
     /// Wipes the screen and the scrollback, and asks the shell to redraw.
