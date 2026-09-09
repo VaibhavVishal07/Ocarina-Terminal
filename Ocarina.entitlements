@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Deliberately empty.
+
+  The Hardened Runtime that notarisation requires is a set of restrictions, and
+  an entitlement here is a hole punched back through one of them. Ocarina needs
+  none of the usual ones: it renders its own window with ImageRenderer rather
+  than capturing the screen, and forkpty/execve are untouched by the Hardened
+  Runtime — the shell it launches is signed by Apple and validated on its own
+  terms, not the parent's.
+
+  Two that a change to the app could make necessary, and nothing else without a
+  failure to point at first:
+
+    com.apple.security.cs.disable-library-validation
+      only if a dylib that is not signed by this team has to load in-process.
+    com.apple.security.automation.apple-events
+      only if the app starts driving another one over AppleEvents.
+
+  The file is still passed to codesign while empty, so that adding an
+  entitlement is an edit here rather than a change to how the app is signed.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

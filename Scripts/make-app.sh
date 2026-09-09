@@ -31,6 +31,14 @@ ARCHS="${2:-native}"
 # through `OCARINA_VERSION`, and that script is what the version line is kept
 # in — a second copy here is a second thing to forget.
 VERSION="${OCARINA_VERSION:-0.1.0}"
+# Empty means ad-hoc, which is what a local build wants. Set it to a
+# "Developer ID Application: ..." identity — the name `security find-identity
+# -v -p codesigning` prints — to produce a build that can be notarised.
+#
+# Only the release build reads it. Kazoo never leaves this machine, so there is
+# no Gatekeeper check for a certificate to satisfy, and signing it for real
+# would only spend a timestamp round-trip on every rebuild.
+SIGN_IDENTITY="${OCARINA_SIGN_IDENTITY:-}"
 
 if [ "$CONFIG" = "debug" ]; then
   APP_NAME="Kazoo"
@@ -105,31 +113,75 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>
 PLIST
 
-# Ad-hoc sign so macOS treats it as a real app rather than a quarantined blob.
-#
-# The second pass is what stops Screen Recording being asked for on every
-# build. A plain ad-hoc signature has no certificate to name, so the
-# designated requirement macOS derives is a bare `cdhash H"..."` — the hash of
-# this exact binary. TCC stores that requirement when permission is granted,
-# the next build hashes differently, the stored requirement no longer matches,
-# and macOS decides it is looking at an app it has never seen. Hence the
-# prompt, every time, however the app is named.
-#
-# Naming the requirement explicitly pins it to the bundle identifier instead,
-# which does not change between builds, so one grant holds. It is a weaker
-# claim than a certificate would make — anything ad-hoc signed under this
-# identifier satisfies it — but there is no certificate here to make the
-# stronger one, and the alternative is a permission dialog per build.
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
-codesign --force --sign - --identifier "$BUNDLE_ID" \
-  -r="designated => identifier \"$BUNDLE_ID\"" "$APP" >/dev/null 2>&1 || true
+if [ -n "$SIGN_IDENTITY" ] && [ "$CONFIG" != "debug" ]; then
+  echo "==> Signing with $SIGN_IDENTITY"
+  # Inside-out, and without `--deep`. `--deep` re-signs whatever it finds
+  # nested with the flags meant for the outer bundle, which is why the notary
+  # service rejects what it produces and why Apple deprecated it.
+  #
+  # Nothing nested here needs signing today. SwiftPM's resource bundles are
+  # flat directories that merely end in `.bundle` — no Contents/, no
+  # Info.plist, no Mach-O — and `codesign` refuses them outright with "bundle
+  # format unrecognized, invalid, or unsuitable". Correctly: there is no code
+  # in them. The app's own signature seals them as ordinary resources.
+  #
+  # So the loop tests for a binary rather than assuming one, and stays instead
+  # of being deleted. A dependency that one day ships a real nested bundle
+  # with code in it *must* have it signed before the app, or the notary
+  # rejects the submission — and this will sign it rather than leaving a hole
+  # that only shows up as a rejection.
+  for nested in "$APP"/Contents/Resources/*.bundle; do
+    [ -e "$nested" ] || continue
+    if find "$nested" -type f -exec file {} + 2>/dev/null | grep -q "Mach-O"; then
+      echo "    nested code: $(basename "$nested")"
+      codesign --force --timestamp --options runtime \
+        --sign "$SIGN_IDENTITY" "$nested"
+    fi
+  done
+
+  # `--options runtime` is the Hardened Runtime, which notarisation will not
+  # proceed without. It does not come between forkpty and the login shell: the
+  # child is a separate process with its own signature, and /bin/zsh carries
+  # Apple's. `--timestamp` reaches Apple's timestamp server, so this needs the
+  # network and fails rather than signing without one — a signature with no
+  # trusted timestamp stops verifying the day the certificate expires.
+  #
+  # No `-r=` on this branch. The override below exists because an ad-hoc
+  # signature has no certificate to name, leaving a bare cdhash that changes
+  # every build. A Developer ID signature's derived requirement already names
+  # the identifier *and* the team, neither of which changes on a rebuild, so
+  # the requirement TCC stores keeps matching on its own — and it is the
+  # stronger claim, satisfied only by builds signed with this certificate.
+  codesign --force --timestamp --options runtime \
+    --entitlements Ocarina.entitlements --sign "$SIGN_IDENTITY" "$APP"
+  codesign --verify --strict --verbose "$APP"
+else
+  # Ad-hoc sign so macOS treats it as a real app rather than a quarantined blob.
+  #
+  # The second pass is what stops Screen Recording being asked for on every
+  # build. A plain ad-hoc signature has no certificate to name, so the
+  # designated requirement macOS derives is a bare `cdhash H"..."` — the hash of
+  # this exact binary. TCC stores that requirement when permission is granted,
+  # the next build hashes differently, the stored requirement no longer matches,
+  # and macOS decides it is looking at an app it has never seen. Hence the
+  # prompt, every time, however the app is named.
+  #
+  # Naming the requirement explicitly pins it to the bundle identifier instead,
+  # which does not change between builds, so one grant holds. It is a weaker
+  # claim than a certificate would make — anything ad-hoc signed under this
+  # identifier satisfies it — but there is no certificate here to make the
+  # stronger one, and the alternative is a permission dialog per build.
+  codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+  codesign --force --sign - --identifier "$BUNDLE_ID" \
+    -r="designated => identifier \"$BUNDLE_ID\"" "$APP" >/dev/null 2>&1 || true
+fi
 touch "$APP"
 
 echo "==> Built $APP"
